@@ -1,0 +1,94 @@
+<section class="draft">
+  <div class="stats">
+    <article class="stat-card">
+      <span class="stat-label">Total Quotes</span>
+      <strong class="stat-value">{{ quotations.length }}</strong>
+    </article>
+    <article class="stat-card">
+      <span class="stat-label">Line Items</span>
+      <strong class="stat-value">{{ lineCount }}</strong>
+    </article>
+    <article class="stat-card">
+      <span class="stat-label">Quoted Amount</span>
+      <strong class="stat-value">{{ quotedAmount }}</strong>
+    </article>
+  </div>
+
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+
+  <div class="table">
+    <div class="row heading">
+      <span></span>
+      <span>Quotation</span>
+      <span>Supplier</span>
+      <span>Supplier quotation ref</span>
+      <span>Items</span>
+      <span>Date</span>
+      <span>Total</span>
+      <span></span>
+    </div>
+    @if (loading) {
+      <div class="empty-row">Loading quotations...</div>
+    } @else if (quotations.length === 0) {
+      <div class="empty-row">No quotations yet.</div>
+    } @else {
+      @for (quotation of quotations; track quotation.id) {
+        <div class="quote-block">
+          <div class="row">
+            <button class="expand" type="button" [attr.aria-expanded]="isExpanded(quotation.id)" [attr.aria-label]="isExpanded(quotation.id) ? 'Collapse quotation' : 'Expand quotation'" (click)="toggle(quotation)">
+              <mat-icon>{{ isExpanded(quotation.id) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+            </button>
+            <span class="ref">{{ quotation.code }}</span>
+            <span>{{ quotation.supplierName }}</span>
+            <span>{{ quotation.supplierReference }}</span>
+            <span>{{ quotation.itemCount }}</span>
+            <span>{{ when(quotation.modifiedAt || quotation.createdAt) }}</span>
+            <span>{{ money(quotation.totalPrice) }}</span>
+            <span class="actions">
+              <button class="icon-btn" type="button" aria-label="Edit quotation" [disabled]="deletingId != null" (click)="edit(quotation)">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button class="icon-btn danger" type="button" aria-label="Delete quotation" [disabled]="deletingId != null" (click)="remove(quotation)">
+                @if (deletingId === quotation.id) {
+                  <mat-spinner diameter="18"></mat-spinner>
+                } @else {
+                  <mat-icon>delete</mat-icon>
+                }
+              </button>
+            </span>
+          </div>
+          @if (isExpanded(quotation.id)) {
+            <div class="lines">
+              @if (loadingLine.has(quotation.id)) {
+                <p class="line-empty">Loading line items...</p>
+              } @else if (!lineItems(quotation.id).length) {
+                <p class="line-empty">No line items.</p>
+              } @else {
+                <div class="line-row heading">
+                  <span>DSN No</span>
+                  <span>Part No</span>
+                  <span>Description</span>
+                  <span>Unit Price</span>
+                  <span>Quantity</span>
+                  <span>Total Price</span>
+                </div>
+                @for (line of lineItems(quotation.id); track line.id) {
+                  <div class="line-row">
+                    <span>{{ line.dsnNo || '—' }}</span>
+                    <span>{{ line.partNo || '—' }}</span>
+                    <span>{{ line.description || '—' }}</span>
+                    <span>{{ money(line.unitPrice) }}</span>
+                    <span>{{ line.quantity }}</span>
+                    <span>{{ money(line.totalPrice) }}</span>
+                  </div>
+                }
+              }
+            </div>
+          }
+        </div>
+      }
+    }
+  </div>
+</section>

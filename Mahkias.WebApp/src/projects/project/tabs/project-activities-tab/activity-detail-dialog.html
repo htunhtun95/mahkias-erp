@@ -1,0 +1,100 @@
+<div class="app-dialog-container">
+  <header class="app-dialog-header detail-header">
+    <div class="title-block">
+      <h2>Activity details</h2>
+      <p>DSN {{ activity.dsnNo || '—' }}</p>
+    </div>
+    <button type="button" class="icon-action" (click)="close()" aria-label="Close">
+      <mat-icon>close</mat-icon>
+    </button>
+  </header>
+
+  <div class="app-dialog-body">
+    <section class="card">
+      <h3>Primary info</h3>
+      <div class="summary-table">
+        <div class="summary-line heading" [class.with-alt]="alternativeParts.length">
+          <span>DSN No</span>
+          <span>Main Part No</span>
+          @if (alternativeParts.length) {
+            <span>Alternative Part No</span>
+          }
+          <span>Description</span>
+          <span>Quantity</span>
+        </div>
+        <div class="summary-line" [class.with-alt]="alternativeParts.length">
+          <span>{{ activity.dsnNo || '—' }}</span>
+          <span class="part">{{ activity.mainPartNo || activity.partNo || '—' }}</span>
+          @if (alternativeParts.length) {
+            <span class="alts">
+              @for (part of alternativeParts; track part) {
+                <span class="alt-pill">{{ part }}</span>
+              }
+            </span>
+          }
+          <span class="description">{{ activity.description || '—' }}</span>
+          <span>{{ quantity(activity.quantity) }}</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>All quoted options</h3>
+      @if (links.length) {
+        <div class="quote-table">
+          <div class="quote-line heading">
+            <span>Supplier name</span>
+            <span>Quotation ref</span>
+            <span>Supplier quotation ref</span>
+            <span>Quoted part no</span>
+            <span>Unit price</span>
+            <span>Quantity</span>
+            <span>Total price</span>
+          </div>
+          @for (link of links; track link.itemId ?? link.quotationId + '-' + $index) {
+            <div class="quote-line" [class.lowest]="link.lowest">
+              <span>{{ link.supplierName || '—' }}</span>
+              <span>{{ link.quotationRef || '—' }}</span>
+              <span>{{ link.supplierQuotationRef || '—' }}</span>
+              <span class="part">{{ link.partNo || '—' }}</span>
+              <span class="price">
+                {{ money(link.unitPrice) }}
+                @if (link.lowest) {
+                  <span class="lowest-badge">Lowest price</span>
+                }
+              </span>
+              <span>{{ quantity(link.quantity) }}</span>
+              <span>{{ money(link.totalPrice) }}</span>
+            </div>
+          }
+        </div>
+      } @else {
+        <p class="empty">No quotations for this activity.</p>
+      }
+    </section>
+
+    <section class="card">
+      <h3>Status and delivery</h3>
+      <div class="metrics">
+        <div class="metric">
+          <span class="metric-label">Quotation status</span>
+          <strong [class.quoted]="quotationStatus === 'Quoted'" [class.partial]="quotationStatus === 'Partial'">{{ quotationStatus }}</strong>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Quote received</span>
+          <strong>{{ quoteReceived }}%</strong>
+          <span class="meter" aria-hidden="true"><i [style.width.%]="quoteReceived"></i></span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Delivery percentage</span>
+          <strong>{{ deliveryProgress }}%</strong>
+          <span class="meter" aria-hidden="true"><i [style.width.%]="deliveryProgress"></i></span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="app-dialog-actions">
+    <button type="button" class="close-btn" (click)="close()">Close</button>
+  </div>
+</div>

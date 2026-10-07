@@ -1,0 +1,8 @@
+<h2>{{ data.title }}</h2>
+<p>{{ data.message }}</p>
+<div class="actions">
+  <button type="button" class="btn ghost" (click)="cancel()">{{ data.cancelLabel || 'Cancel' }}</button>
+  @if (data.allowConfirm !== false) {
+    <button type="button" class="btn danger" (click)="confirm()">{{ data.confirmLabel }}</button>
+  }
+</div>

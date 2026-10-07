@@ -1,0 +1,24 @@
+<section class="draft">
+  <div class="trackers">
+    @for (tracker of trackers; track tracker.label) {
+      <article class="tracker" [class]="tracker.tone">
+        <span class="dot" aria-hidden="true"></span>
+        <div>
+          <span class="tracker-label">{{ tracker.label }}</span>
+          <strong class="tracker-value">{{ tracker.value }}</strong>
+        </div>
+      </article>
+    }
+  </div>
+
+  <div class="table">
+    <div class="row heading">
+      <span>PO no</span>
+      <span>Supplier</span>
+      <span>Items count</span>
+      <span>Delivery status</span>
+      <span>Total cost</span>
+    </div>
+    <div class="empty-row">No purchase orders yet. New orders will be tracked here.</div>
+  </div>
+</section>

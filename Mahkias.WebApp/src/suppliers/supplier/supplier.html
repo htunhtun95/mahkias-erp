@@ -1,0 +1,81 @@
+@if (loading) {
+  <div class="loading"><mat-spinner diameter="36"></mat-spinner></div>
+} @else if (supplier) {
+  <a class="back" routerLink="/suppliers">
+    <mat-icon>arrow_back</mat-icon>
+    Back to Suppliers
+  </a>
+
+  <header class="supplier-header">
+    <div>
+      <div class="title-row">
+        <h1>{{ supplier.name }}</h1>
+        @if (supplier.reference) {
+          <span class="reference-badge">{{ supplier.reference }}</span>
+        }
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="action-outline" type="button" (click)="openEdit()" [disabled]="isDeleting">
+        <mat-icon>edit</mat-icon>
+        Edit Supplier
+      </button>
+      <button class="delete-supplier" type="button" (click)="openDelete()" [disabled]="isDeleting">
+        @if (isDeleting) {
+          <mat-spinner diameter="18"></mat-spinner>
+          Deleting...
+        } @else {
+          <mat-icon>delete</mat-icon>
+          Delete Supplier
+        }
+      </button>
+    </div>
+  </header>
+
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+
+  <div class="stats">
+    <article class="stat-card">
+      <span>Total Quotations Received</span>
+      <strong>{{ supplier.quotationCount || 0 }}</strong>
+    </article>
+    <article class="stat-card">
+      <span>Total Linked Projects</span>
+      <strong>{{ supplier.projectCount || 0 }}</strong>
+    </article>
+  </div>
+
+  <section class="quotations">
+    <h2>Associated Quotations</h2>
+    <div class="table">
+      <div class="row heading">
+        <span>Quotation Reference</span>
+        <span>Project Name</span>
+        <span>Items Count</span>
+        <span>Created Date</span>
+        <span class="col-actions"></span>
+      </div>
+      @if (supplier.quotations.length === 0) {
+        <div class="empty-row">No quotations for this supplier yet.</div>
+      } @else {
+        @for (quotation of supplier.quotations; track quotation.id) {
+          <div class="row">
+            <span class="ref">{{ quotation.code }}</span>
+            <span>{{ quotation.projectNames || '—' }}</span>
+            <span>{{ quotation.itemCount }}</span>
+            <span>{{ listDate(quotation.createdAt) }}</span>
+            <span class="col-actions">
+              @if (projectLink(quotation); as link) {
+                <a class="view-link" [routerLink]="link" [queryParams]="{ tab: 'quotations' }">View</a>
+              }
+            </span>
+          </div>
+        }
+      }
+    </div>
+  </section>
+} @else {
+  <p class="error">{{ error || 'Supplier not found.' }}</p>
+}

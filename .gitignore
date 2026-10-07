@@ -1,0 +1,94 @@
+# ASP.NET Core
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+artifacts/
+project.lock.json
+project.fragment.lock.json
+*.binlog
+*.cache
+*.log
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+*.sln.iml
+*.DotSettings.user
+_ReSharper*/
+*.[Rr]e[Ss]harper
+
+# NuGet
+*.nupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+
+# Test and publish output
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.trx
+coverage/
+*.coverage
+*.coveragexml
+publish/
+*.pubxml
+*.publishproj
+PublishScripts/
+*.publishsettings
+
+# SQL Server local files
+*.mdf
+*.ldf
+*.ndf
+
+# Angular / Node
+node_modules/
+dist/
+tmp/
+out-tsc/
+bazel-out/
+.angular/
+.sass-cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Sensitive configuration and local secrets
+appsettings.json
+appsettings.*.json
+secrets.json
+*.env
+.env
+.env.*
+*.pfx
+*.key
+*.pem
+*.snk
+
+# OS and editor clutter
+.DS_Store
+Thumbs.db
+*.swp
+*~
+~$*
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json

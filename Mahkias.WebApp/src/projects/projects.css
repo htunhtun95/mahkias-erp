@@ -1,0 +1,290 @@
+.projects-page {
+  color: #202124;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.page-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  max-width: 720px;
+  height: 46px;
+  margin-left: auto;
+  padding: 0 16px;
+  border-radius: 24px;
+  background: #f1f3f4;
+  color: #5f6368;
+}
+
+.search input {
+  flex: 1;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #202124;
+  font: inherit;
+  font-size: 16px;
+}
+
+.search input::placeholder {
+  color: #5f6368;
+}
+
+h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 400;
+}
+
+.new-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px 0 12px;
+  border: 1px solid #dadce0;
+  border-radius: 24px;
+  background: #fff;
+  color: #1a73e8;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.15);
+}
+
+.new-button:hover {
+  background: #f6fafe;
+}
+
+.drive-table {
+  width: 100%;
+  max-width: 100%;
+  border-top: 1px solid #e0e0e0;
+  overflow-x: hidden;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.4fr) minmax(0, 1fr) 80px;
+  position: relative;
+  gap: 16px;
+  width: 100%;
+  align-items: center;
+  padding: 12px 16px;
+  border: 0;
+  border-bottom: 1px solid #e0e0e0;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+.heading {
+  color: #5f6368;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.heading > span {
+  min-width: 0;
+}
+
+.heading .mat-sort-header {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  color: inherit;
+}
+
+.heading .col-date.mat-sort-header {
+  justify-content: flex-start;
+}
+
+.row[role='link'] {
+  cursor: pointer;
+}
+
+.row[role='link']:hover,
+.row[role='link']:focus-within {
+  background: #f1f3f4;
+}
+
+.row[role='link']:focus-visible {
+  outline: 2px solid #1a73e8;
+  outline-offset: -2px;
+}
+
+.project-cell,
+.description,
+.col-date {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #202124;
+}
+
+.project-cell mat-icon {
+  flex: 0 0 auto;
+  color: #5f6368;
+}
+
+.project-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.reference-badge {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: #f1f3f4;
+  color: #5f6368;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.name-text {
+  max-width: 100%;
+  overflow: hidden;
+  color: #202124;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.description,
+.col-date {
+  color: #5f6368;
+}
+
+.heading .col-date,
+.col-date {
+  padding-right: 0;
+  padding-left: 0;
+  text-align: left;
+}
+
+.col-actions {
+  width: 80px;
+  min-width: 80px;
+  justify-self: end;
+  text-align: right;
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.row[role='link']:hover .row-actions,
+.row[role='link']:focus-within .row-actions,
+.row.is-deleting .row-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.icon-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #5f6368;
+  cursor: pointer;
+}
+
+.icon-btn mat-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+
+.icon-btn:hover {
+  background: #e8eaed;
+  color: #202124;
+}
+
+.icon-btn.delete {
+  color: #c5221f;
+}
+
+.icon-btn.delete:hover {
+  background: #fce8e6;
+  color: #c5221f;
+}
+
+.empty-list,
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 64px 16px;
+  color: #5f6368;
+}
+
+.error {
+  color: #c5221f;
+}
+
+@media (hover: none) {
+  .row-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .page-bar {
+    flex-wrap: wrap;
+  }
+
+  .search {
+    order: 3;
+    max-width: none;
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+}

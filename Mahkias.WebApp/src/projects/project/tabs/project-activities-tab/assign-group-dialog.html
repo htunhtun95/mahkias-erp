@@ -1,0 +1,36 @@
+<div class="app-dialog-container">
+<header class="app-dialog-header">
+<h2>Assign to group</h2>
+<p>Activities in a group must share the same type. The group takes that type from the first activity assigned to it.</p>
+</header>
+<div class="app-dialog-body">
+<mat-radio-group class="mode-group" [(ngModel)]="mode" name="mode">
+  <mat-radio-button value="existing" [disabled]="!data.groups.length">Existing group</mat-radio-button>
+  <mat-radio-button value="new">New group</mat-radio-button>
+</mat-radio-group>
+@if (mode === 'existing') {
+  @if (!data.groups.length) {
+    <p class="error">Create a group before assigning activities.</p>
+  } @else {
+    <label class="field">
+      <span>Group</span>
+      <select [(ngModel)]="groupId" name="groupId">
+        @for (group of data.groups; track group.id) {
+          <option [ngValue]="group.id">{{ group.name }}</option>
+        }
+      </select>
+    </label>
+  }
+}
+@if (mode === 'new') {
+  <label class="field" [class.invalid]="submitted && !name.trim()">
+    <span>Name</span>
+    <input [(ngModel)]="name" name="groupName" maxlength="200" autocomplete="off" />
+  </label>
+}
+</div>
+<div class="app-dialog-actions">
+  <button type="button" class="btn ghost" (click)="cancel()">Cancel</button>
+  <button type="button" class="btn primary" (click)="save()">Assign</button>
+</div>
+</div>

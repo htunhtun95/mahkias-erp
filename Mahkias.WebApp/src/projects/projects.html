@@ -1,0 +1,109 @@
+<div class="projects-page">
+  <div class="page-bar">
+    <h1>Projects</h1>
+    <label class="search">
+      <mat-icon>search</mat-icon>
+      <input
+        type="search"
+        placeholder="Search projects"
+        [value]="searchTerm"
+        (input)="onSearch($any($event.target).value)"
+      />
+    </label>
+    <button class="new-button" type="button" (click)="openAddProject()">
+      <mat-icon>add</mat-icon>
+      Add Project
+    </button>
+  </div>
+
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+
+  @if (loading) {
+    <div class="loading"><mat-spinner diameter="36"></mat-spinner></div>
+  } @else if (projects.length === 0) {
+    <div class="empty-list">
+      <mat-icon>folder_open</mat-icon>
+      @if (searchTerm.trim()) {
+        <p>No projects match your search</p>
+      } @else {
+        <p>No projects yet</p>
+        <button class="new-button" type="button" (click)="openAddProject()">
+          <mat-icon>add</mat-icon>
+          Add Project
+        </button>
+      }
+    </div>
+  } @else {
+    <div class="drive-table">
+      <div
+        class="row heading"
+        matSort
+        [matSortActive]="sortBy"
+        [matSortDirection]="sortDirection"
+        matSortDisableClear
+        (matSortChange)="onSort($event)"
+      >
+        <span mat-sort-header="name">Project</span>
+        <span>Description</span>
+        <!--
+          One date column. Sorts by modifiedAt. Null ModifiedAt values stay SQL
+          nulls (they are not coalesced to CreatedAt), so nulls sort first on
+          ascending and last on descending in SQL Server.
+        -->
+        <span class="col-date" mat-sort-header="modifiedAt">Modified</span>
+        <span class="col-actions" aria-hidden="true"></span>
+      </div>
+      @for (project of projects; track project.id) {
+        <div
+          class="row"
+          role="link"
+          tabindex="0"
+          [class.is-deleting]="deletingId === project.id"
+          (click)="openProject(project, $event)"
+          (keydown.enter)="onRowKey($event, project)"
+          (keydown.space)="onRowKey($event, project)"
+        >
+          <span class="project-cell">
+            <mat-icon>folder</mat-icon>
+            <span class="project-copy">
+              @if (project.reference) {
+                <span class="reference-badge">{{ project.reference }}</span>
+              }
+              <span class="name-text">{{ project.name }}</span>
+            </span>
+          </span>
+          <span class="description" [attr.title]="project.description || null">{{ project.description }}</span>
+          <span class="col-date">{{ listDate(project) }}</span>
+          <span class="col-actions row-actions">
+            <button
+              class="icon-btn"
+              type="button"
+              aria-label="Edit project"
+              [disabled]="isDeleting"
+              (click)="openEditProject($event, project)"
+              (keydown)="$event.stopPropagation()"
+            >
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button
+              class="icon-btn delete"
+              type="button"
+              aria-label="Delete project"
+              [disabled]="isDeleting"
+              (click)="openDeleteProject($event, project)"
+              (keydown)="$event.stopPropagation()"
+            >
+              @if (deletingId === project.id) {
+                <mat-spinner diameter="18"></mat-spinner>
+              } @else {
+                <mat-icon>delete</mat-icon>
+              }
+            </button>
+          </span>
+        </div>
+      }
+    </div>
+  }
+</div>

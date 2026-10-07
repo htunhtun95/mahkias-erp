@@ -1,0 +1,143 @@
+<form class="app-dialog-container quotation-dialog-container" (keydown.enter)="onFieldEnter($event)" (submit)="$event.preventDefault()">
+  <header class="app-dialog-header quotation-dialog-header">
+    <div class="title-row">
+      <h2>{{ quotationId ? 'Edit Quotation' : 'Create Quotation' }}</h2>
+      <button class="icon-btn" type="button" aria-label="Close" [disabled]="isSaving" (click)="cancel()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+    <div class="header-fields" [class.creating-supplier]="creatingSupplier">
+      <label>
+        <span>Quotation Reference</span>
+        <input readonly [value]="quotationCode" placeholder="Auto-generated (e.g. Q-00001)" tabindex="-1" />
+      </label>
+      <label>
+        <span>Supplier Quotation Ref (Optional)</span>
+        <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="supplierQuotationRef" name="supplierQuotationRef" placeholder="e.g. SQ-00001" autocomplete="off" />
+      </label>
+      @if (creatingSupplier) {
+        <div class="new-supplier">
+          <label [class.invalid]="submitted && !newSupplierName.trim()">
+            <span>Supplier Name</span>
+            <span class="supplier-control">
+              <input class="has-clear" [attr.disabled]="isSaving ? '' : null" [(ngModel)]="newSupplierName" name="newSupplierName" autocomplete="off" />
+              <button class="clear-supplier" type="button" aria-label="Clear supplier" [disabled]="isSaving" (mousedown)="$event.preventDefault()" (click)="clearSupplier()">
+                <mat-icon>close</mat-icon>
+              </button>
+            </span>
+            <button class="select-existing" type="button" [disabled]="isSaving" (click)="cancelNewSupplier()">← Select Existing Supplier</button>
+          </label>
+          <label>
+            <span>Supplier Reference</span>
+            <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="newSupplierReference" name="newSupplierReference" autocomplete="off" />
+          </label>
+        </div>
+      } @else {
+        <label class="supplier-field" [class.invalid]="submitted && !supplierId">
+          <span>Supplier</span>
+          <span class="supplier-control">
+          <input
+            #supplierInput
+            [class.has-clear]="!!supplierQuery.trim()"
+            [attr.disabled]="isSaving ? '' : null"
+            [ngModel]="supplierQuery"
+            (ngModelChange)="onSupplierInput($event)"
+            (focus)="supplierOpen = true"
+            (blur)="closeSuppliers()"
+            name="supplier"
+            autocomplete="off"
+          />
+          @if (supplierQuery.trim()) {
+            <button class="clear-supplier" type="button" aria-label="Clear supplier" [disabled]="isSaving" (mousedown)="$event.preventDefault()" (click)="clearSupplier()">
+              <mat-icon>close</mat-icon>
+            </button>
+          }
+          @if (supplierOpen) {
+            <div class="supplier-menu">
+              <div class="supplier-options">
+                @for (supplier of filteredSuppliers; track supplier.id) {
+                  <button type="button" (mousedown)="$event.preventDefault(); chooseSupplier(supplier)">
+                    {{ supplier.name }}
+                    @if (supplier.reference) {
+                      <small>{{ supplier.reference }}</small>
+                    }
+                  </button>
+                }
+                @if (!filteredSuppliers.length) {
+                  <p>No matching suppliers</p>
+                }
+              </div>
+              <button class="add-supplier" type="button" (mousedown)="$event.preventDefault(); startNewSupplier()">
+                + Add New Supplier
+              </button>
+            </div>
+          }
+          </span>
+        </label>
+      }
+    </div>
+  </header>
+
+  <div class="app-dialog-body quotation-dialog-body">
+    <label class="row-search">
+      <span>Search</span>
+      <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="rowFilter" name="rowFilter" placeholder="Filter by DSN No or Part No" autocomplete="off" />
+    </label>
+    <div class="sheet-wrap">
+      <table class="sheet">
+        <colgroup>
+          <col class="col-dsn" />
+          <col class="col-part" />
+          <col class="col-description" />
+          <col class="col-price" />
+          <col class="col-qty" />
+          <col class="col-price" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="dsn">DSN No</th>
+            <th class="part">Part No</th>
+            <th class="description">Description</th>
+            <th class="price">Unit Price</th>
+            <th class="qty">Quantity</th>
+            <th class="price">Total Price</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of visibleRows; track row.key) {
+            <tr>
+              <td class="dsn" [class.invalid]="invalid(row, 'dsn')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.dsnNo" (ngModelChange)="onDsn(row)" [name]="'dsn' + row.key" /></td>
+              <td class="part" [class.invalid]="invalid(row, 'part')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.partNo" (ngModelChange)="onPart(row)" [name]="'part' + row.key" /></td>
+              <td class="description"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.description" [name]="'desc' + row.key" /></td>
+              <td class="price" [class.invalid]="invalid(row, 'price')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.unitPrice" (ngModelChange)="onUnit(row)" [name]="'unit' + row.key" /></td>
+              <td class="qty" [class.invalid]="invalid(row, 'qty')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.quantity" (ngModelChange)="onQuantity(row)" (blur)="onQuantityBlur(row)" [name]="'qty' + row.key" /></td>
+              <td class="price" [class.invalid]="invalid(row, 'price')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.totalPrice" (ngModelChange)="onTotal(row)" [name]="'total' + row.key" /></td>
+            </tr>
+          } @empty {
+            <tr>
+              <td class="filter-empty" colspan="6">No activities match this search.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer class="app-dialog-actions quotation-dialog-footer">
+    @if (error) {
+      <p class="hint-error">{{ error }}</p>
+    }
+    <div class="footer-actions">
+      <span class="spacer"></span>
+      <button class="btn" type="button" [disabled]="isSaving" (click)="cancel()">Cancel</button>
+      <button class="btn primary" type="button" [disabled]="isSaving" (click)="save()">
+        @if (isSaving) {
+          <mat-spinner diameter="18"></mat-spinner>
+          Saving...
+        } @else {
+          {{ quotationId ? 'Save changes' : 'Save' }}
+        }
+      </button>
+    </div>
+  </footer>
+</form>

@@ -1,0 +1,184 @@
+<form class="app-dialog-container quotation-dialog-container" (keydown.enter)="onFieldEnter($event)" (submit)="$event.preventDefault()">
+  <header class="app-dialog-header quotation-dialog-header">
+    <div class="title-row">
+      <h2>Import Quotation</h2>
+      <button class="icon-btn" type="button" aria-label="Close" [disabled]="busy" (click)="cancel()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+    <div class="header-fields" [class.creating-supplier]="creatingSupplier">
+      <label>
+        <span>Quotation Reference</span>
+        <input readonly placeholder="Auto-generated (e.g. Q-00001)" tabindex="-1" />
+      </label>
+      <label>
+        <span>Supplier Quotation Ref (Optional)</span>
+        <input [attr.disabled]="busy ? '' : null" [(ngModel)]="supplierQuotationRef" name="supplierQuotationRef" placeholder="e.g. SQ-00001" autocomplete="off" />
+      </label>
+      @if (creatingSupplier) {
+        <div class="new-supplier">
+          <label [class.invalid]="submitted && !newSupplierName.trim()">
+            <span>Supplier Name</span>
+            <span class="supplier-control">
+              <input class="has-clear" [attr.disabled]="busy ? '' : null" [(ngModel)]="newSupplierName" name="newSupplierName" autocomplete="off" />
+              <button class="clear-supplier" type="button" aria-label="Clear supplier" [disabled]="busy" (mousedown)="$event.preventDefault()" (click)="clearSupplier()">
+                <mat-icon>close</mat-icon>
+              </button>
+            </span>
+            <button class="select-existing" type="button" [disabled]="busy" (click)="cancelNewSupplier()">← Select Existing Supplier</button>
+          </label>
+          <label>
+            <span>Supplier Reference</span>
+            <input [attr.disabled]="busy ? '' : null" [(ngModel)]="newSupplierReference" name="newSupplierReference" autocomplete="off" />
+          </label>
+        </div>
+      } @else {
+        <label class="supplier-field" [class.invalid]="submitted && !supplierId">
+          <span>Supplier</span>
+          <span class="supplier-control">
+          <input
+            #supplierInput
+            [class.has-clear]="!!supplierQuery.trim()"
+            [attr.disabled]="busy ? '' : null"
+            [ngModel]="supplierQuery"
+            (ngModelChange)="onSupplierInput($event)"
+            (focus)="supplierOpen = true"
+            (blur)="closeSuppliers()"
+            name="supplier"
+            autocomplete="off"
+          />
+          @if (supplierQuery.trim()) {
+            <button class="clear-supplier" type="button" aria-label="Clear supplier" [disabled]="busy" (mousedown)="$event.preventDefault()" (click)="clearSupplier()">
+              <mat-icon>close</mat-icon>
+            </button>
+          }
+          @if (supplierOpen) {
+            <div class="supplier-menu">
+              <div class="supplier-options">
+                @for (supplier of filteredSuppliers; track supplier.id) {
+                  <button type="button" (mousedown)="$event.preventDefault(); chooseSupplier(supplier)">
+                    {{ supplier.name }}
+                    @if (supplier.reference) {
+                      <small>{{ supplier.reference }}</small>
+                    }
+                  </button>
+                }
+                @if (!filteredSuppliers.length) {
+                  <p>No matching suppliers</p>
+                }
+              </div>
+              <button class="add-supplier" type="button" (mousedown)="$event.preventDefault(); startNewSupplier()">
+                + Add New Supplier
+              </button>
+            </div>
+          }
+          </span>
+        </label>
+      }
+    </div>
+  </header>
+
+  <div class="app-dialog-body quotation-dialog-body">
+    <label class="file">
+      <input type="file" accept=".xlsx,.xls,.csv" [attr.disabled]="busy ? '' : null" (change)="onFile($event)" />
+      <span>{{ fileName || 'Choose a spreadsheet' }}</span>
+    </label>
+
+    @if (columns.length) {
+      <div class="map-grid">
+        @for (field of fields; track field.key) {
+          <div class="map-row" [class.invalid]="fieldInvalid(field.key)">
+            <span>{{ field.label }}</span>
+            <select [name]="field.key" [(ngModel)]="mapping[field.key]" (ngModelChange)="dirtyMapping()">
+              <option value="">Column</option>
+              @for (column of columns; track column.letter) {
+                <option [value]="column.letter">{{ column.letter }}{{ column.header ? ' · ' + column.header : '' }}</option>
+              }
+            </select>
+            <input [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping()" placeholder="Default" />
+          </div>
+        }
+      </div>
+      @if (requiredMissing) {
+        <p class="hint-error">Please select a Column Index or enter a Default Value for this required field.</p>
+      }
+      <p class="hint">DSN No and Part No are required. A row with no unit price and no total price is skipped.</p>
+    }
+
+    @if (checkState === 'passed' && choicesReady) {
+      <p class="verified">✓ Verified: Ready to Import</p>
+    }
+    @if (checkState === 'failed' && importErrors.length) {
+      <p class="hint-error">⚠ Validation Failed ({{ importErrors.length }} Errors Found)</p>
+      <ul class="errors">
+        @for (issue of importErrors; track $index) {
+          <li>Row {{ issue.row }}: [{{ issue.field }}] {{ issue.message }}</li>
+        }
+      </ul>
+    }
+    @if (lines.length) {
+      <div class="sheet-wrap">
+        <table class="sheet">
+          <colgroup>
+            <col class="col-dsn" />
+            <col class="col-part" />
+            <col class="col-qty" />
+            <col class="col-price" />
+            <col class="col-price" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th class="dsn">DSN No</th>
+              <th class="part">Part No</th>
+              <th class="qty">Quantity</th>
+              <th class="price">Unit Price</th>
+              <th class="price">Total Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (line of lines; track line.row) {
+              <tr>
+                <td class="dsn"><input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.dsnNo" (ngModelChange)="onDsn(line)" [name]="'dsn' + line.row" /></td>
+                <td class="part">
+                  <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.partNo" (ngModelChange)="onPart(line)" [name]="'part' + line.row" />
+                  @if (line.priceWarning) {
+                    <span class="map-badge warning" title="Unit × quantity does not match total">Price</span>
+                  }
+                </td>
+                <td class="qty"><input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.quantity" (ngModelChange)="onQuantity(line)" (blur)="onQuantityBlur(line)" [name]="'qty' + line.row" /></td>
+                <td class="price"><input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.unitPrice" (ngModelChange)="onUnit(line)" [name]="'unit' + line.row" /></td>
+                <td class="price"><input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.totalPrice" (ngModelChange)="onTotal(line)" [name]="'total' + line.row" /></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+    @if (error) {
+      <p class="hint-error">{{ error }}</p>
+    }
+  </div>
+
+  <footer class="app-dialog-actions quotation-dialog-footer">
+    <button class="btn" type="button" [disabled]="busy" (click)="cancel()">Cancel</button>
+    @if (checkState === 'passed') {
+      <button class="btn primary" type="button" [disabled]="isImporting || !choicesReady" (click)="startImport()">
+        @if (isImporting) {
+          <mat-spinner diameter="18"></mat-spinner>
+          Importing...
+        } @else {
+          Start Import
+        }
+      </button>
+    } @else {
+      <button class="btn primary" type="button" [disabled]="!canCheck" (click)="checkData()">
+        @if (checkState === 'checking') {
+          <mat-spinner diameter="18"></mat-spinner>
+          Checking...
+        } @else {
+          Check & Verify Data
+        }
+      </button>
+    }
+  </footer>
+</form>

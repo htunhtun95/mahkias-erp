@@ -1,0 +1,62 @@
+<h2>Edit activity</h2>
+<p>Tip: Use 'or' or '/' for alternative parts (e.g., P001/P002/P003).</p>
+
+<form [formGroup]="form" (ngSubmit)="save()" (keydown.enter)="onFieldEnter($event)">
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>DSN No</mat-label>
+    <input matInput formControlName="dsnNo" autocomplete="off" />
+    @if (dsnInvalid) {
+      <mat-error>DSN no is required.</mat-error>
+    }
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Part No</mat-label>
+    <textarea matInput appAutoGrow data-min-height="24" formControlName="partNo" rows="1"></textarea>
+    @if (partInvalid) {
+      <mat-error>Part number is required.</mat-error>
+    }
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Type</mat-label>
+    <mat-select formControlName="typeId">
+      @for (type of data.types; track type.id) {
+        <mat-option [value]="type.id">{{ type.name }}</mat-option>
+      }
+    </mat-select>
+    @if (typeInvalid) {
+      <mat-error>Type is required.</mat-error>
+    }
+  </mat-form-field>
+  @if (typeLocked) {
+    <p class="lock-note">Type is locked while this activity belongs to a group.</p>
+  }
+
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Description</mat-label>
+    <textarea matInput appAutoGrow data-min-height="24" formControlName="description" rows="1"></textarea>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+    <mat-label>Quantity</mat-label>
+    <input matInput type="number" min="0" step="1" formControlName="quantity" />
+    @if (quantityInvalid) {
+      <mat-error>Quantity must be a whole number.</mat-error>
+    }
+  </mat-form-field>
+
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+
+  <div class="actions">
+    <button type="button" class="btn ghost" (click)="cancel()" [disabled]="isSaving">Cancel</button>
+    <button type="submit" class="btn primary" [disabled]="isSaving">
+      @if (isSaving) {
+        <mat-spinner diameter="18"></mat-spinner>
+      }
+      {{ isSaving ? 'Saving...' : 'Save Changes' }}
+    </button>
+  </div>
+</form>

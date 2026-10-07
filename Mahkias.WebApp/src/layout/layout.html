@@ -1,0 +1,36 @@
+<mat-toolbar class="toolbar">
+  <div class="brand">
+    <mat-icon>dashboard</mat-icon>
+    <span>Mahkias ERP</span>
+  </div>
+  <span class="spacer"></span>
+  @if (user) {
+    <span class="user-name">{{ user.name }}</span>
+    <img class="avatar" [src]="user.picture" [alt]="user.name" referrerpolicy="no-referrer" />
+    <button mat-icon-button matTooltip="Sign out" (click)="logout()">
+      <mat-icon>logout</mat-icon>
+    </button>
+  }
+</mat-toolbar>
+
+<mat-sidenav-container class="shell">
+  <mat-sidenav mode="side" opened>
+    <a mat-button routerLink="/dashboard" routerLinkActive="active" class="menu-text-left" [routerLinkActiveOptions]="{ exact: true }">
+      <mat-icon>space_dashboard</mat-icon>
+      Overview
+    </a>
+    <a mat-button routerLink="/projects" routerLinkActive="active" class="menu-text-left" [routerLinkActiveOptions]="{ exact: false }">
+      <mat-icon>folder</mat-icon>
+      Projects
+    </a>
+    <a mat-button routerLink="/suppliers" routerLinkActive="active" class="menu-text-left" [routerLinkActiveOptions]="{ exact: false }">
+      <mat-icon>local_shipping</mat-icon>
+      Suppliers
+    </a>
+  </mat-sidenav>
+  <mat-sidenav-content>
+    <div class="content">
+      <router-outlet></router-outlet>
+    </div>
+  </mat-sidenav-content>
+</mat-sidenav-container>

@@ -1,0 +1,27 @@
+<section class="dashboard">
+  <header>
+    <p class="eyebrow">Overview</p>
+    <h1>Welcome{{ userName ? ', ' + userName : '' }}</h1>
+    <p class="lede">Mahkias ERP is ready. The workspace modules are being prepared.</p>
+  </header>
+
+  <div class="hero">
+    <span class="badge">Coming soon</span>
+    <h2>Your operations dashboard</h2>
+    <p>
+      Projects, inventory, quotations, and orders will appear here after sign-in.
+      The projects API is already wired for list and create.
+    </p>
+  </div>
+
+  <div class="cards">
+    @for (module of modules; track module.title) {
+      <article>
+        <mat-icon>{{ module.icon }}</mat-icon>
+        <h3>{{ module.title }}</h3>
+        <p>{{ module.description }}</p>
+        <span>Coming soon</span>
+      </article>
+    }
+  </div>
+</section>

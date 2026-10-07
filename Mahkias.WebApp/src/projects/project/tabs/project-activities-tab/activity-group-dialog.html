@@ -1,0 +1,21 @@
+<h2>{{ data?.group ? 'Edit group' : 'New activity group' }}</h2>
+<p>Group related activities into a kit or assembly. Activities can stay ungrouped.</p>
+<form [formGroup]="form" (ngSubmit)="save()" (keydown.enter)="onFieldEnter($event)">
+  <div class="field" [class.invalid]="nameInvalid">
+    <label class="control">
+      <span class="label">Name<span class="required" aria-hidden="true">*</span></span>
+      <input formControlName="name" maxlength="200" autocomplete="off" />
+    </label>
+    <p class="error">@if (nameInvalid) { Name is required }</p>
+  </div>
+  <div class="field">
+    <label class="control">
+      <span class="label">Description</span>
+      <textarea formControlName="description" rows="3"></textarea>
+    </label>
+  </div>
+  <div class="actions">
+    <button type="button" class="btn ghost" (click)="cancel()">Cancel</button>
+    <button type="submit" class="btn primary">Save</button>
+  </div>
+</form>

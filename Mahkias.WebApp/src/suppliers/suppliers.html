@@ -1,0 +1,88 @@
+<div class="suppliers-page">
+  <div class="page-bar">
+    <h1>Suppliers</h1>
+    <label class="search">
+      <mat-icon>search</mat-icon>
+      <input
+        type="search"
+        placeholder="Search name or reference"
+        [value]="searchTerm"
+        (input)="onSearch($any($event.target).value)"
+      />
+    </label>
+    <button class="new-button" type="button" (click)="openAdd()">
+      <mat-icon>add</mat-icon>
+      Add Supplier
+    </button>
+  </div>
+
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+
+  @if (loading) {
+    <div class="loading"><mat-spinner diameter="36"></mat-spinner></div>
+  } @else if (suppliers.length === 0) {
+    <div class="empty-list">
+      <mat-icon>local_shipping</mat-icon>
+      @if (searchTerm.trim()) {
+        <p>No suppliers match your search</p>
+      } @else {
+        <p>No suppliers yet</p>
+        <button class="new-button" type="button" (click)="openAdd()">
+          <mat-icon>add</mat-icon>
+          Add Supplier
+        </button>
+      }
+    </div>
+  } @else {
+    <div class="drive-table">
+      <div class="row heading">
+        <span>Supplier</span>
+        <span>Total Quotations</span>
+        <span>Created At</span>
+        <span class="col-actions">Actions</span>
+      </div>
+      @for (supplier of page; track supplier.id) {
+        <div
+          class="row"
+          role="link"
+          tabindex="0"
+          [class.is-deleting]="deletingId === supplier.id"
+          (click)="openDetails(supplier, $event)"
+          (keydown.enter)="openDetails(supplier, $event)"
+        >
+          <span class="supplier-cell">
+            <span class="supplier-copy">
+              @if (supplier.reference) {
+                <span class="reference-badge">{{ supplier.reference }}</span>
+              }
+              <span class="name-text">{{ supplier.name }}</span>
+            </span>
+          </span>
+          <span><span class="count-chip">{{ supplier.quotationCount || 0 }}</span></span>
+          <span class="col-date">{{ listDate(supplier) }}</span>
+          <span class="col-actions row-actions">
+            <button class="icon-btn" type="button" aria-label="Edit supplier" [disabled]="isDeleting" (click)="openEdit($event, supplier)">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button class="icon-btn danger" type="button" aria-label="Delete supplier" [disabled]="isDeleting" (click)="openDelete($event, supplier)">
+              @if (deletingId === supplier.id) {
+                <mat-spinner diameter="18"></mat-spinner>
+              } @else {
+                <mat-icon>delete</mat-icon>
+              }
+            </button>
+          </span>
+        </div>
+      }
+    </div>
+    <mat-paginator
+      [length]="suppliers.length"
+      [pageIndex]="pageIndex"
+      [pageSize]="pageSize"
+      [pageSizeOptions]="[10, 25, 50]"
+      (page)="onPage($event)"
+    />
+  }
+</div>

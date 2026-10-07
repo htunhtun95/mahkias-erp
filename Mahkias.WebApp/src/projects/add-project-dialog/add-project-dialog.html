@@ -1,0 +1,43 @@
+<h2 id="add-project-title">{{ isEdit ? 'Edit project' : "Let's create a new project" }}</h2>
+<p id="add-project-subtitle">
+  {{ isEdit ? 'Update the project name, reference, and description.' : 'Store the project name, reference, and description in one place.' }}
+</p>
+
+<form [formGroup]="form" (ngSubmit)="save()" (keydown.enter)="onFieldEnter($event)">
+  <div class="field" [class.invalid]="nameInvalid">
+    <label class="control">
+      <span class="label">Name<span class="required" aria-hidden="true">*</span></span>
+      <input formControlName="name" autocomplete="off" />
+    </label>
+    <p class="error">@if (nameInvalid) { Name is required }</p>
+  </div>
+
+  <div class="field" [class.invalid]="!!referenceError">
+    <label class="control">
+      <span class="label">Reference</span>
+      <input formControlName="reference" autocomplete="off" (input)="referenceError = ''" />
+    </label>
+    <p class="error">@if (referenceError) { {{ referenceError }} }</p>
+  </div>
+
+  <div class="field">
+    <label class="control">
+      <span class="label">Description</span>
+      <textarea formControlName="description" rows="4"></textarea>
+    </label>
+  </div>
+
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+
+  <div class="actions">
+    <button type="button" class="btn ghost" (click)="cancel()" [disabled]="isSaving">Cancel</button>
+    <button type="submit" class="btn primary" [disabled]="isSaving">
+      @if (isSaving) {
+        <mat-spinner diameter="18"></mat-spinner>
+      }
+      {{ isSaving ? 'Saving...' : (isEdit ? 'Save' : 'Create') }}
+    </button>
+  </div>
+</form>

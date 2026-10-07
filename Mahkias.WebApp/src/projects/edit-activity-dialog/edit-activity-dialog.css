@@ -1,0 +1,94 @@
+:host {
+  display: block;
+  box-sizing: border-box;
+  padding: 28px 32px;
+  color: #111827;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+p {
+  margin: 6px 0 20px;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.lock-note {
+  margin: -6px 0 0;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+mat-form-field {
+  width: 100%;
+}
+
+textarea {
+  resize: none;
+  overflow: hidden;
+  line-height: 24px;
+  white-space: pre-wrap;
+}
+
+textarea.is-multiline {
+  line-height: 1.4;
+}
+
+.error {
+  margin: 0;
+  color: #c5221f;
+  font-size: 0.75rem;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 20px;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.ghost {
+  background: transparent;
+  color: #4b5563;
+}
+
+.ghost:hover:not(:disabled) {
+  background: #f3f4f6;
+}
+
+.primary {
+  background: #1a73e8;
+  color: #fff;
+}
+
+.primary:hover:not(:disabled) {
+  background: #1765cc;
+}

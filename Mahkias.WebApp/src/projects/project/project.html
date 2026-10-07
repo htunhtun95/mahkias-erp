@@ -1,0 +1,153 @@
+@if (loading) {
+  <div class="loading"><mat-spinner diameter="36"></mat-spinner></div>
+} @else if (project) {
+  <a class="back" routerLink="/projects">
+    <mat-icon>arrow_back</mat-icon>
+    Projects
+  </a>
+
+  <header class="project-header">
+    <div class="header-main">
+      <mat-icon class="folder-icon">folder</mat-icon>
+      <div class="header-copy">
+        <div class="title-row">
+          <h1>{{ project.name }}</h1>
+          <button class="icon-btn" type="button" (click)="openEditProject()" aria-label="Edit project" [disabled]="isDeleting">
+            <mat-icon>edit</mat-icon>
+          </button>
+          <button class="delete-project" type="button" (click)="openDeleteProject()" [disabled]="isDeleting">
+            @if (isDeleting) {
+              <mat-spinner diameter="18"></mat-spinner>
+              Deleting...
+            } @else {
+              <mat-icon>delete</mat-icon>
+              Delete Project
+            }
+          </button>
+          @if (project.reference) {
+            <span class="reference-pill">{{ project.reference }}</span>
+          }
+        </div>
+        @if (project.description) {
+          <p class="summary">{{ project.description }}</p>
+        }
+      </div>
+    </div>
+  </header>
+
+  <div class="tab-bar">
+    <div class="tabs" role="tablist" aria-label="Project sections">
+      <button
+        class="tab"
+        type="button"
+        role="tab"
+        [class.active]="tab === 'activities'"
+        [attr.aria-selected]="tab === 'activities'"
+        (click)="selectTab('activities')"
+      >
+        Activities ({{ activityCount }})
+      </button>
+      <button
+        class="tab"
+        type="button"
+        role="tab"
+        [class.active]="tab === 'quotations'"
+        [attr.aria-selected]="tab === 'quotations'"
+        (click)="selectTab('quotations')"
+      >
+        Quotations ({{ quotationCount }})
+      </button>
+      <button
+        class="tab"
+        type="button"
+        role="tab"
+        [class.active]="tab === 'purchases'"
+        [attr.aria-selected]="tab === 'purchases'"
+        (click)="selectTab('purchases')"
+      >
+        Purchases (0)
+      </button>
+    </div>
+
+    <div class="header-actions">
+      @switch (tab) {
+        @case ('activities') {
+          @if (activityCount > 10) {
+            <label class="activity-search">
+              <mat-icon>search</mat-icon>
+              <input
+                type="search"
+                placeholder="Filter activities (DSN, Part No, Description)..."
+                [value]="activityFilter"
+                [attr.disabled]="isDeleting ? '' : null"
+                (input)="activityFilter = $any($event.target).value"
+              />
+            </label>
+          }
+          <button class="action-outline" type="button" (click)="openNewGroup()" [disabled]="isDeleting">
+            <mat-icon>account_tree</mat-icon>
+            New Group
+          </button>
+          <button class="action-outline" type="button" (click)="openImport()" [disabled]="isDeleting">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="#107c41" d="M4 3h10l6 6v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
+              <path fill="#fff" d="M14 3v6h6" />
+              <path fill="#fff" d="M7 12h10v1.4H7zm0 2.6h10V16H7zm0 2.6h7v1.4H7z" />
+            </svg>
+            Import Activity
+          </button>
+          <button class="action-primary" type="button" (click)="openAddActivity()" [disabled]="isDeleting">
+            <mat-icon>add</mat-icon>
+            Add Activity
+          </button>
+        }
+        @case ('quotations') {
+          <button class="action-outline" type="button" (click)="openImportQuotation()" [disabled]="isDeleting">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="#107c41" d="M4 3h10l6 6v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
+              <path fill="#fff" d="M14 3v6h6" />
+              <path fill="#fff" d="M7 12h10v1.4H7zm0 2.6h10V16H7zm0 2.6h7v1.4H7z" />
+            </svg>
+            Import Quotation
+          </button>
+          <button class="action-primary" type="button" (click)="openQuotation()" [disabled]="isDeleting">
+            <mat-icon>add</mat-icon>
+            Create Quotation
+          </button>
+        }
+        @case ('purchases') {
+          <button class="action-primary" type="button">
+            <mat-icon>add</mat-icon>
+            New Purchase Order
+          </button>
+        }
+      }
+    </div>
+  </div>
+
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+
+  <div class="tab-panels" [class.is-locked]="isDeleting">
+    <app-project-activities-tab
+      class="tab-panel"
+      [class.is-hidden]="tab !== 'activities'"
+      [project]="project"
+      [types]="types"
+      [activityFilter]="activityCount > 10 ? activityFilter : ''"
+      (reload)="reload()"
+      (activitiesChange)="onActivitiesChange()"
+      (failed)="error = $event"
+    />
+    <app-project-quotations-tab
+      class="tab-panel"
+      [class.is-hidden]="tab !== 'quotations'"
+      [project]="project"
+      (countChange)="quotationCount = $event"
+    />
+    <app-project-purchases-tab class="tab-panel" [class.is-hidden]="tab !== 'purchases'" />
+  </div>
+} @else {
+  <p class="error">{{ error || 'Project not found.' }}</p>
+}

@@ -1,0 +1,57 @@
+<div class="app-dialog-container">
+<header class="app-dialog-header detail-header">
+  <div class="title-block">
+    <h2>{{ data.group.name }}</h2>
+    <p>{{ data.group.description || 'Activities in this group stay in their type lists.' }}</p>
+    <div class="metrics">
+      <span class="chip">{{ itemLabel }}</span>
+      <span class="chip">Total Qty: {{ totalQuantity }}</span>
+    </div>
+  </div>
+  <div class="header-actions">
+    <button type="button" class="icon-action" (click)="edit()" aria-label="Edit group">
+      <mat-icon>edit</mat-icon>
+      Edit Group
+    </button>
+    @if (activities.length) {
+      <button type="button" class="icon-action" (click)="ungroup()" aria-label="Ungroup">
+        <mat-icon>link_off</mat-icon>
+        Ungroup
+      </button>
+    }
+    @if (data.canDelete) {
+      <button type="button" class="icon-action danger" (click)="remove()" aria-label="Delete group">
+        <mat-icon>delete</mat-icon>
+        Delete Group
+      </button>
+    }
+  </div>
+</header>
+
+<div class="app-dialog-body">
+@if (activities.length) {
+  <div class="member-table">
+    <div class="member-row heading">
+      <span>DSN no</span>
+      <span>Part no</span>
+      <span>Description</span>
+      <span>Qty</span>
+    </div>
+    @for (activity of activities; track activity.id) {
+      <div class="member-row">
+        <span>{{ activity.dsnNo || '—' }}</span>
+        <span class="part">{{ activity.mainPartNo || activity.partNo }}</span>
+        <span class="description">{{ activity.description || '—' }}</span>
+        <span>{{ activity.quantity != null ? activity.quantity : '—' }}</span>
+      </div>
+    }
+  </div>
+} @else {
+  <p class="empty">No activities in this group yet.</p>
+}
+
+</div>
+<div class="app-dialog-actions">
+  <button type="button" class="btn primary" (click)="close()">Close</button>
+</div>
+</div>

@@ -1,0 +1,111 @@
+<div class="dialog-shell" [class.is-saving]="isSaving">
+  <header class="dialog-header">
+    <h2>Add activities</h2>
+    <p>Empty rows are ignored. If you fill any field, DSN no, part number, and type are required. Tip: Use 'or' or '/' for alternative parts (e.g., P001/P002/P003).</p>
+  </header>
+
+  <form class="dialog-form" [formGroup]="form" (ngSubmit)="save()" (keydown.enter)="onFieldEnter($event)">
+    <div
+      #gridScroll
+      class="grid-scroll"
+      formArrayName="rows"
+    >
+      <table class="sheet">
+        <colgroup>
+          <col class="col-index" />
+          <col class="col-dsn" />
+          <col class="col-part" />
+          <col class="col-type" />
+          <col class="col-budget" />
+          <col class="col-qty" />
+          <col class="col-description" />
+          <col class="col-action" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="row-num" scope="col"></th>
+            <th class="col-text" scope="col">DSN No</th>
+            <th scope="col">Part No</th>
+            <th scope="col">Type</th>
+            <th class="col-text" scope="col">Budget</th>
+            <th class="col-text" scope="col">Qty</th>
+            <th scope="col">Description</th>
+            <th class="action-head" scope="col" aria-label="Action">
+              <mat-icon>delete</mat-icon>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows.controls; track $index) {
+            <tr [formGroupName]="$index">
+              <th class="row-num" scope="row">{{ $index + 1 }}</th>
+              <td class="cell col-text" [class.cell-invalid]="fieldInvalid($index, 'dsnNo')" [attr.data-hint]="fieldHint($index, 'dsnNo')" [attr.title]="fieldHint($index, 'dsnNo')">
+                <input formControlName="dsnNo" [attr.aria-invalid]="fieldInvalid($index, 'dsnNo')" />
+              </td>
+              <td class="cell" [class.cell-invalid]="fieldInvalid($index, 'partNo')" [attr.data-hint]="fieldHint($index, 'partNo')" [attr.title]="fieldHint($index, 'partNo')">
+                <textarea
+                  class="grow-field"
+                  appAutoGrow
+                  data-min-height="38"
+                  formControlName="partNo"
+                  rows="1"
+                  [attr.aria-invalid]="fieldInvalid($index, 'partNo')"
+                ></textarea>
+              </td>
+              <td class="cell" [class.cell-invalid]="fieldInvalid($index, 'typeId')" [attr.data-hint]="fieldHint($index, 'typeId')" [attr.title]="fieldHint($index, 'typeId')">
+                <select formControlName="typeId" [attr.aria-invalid]="fieldInvalid($index, 'typeId')">
+                  <option [ngValue]="null"></option>
+                  @for (type of types; track type.id) {
+                    <option [ngValue]="type.id">{{ type.name }}</option>
+                  }
+                </select>
+              </td>
+              <td class="cell col-text">
+                <input formControlName="budget" type="number" min="0" step="0.01" />
+              </td>
+              <td class="cell col-text">
+                <input formControlName="quantity" type="number" min="0" step="1" />
+              </td>
+              <td class="cell">
+                <textarea
+                  class="grow-field description-input"
+                  appAutoGrow
+                  data-min-height="38"
+                  formControlName="description"
+                  rows="1"
+                ></textarea>
+              </td>
+              <td class="action-cell">
+                <button type="button" class="icon" (click)="removeRow($index)" aria-label="Remove row">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <footer class="dialog-footer">
+      <button type="button" class="add-row" (click)="addRow()" [disabled]="isSaving">
+        <mat-icon>add</mat-icon>
+        Add row
+      </button>
+
+      <div class="footer-end">
+        @if (error) {
+          <p class="error" role="alert">{{ error }}</p>
+        }
+        <div class="actions">
+          <button type="button" class="btn ghost" (click)="cancel()" [disabled]="isSaving">Cancel</button>
+          <button type="submit" class="btn primary" [disabled]="isSaving">
+            @if (isSaving) {
+              <mat-spinner diameter="18"></mat-spinner>
+            }
+            {{ isSaving ? 'Saving...' : 'Save' }}
+          </button>
+        </div>
+      </div>
+    </footer>
+  </form>
+</div>

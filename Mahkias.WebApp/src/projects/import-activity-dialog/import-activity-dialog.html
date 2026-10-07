@@ -1,0 +1,165 @@
+@if (isImporting) {
+  <div class="import-overlay" role="status" aria-live="polite" aria-busy="true">
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    <div class="import-overlay-body">
+      <mat-spinner diameter="28"></mat-spinner>
+      <p>Importing activities...</p>
+    </div>
+  </div>
+}
+
+<h2>Import activities</h2>
+<p>DSN No, Part No, and Type are required. For each one, choose a column letter or a default. A filled cell is used first; a blank cell uses the default.</p>
+
+<label class="file">
+  <mat-icon>upload_file</mat-icon>
+  <span>{{ file ? file.name : 'Choose .xlsx or .csv' }}</span>
+  <input type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" (change)="onFile($event)" [disabled]="reading || validating || isImporting" />
+</label>
+
+@if (reading) {
+  <div class="loading"><mat-spinner diameter="28"></mat-spinner></div>
+}
+
+@if (columns.length) {
+  <p class="meta">{{ columns.length }} columns ({{ columns[0].letter }}–{{ columns[columns.length - 1].letter }}) · {{ rowCount }} data rows</p>
+  <form [formGroup]="form" (ngSubmit)="save()" (keydown.enter)="onFieldEnter($event)">
+    <div class="map">
+      <div class="map-head">
+        <span>Field</span>
+        <span>Column</span>
+        <span>Default</span>
+      </div>
+
+      <div class="map-row" [class.invalid]="!dsnReady" [class.flagged]="fieldFlagged('DSN No')">
+        <span>DSN No<em>*</em></span>
+        <select formControlName="dsnNo">
+          <option value="">Select column</option>
+          @for (column of columns; track column.letter) {
+            <option [value]="column.letter">{{ columnLabel(column) }}</option>
+          }
+        </select>
+        <input formControlName="defaultDsn" placeholder="Default DSN" />
+        @if (!dsnReady) {
+          <p class="field-warning">{{ requiredFieldWarning }}</p>
+        }
+      </div>
+
+      <div class="map-row" [class.invalid]="!partReady" [class.flagged]="fieldFlagged('Part No')">
+        <span>Part No<em>*</em></span>
+        <select formControlName="partNo">
+          <option value="">Select column</option>
+          @for (column of columns; track column.letter) {
+            <option [value]="column.letter">{{ columnLabel(column) }}</option>
+          }
+        </select>
+        <input formControlName="defaultPart" placeholder="Default part no" />
+        @if (!partReady) {
+          <p class="field-warning">{{ requiredFieldWarning }}</p>
+        }
+      </div>
+
+      <div class="map-row" [class.invalid]="!typeReady" [class.flagged]="fieldFlagged('Type')">
+        <span>Type<em>*</em></span>
+        <select formControlName="type">
+          <option value="">No column</option>
+          @for (column of columns; track column.letter) {
+            <option [value]="column.letter">{{ columnLabel(column) }}</option>
+          }
+        </select>
+        <select formControlName="defaultTypeId">
+          <option [ngValue]="null">No default</option>
+          @for (type of types; track type.id) {
+            <option [ngValue]="type.id">{{ type.name }}</option>
+          }
+        </select>
+        @if (!typeReady) {
+          <p class="field-warning">{{ requiredFieldWarning }}</p>
+        }
+      </div>
+
+      <div class="map-row" [class.flagged]="fieldFlagged('Budget')">
+        <span>Budget</span>
+        <select formControlName="budget">
+          <option value="">No column</option>
+          @for (column of columns; track column.letter) {
+            <option [value]="column.letter">{{ columnLabel(column) }}</option>
+          }
+        </select>
+        <input formControlName="defaultBudget" type="number" min="0" step="0.01" placeholder="No default" />
+      </div>
+
+      <div class="map-row" [class.flagged]="fieldFlagged('Qty')">
+        <span>Quantity</span>
+        <select formControlName="quantity">
+          <option value="">No column</option>
+          @for (column of columns; track column.letter) {
+            <option [value]="column.letter">{{ columnLabel(column) }}</option>
+          }
+        </select>
+        <input formControlName="defaultQuantity" type="number" min="0" step="1" placeholder="Default 1" />
+      </div>
+
+      <div class="map-row">
+        <span>Description</span>
+        <select formControlName="description">
+          <option value="">No column</option>
+          @for (column of columns; track column.letter) {
+            <option [value]="column.letter">{{ columnLabel(column) }}</option>
+          }
+        </select>
+        <span class="default-note">Optional</span>
+      </div>
+    </div>
+    <p class="hint">Quantity becomes 1 when both the cell and the default are empty. Description and budget can be left unmapped.</p>
+
+    <div class="status" [class.checking]="validation === 'checking'" [class.passed]="validation === 'passed'" [class.failed]="validation === 'failed'">
+      @if (validation === 'checking') {
+        <mat-spinner diameter="16"></mat-spinner>
+        <span>Checking data types...</span>
+      } @else if (validation === 'passed') {
+        <span>✓ Verified: Ready to Import</span>
+      } @else if (validation === 'failed') {
+        <span>⚠ Validation Failed ({{ errorCount }} Errors Found)</span>
+      } @else {
+        <span>Not Validated</span>
+      }
+    </div>
+
+    @if (error) {
+      <p class="error">{{ error }}</p>
+    }
+    @if (issues.length) {
+      <ul class="issues">
+        @for (item of issues; track $index) {
+          <li>{{ issueText(item) }}</li>
+        }
+      </ul>
+    }
+    <div class="actions">
+      <button type="button" class="btn ghost" (click)="cancel()" [disabled]="isImporting || validating">Cancel</button>
+      @if (validation === 'passed') {
+        <button type="submit" class="btn primary" [disabled]="isImporting">
+          @if (isImporting) {
+            <mat-spinner diameter="18"></mat-spinner>
+          }
+          {{ isImporting ? 'Importing...' : 'Start Import' }}
+        </button>
+      } @else {
+        <button type="button" class="btn primary" (click)="validate()" [disabled]="!canValidate">
+          @if (validating) {
+            <mat-spinner diameter="18"></mat-spinner>
+          }
+          {{ validating ? 'Checking...' : 'Check & Verify Data' }}
+        </button>
+      }
+    </div>
+  </form>
+} @else {
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+  <div class="actions">
+    <button type="button" class="btn ghost" (click)="cancel()">Cancel</button>
+  </div>
+}

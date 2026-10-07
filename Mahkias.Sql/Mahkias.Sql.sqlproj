@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.Build.Sql/2.0.0">
+  <PropertyGroup>
+    <Name>Mahkias</Name>
+    <DSP>Microsoft.Data.Tools.Schema.Sql.Sql160DatabaseSchemaProvider</DSP>
+    <ModelCollation>1033,CI</ModelCollation>
+    <ProjectVersion>4.1</ProjectVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <TargetDatabaseSet>True</TargetDatabaseSet>
+    <ProjectGuid>{5b4b71b6-1184-4f84-8dbe-778abb222af7}</ProjectGuid>
+  </PropertyGroup>
+  <ItemGroup>
+    <Build Remove="Scripts\**\*.sql" />
+    <None Include="Scripts\**\*.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Indexes\" />
+    <Folder Include="Programmability\Functions\" />
+    <Folder Include="Programmability\StoredProcedures\" />
+    <Folder Include="Programmability\UserDefinedTypes\" />
+    <Folder Include="Scripts\" />
+    <Folder Include="Security\" />
+    <Folder Include="Tables\" />
+    <Folder Include="Programmability\" />
+  </ItemGroup>
+</Project>

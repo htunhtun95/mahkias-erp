@@ -1,0 +1,33 @@
+<h2>{{ isEdit ? 'Edit Supplier' : 'Add Supplier' }}</h2>
+<p>{{ isEdit ? 'Update the supplier name and reference.' : 'Add a supplier name and an optional reference.' }}</p>
+
+<form [formGroup]="form" (ngSubmit)="save()" (keydown.enter)="onFieldEnter($event)">
+  <div class="field" [class.invalid]="nameInvalid">
+    <label class="control">
+      <span class="label">Supplier Name<span class="required" aria-hidden="true">*</span></span>
+      <input formControlName="name" autocomplete="off" />
+    </label>
+    <p class="error">@if (nameInvalid) { Supplier name is required }</p>
+  </div>
+
+  <div class="field">
+    <label class="control">
+      <span class="label">Reference</span>
+      <input formControlName="reference" autocomplete="off" />
+    </label>
+  </div>
+
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+
+  <div class="actions">
+    <button type="button" class="btn ghost" (click)="cancel()" [disabled]="isSaving">Cancel</button>
+    <button type="submit" class="btn primary" [disabled]="isSaving">
+      @if (isSaving) {
+        <mat-spinner diameter="18"></mat-spinner>
+      }
+      {{ isSaving ? 'Saving...' : 'Save' }}
+    </button>
+  </div>
+</form>

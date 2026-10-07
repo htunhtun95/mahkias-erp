@@ -1,0 +1,302 @@
+@if (!hasActivities && !groups.length) {
+  <section class="empty-state">
+    <div class="empty-icon" aria-hidden="true">
+      <mat-icon>inventory_2</mat-icon>
+    </div>
+    <h2>No activities added yet</h2>
+    <p class="empty-hint">Import from Excel or add activities manually to get started.</p>
+    <div class="empty-actions">
+      <button class="action-outline" type="button" (click)="openImport()">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="#107c41" d="M4 3h10l6 6v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
+          <path fill="#fff" d="M14 3v6h6" />
+          <path fill="#fff" d="M7 12h10v1.4H7zm0 2.6h10V16H7zm0 2.6h7v1.4H7z" />
+        </svg>
+        Import Activity
+      </button>
+      <button class="action-primary" type="button" (click)="openAddActivity()">
+        <mat-icon>add</mat-icon>
+        Add Activity
+      </button>
+    </div>
+  </section>
+} @else {
+  <div class="activity-groups" [class.is-busy]="isSaving || deletingId != null" (keydown.enter)="onFieldEnter($event)">
+    @if (batchEditing || selectedIds.size > 0) {
+      <div class="action-dock">
+        @if (batchEditing) {
+          <div class="batch-bar">
+            <span class="batch-note" [class.error]="!!batchError">{{ batchError || 'Edit the rows below, then save every change together.' }}</span>
+            <button class="batch-cancel" type="button" (click)="cancelBatch()" [disabled]="isSaving">Cancel</button>
+            <button class="batch-save" type="button" (click)="saveBatch()" [disabled]="isSaving">
+              @if (isSaving) {
+                <mat-spinner diameter="18"></mat-spinner>
+              }
+              {{ isSaving ? 'Saving...' : 'Save All Changes' }}
+            </button>
+          </div>
+        }
+        @if (selectedIds.size > 0) {
+          <div class="selection-bar">
+            <span class="batch-note" [class.error]="!!selectionError">{{ selectionError || (selectedIds.size + ' selected') }}</span>
+            <button class="batch-save" type="button" (click)="assignSelected()" [disabled]="isSaving">Assign Selected to Group</button>
+            <button class="batch-cancel" type="button" (click)="clearSelection()">Clear</button>
+          </div>
+        }
+      </div>
+    }
+    @if (!activityGroups.length && !globalGroups.length) {
+      <p class="filter-empty">No activities match your filter.</p>
+    }
+    @if (globalGroups.length) {
+      <section class="activity-group">
+        <div class="group-header">
+          <h2>Unassigned / Global Groups</h2>
+          <span class="count-badge">{{ globalGroups.length }}</span>
+        </div>
+        <div class="activity-table">
+          <div class="row heading">
+            <span></span>
+            <span></span>
+            <span>DSN no</span>
+            <span>Part no</span>
+            <span>Description</span>
+            <span>Quantity</span>
+            <span></span>
+          </div>
+          @for (block of globalGroups; track block.group.id) {
+            <div class="activity-block">
+              <div class="row group-row">
+                <button class="expand" type="button" [attr.aria-expanded]="isGroupOpen(block.group.id)" [attr.aria-label]="isGroupOpen(block.group.id) ? 'Collapse group' : 'Expand group'" (click)="toggleGroup(block.group.id)">
+                  <mat-icon>{{ isGroupOpen(block.group.id) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+                </button>
+                <span></span>
+                <span></span>
+                <span class="part-cell">
+                  <span class="part-no">{{ block.group.name }}</span>
+                  @if (groupTypeName(block.group)) {
+                    <span class="alt-pill">{{ groupTypeName(block.group) }}</span>
+                  }
+                </span>
+                <span class="description">{{ block.group.description || '—' }}</span>
+                <span>{{ block.activities.length }}</span>
+                <span class="row-actions">
+                  <button class="icon-btn" type="button" (click)="editGroup(block.group)" aria-label="Edit group" [disabled]="isSaving || deletingId != null">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  @if (hasMembers(block.group.id)) {
+                    <button class="icon-btn" type="button" (click)="ungroup(block.group)" aria-label="Ungroup" [disabled]="isSaving || deletingId != null">
+                      <mat-icon>link_off</mat-icon>
+                    </button>
+                  }
+                  <button class="icon-btn danger" type="button" (click)="deleteGroup(block.group)" aria-label="Delete group" [disabled]="isSaving || deletingId != null">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </span>
+              </div>
+              @if (isGroupOpen(block.group.id)) {
+                @if (block.activities.length) {
+                  @for (activity of block.activities; track activity.id) {
+                    <div class="row child">
+                      <span></span>
+                      <span></span>
+                      <span>{{ activity.dsnNo || '—' }}</span>
+                      <span class="part-cell">
+                        <span class="part-no">{{ activity.mainPartNo || activity.partNo }}</span>
+                      </span>
+                      <span class="description">{{ activity.description || '—' }}</span>
+                      <span>{{ activity.quantity != null ? activity.quantity : '—' }}</span>
+                      <span class="row-actions">
+                        <button class="icon-btn" type="button" (click)="openDetails(activity)" aria-label="View details"><mat-icon>visibility</mat-icon></button>
+                        <button class="icon-btn" type="button" (click)="openEditActivity(activity)" aria-label="Edit activity"><mat-icon>edit</mat-icon></button>
+                        <button class="icon-btn danger" type="button" (click)="deleteActivity(activity)" aria-label="Delete activity"><mat-icon>delete</mat-icon></button>
+                      </span>
+                    </div>
+                  }
+                } @else {
+                  <p class="filter-empty">No activities in this group.</p>
+                }
+              }
+            </div>
+          }
+        </div>
+      </section>
+    }
+    @for (group of activityGroups; track group.typeId ?? 'untyped') {
+      <section class="activity-group" [class.is-editing]="isBatchEditing(group.typeId)">
+        <div class="group-header">
+          <h2>{{ group.typeName }}</h2>
+          <span class="count-badge">{{ group.activities.length }}</span>
+          <button
+            class="batch-toggle"
+            type="button"
+            [class.active]="isBatchEditing(group.typeId)"
+            (click)="toggleBatch(group)"
+            [disabled]="isSaving || deletingId != null"
+          >
+            <mat-icon>edit</mat-icon>
+            {{ isBatchEditing(group.typeId) ? 'Editing' : 'Edit All' }}
+          </button>
+        </div>
+        <div class="activity-table">
+          <div class="row heading">
+            <span></span>
+            <span></span>
+            <span>DSN no</span>
+            <span>Part no</span>
+            <span>Description</span>
+            <span>Quantity</span>
+            <span></span>
+          </div>
+          @for (block of group.groups; track block.group.id) {
+            <div class="activity-block">
+              <div class="row group-row">
+                <button class="expand" type="button" [attr.aria-expanded]="isGroupOpen(block.group.id) || isBatchEditing(group.typeId)" [attr.aria-label]="isGroupOpen(block.group.id) ? 'Collapse group' : 'Expand group'" (click)="toggleGroup(block.group.id)">
+                  <mat-icon>{{ isGroupOpen(block.group.id) || isBatchEditing(group.typeId) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+                </button>
+                <span></span>
+                <span></span>
+                <span class="part-cell">
+                  <span class="part-no">{{ block.group.name }}</span>
+                </span>
+                <span class="description">{{ block.group.description || '—' }}</span>
+                <span>{{ block.activities.length }}</span>
+                <span class="row-actions">
+                  <button class="icon-btn" type="button" (click)="editGroup(block.group)" aria-label="Edit group" [disabled]="isSaving || deletingId != null">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button class="icon-btn" type="button" (click)="ungroup(block.group)" aria-label="Ungroup" [disabled]="isSaving || deletingId != null">
+                    <mat-icon>link_off</mat-icon>
+                  </button>
+                </span>
+              </div>
+              @if (isGroupOpen(block.group.id) || isBatchEditing(group.typeId)) {
+                @for (activity of block.activities; track activity.id) {
+                  <div class="row child" [class.editing]="isRowEditable(group, activity)">
+                    <span></span>
+                    <span></span>
+                    @if (isRowEditable(group, activity)) {
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'dsnNo')">
+                        <input matInput [(ngModel)]="draft(activity).dsnNo" [ngModelOptions]="{ standalone: true }" aria-label="DSN no" [disabled]="isSaving" />
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'partNo')">
+                        <input matInput [(ngModel)]="draft(activity).partNo" [ngModelOptions]="{ standalone: true }" aria-label="Part no" title="Use 'or' or '/' for alternative parts" [disabled]="isSaving" />
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
+                        <textarea matInput appAutoGrow data-min-height="24" rows="1" [(ngModel)]="draft(activity).description" [ngModelOptions]="{ standalone: true }" aria-label="Description" [disabled]="isSaving"></textarea>
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'quantity')">
+                        <input matInput type="number" min="0" step="1" [ngModel]="draft(activity).quantity" (ngModelChange)="setQuantity(activity, $event)" [ngModelOptions]="{ standalone: true }" aria-label="Quantity" [disabled]="isSaving" />
+                      </mat-form-field>
+                    } @else {
+                      <span>{{ activity.dsnNo || '—' }}</span>
+                      <span class="part-cell">
+                        <span class="part-no">{{ activity.mainPartNo || activity.partNo }}</span>
+                        @if (activity.alternativePartNos?.length) {
+                          <span class="alt-line">
+                            <span class="alt-label">Alt:</span>
+                            @for (alternative of activity.alternativePartNos; track $index) {
+                              <span class="alt-pill">{{ alternative }}</span>
+                            }
+                          </span>
+                        }
+                      </span>
+                      <span class="description" [attr.title]="activity.description || null">{{ activity.description || '—' }}</span>
+                      <span>{{ activity.quantity != null ? activity.quantity : '—' }}</span>
+                    }
+                    <span class="row-actions">
+                      <button class="icon-btn" type="button" (click)="openDetails(activity)" aria-label="View details" [disabled]="isSaving || deletingId != null"><mat-icon>visibility</mat-icon></button>
+                      <button class="icon-btn" type="button" (click)="openEditActivity(activity)" aria-label="Edit activity" [disabled]="isSaving || deletingId != null"><mat-icon>edit</mat-icon></button>
+                      <button class="icon-btn danger" type="button" (click)="deleteActivity(activity)" aria-label="Delete activity" [disabled]="isSaving || deletingId != null">
+                        @if (deletingId === activity.id) { <mat-spinner diameter="18"></mat-spinner> } @else { <mat-icon>delete</mat-icon> }
+                      </button>
+                    </span>
+                  </div>
+                }
+              }
+            </div>
+          }
+          @for (activity of group.activities; track activity.id) {
+            <div class="activity-block">
+            <div class="row" [class.editing]="isRowEditable(group, activity)">
+              <span></span>
+              <label class="pick">
+                <input
+                  type="checkbox"
+                  [checked]="isSelected(activity)"
+                  (change)="toggleSelected(activity, $any($event.target).checked)"
+                  [disabled]="isSelectionDisabled(activity)"
+                  [attr.aria-label]="'Select ' + (activity.dsnNo || activity.partNo)"
+                />
+              </label>
+              @if (isRowEditable(group, activity)) {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'dsnNo')">
+                  <input matInput [(ngModel)]="draft(activity).dsnNo" [ngModelOptions]="{ standalone: true }" aria-label="DSN no" [disabled]="isSaving" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'partNo')">
+                  <input matInput [(ngModel)]="draft(activity).partNo" [ngModelOptions]="{ standalone: true }" aria-label="Part no" title="Use 'or' or '/' for alternative parts" [disabled]="isSaving" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
+                  <textarea
+                    matInput
+                    appAutoGrow
+                    data-min-height="24"
+                    rows="1"
+                    [(ngModel)]="draft(activity).description"
+                    [ngModelOptions]="{ standalone: true }"
+                    aria-label="Description"
+                    [disabled]="isSaving"
+                  ></textarea>
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'quantity')">
+                  <input
+                    matInput
+                    type="number"
+                    min="0"
+                    step="1"
+                    [ngModel]="draft(activity).quantity"
+                    (ngModelChange)="setQuantity(activity, $event)"
+                    [ngModelOptions]="{ standalone: true }"
+                    aria-label="Quantity"
+                    [disabled]="isSaving"
+                  />
+                </mat-form-field>
+              } @else {
+                <span>{{ activity.dsnNo || '—' }}</span>
+                <span class="part-cell">
+                  <span class="part-no">{{ activity.mainPartNo || activity.partNo }}</span>
+                  @if (activity.alternativePartNos?.length) {
+                    <span class="alt-line">
+                      <span class="alt-label">Alt:</span>
+                      @for (alternative of activity.alternativePartNos; track $index) {
+                        <span class="alt-pill">{{ alternative }}</span>
+                      }
+                    </span>
+                  }
+                </span>
+                <span class="description" [attr.title]="activity.description || null">{{ activity.description || '—' }}</span>
+                <span>{{ activity.quantity != null ? activity.quantity : '—' }}</span>
+              }
+              <span class="row-actions">
+                <button class="icon-btn" type="button" (click)="openDetails(activity)" aria-label="View details" [disabled]="isSaving || deletingId != null">
+                  <mat-icon>visibility</mat-icon>
+                </button>
+                <button class="icon-btn" type="button" (click)="openEditActivity(activity)" aria-label="Edit activity" [disabled]="isSaving || deletingId != null">
+                  <mat-icon>edit</mat-icon>
+                </button>
+                <button class="icon-btn danger" type="button" (click)="deleteActivity(activity)" aria-label="Delete activity" [disabled]="isSaving || deletingId != null">
+                  @if (deletingId === activity.id) {
+                    <mat-spinner diameter="18"></mat-spinner>
+                  } @else {
+                    <mat-icon>delete</mat-icon>
+                  }
+                </button>
+              </span>
+            </div>
+            </div>
+          }
+        </div>
+      </section>
+    }
+  </div>
+}

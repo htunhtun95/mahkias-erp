@@ -1,0 +1,14 @@
+<div class="login-page">
+  <mat-card class="login-card">
+    <div class="brand">
+      <mat-icon>dashboard</mat-icon>
+      <span>Mahkias ERP</span>
+    </div>
+    <mat-card-title>Sign in</mat-card-title>
+    <p>Use your Google account to continue.</p>
+    <div id="google-button"></div>
+    @if (loading) {
+      <mat-spinner diameter="36"></mat-spinner>
+    }
+  </mat-card>
+</div>
