@@ -269,45 +269,39 @@ namespace Mahkias.Data.Modules.Projects.Repositories
                 return 0;
             }
 
-            if (_connection.State != ConnectionState.Closed)
+            var rows = pending.Select(activity => new DefaultGenericTableType
             {
-                _connection.Close();
-            }
+                NumericValue1 = activity.Id,
+                NumericValue2 = activity.Args.ProjectId,
+                NumericValue3 = activity.Args.Quantity,
+                NumericValue4 = activity.Args.TypeId,
+                TextValue1 = activity.Args.PartNo,
+                TextValue2 = activity.Args.Description,
+                TextValue3 = activity.Args.DSNNo,
+                DecimalValue1 = activity.Args.Budget
+            }).ToList();
 
-            _connection.Open();
-            var transaction = _connection.BeginTransaction();
-            try
+            using (SqlCommand command = new SqlCommand("dbo.UpdateActivities"))
             {
-                foreach (var activity in pending)
+                command.CommandType = CommandType.StoredProcedure;
+                command.Parameters.AddTable("Activities", rows.ToGenericDatatableNullableArgs(), "dbo.DefaultGenericTableType");
+                command.Connection = _connection;
+                _connection.Open();
+
+                try
                 {
-                    using var command = new SqlCommand("dbo.UpdateActivity");
-                    BindUpdateCommand(command, activity.Id, activity.Args);
-                    command.Connection = _connection;
-                    command.Transaction = transaction;
                     var updated = await command.ExecuteScalarAsync();
-                    if (updated == null || updated == DBNull.Value || Convert.ToInt32(updated) <= 0)
+                    if (updated == null || updated == DBNull.Value)
                     {
-                        throw new InvalidOperationException("Activity batch update failed.");
+                        return 0;
                     }
-                }
 
-                transaction.Commit();
-                return pending.Count;
-            }
-            catch (InvalidOperationException)
-            {
-                transaction.Rollback();
-                return 0;
-            }
-            catch
-            {
-                transaction.Rollback();
-                throw;
-            }
-            finally
-            {
-                transaction.Dispose();
-                _connection.Close();
+                    return Convert.ToInt32(updated);
+                }
+                finally
+                {
+                    _connection.Close();
+                }
             }
         }
 

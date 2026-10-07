@@ -1,4 +1,4 @@
-CREATE PROCEDURE [dbo].[BulkInsertActivities]
+CREATE OR ALTER PROCEDURE [dbo].[BulkInsertActivities]
 (
     @ProjectId INT,
     -- TextValue1 = PartNo, TextValue2 = Description, TextValue3 = DSNNo
@@ -8,6 +8,10 @@ CREATE PROCEDURE [dbo].[BulkInsertActivities]
 AS
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
 
     DECLARE @Inserted TABLE
     (
@@ -65,5 +69,15 @@ BEGIN
     ) AS Main
     WHERE Alt.SortOrder > 1;
 
-    SELECT InsertedCount = (SELECT COUNT(*) FROM @Inserted);
+        COMMIT TRANSACTION;
+        SELECT InsertedCount = (SELECT COUNT(*) FROM @Inserted);
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+        BEGIN
+            ROLLBACK TRANSACTION;
+        END
+
+        ;THROW
+    END CATCH
 END

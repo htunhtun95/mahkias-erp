@@ -1,3 +1,4 @@
+using Mahkias.Core.DataTableTypes;
 using Mahkias.Core.Helpers;
 using Mahkias.Core.Modules.Projects;
 using Mahkias.Core.Modules.Projects.Data.Args;
@@ -96,33 +97,23 @@ ORDER BY AP.ActivityId, AP.SortOrder, AP.Id;";
                 _connection.Close();
             }
 
+            using var command = new SqlCommand("dbo.CreateQuotation", _connection)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
+            command.Parameters.AddInt("SupplierId", args.SupplierId);
+            command.Parameters.Add(OptionalText("SupplierReference", NullIfBlank(args.SupplierReference), 100));
+            command.Parameters.Add(OptionalText("DriveFileLink", NullIfBlank(args.DriveFileLink), 1000));
+            command.Parameters.AddTable("ProjectIds", ProjectIdTable(args.ProjectIds), "dbo.NumberTableType");
+            command.Parameters.AddTable("Items", ItemTable(args.Items), "dbo.DefaultGenericTableType");
             _connection.Open();
-            SqlTransaction transaction = null;
             try
             {
-                transaction = _connection.BeginTransaction();
-                var quotationId = await InsertQuotationAsync(args, transaction);
-                foreach (var projectId in args.ProjectIds.Distinct())
-                {
-                    await InsertProjectLinkAsync(quotationId, projectId, transaction);
-                }
-
-                foreach (var item in args.Items)
-                {
-                    await InsertItemAsync(quotationId, item, transaction);
-                }
-
-                transaction.Commit();
-                return quotationId;
-            }
-            catch
-            {
-                transaction?.Rollback();
-                throw;
+                var id = await command.ExecuteScalarAsync();
+                return id == null || id == DBNull.Value ? 0 : Convert.ToInt32(id);
             }
             finally
             {
-                transaction?.Dispose();
                 _connection.Close();
             }
         }
@@ -361,48 +352,22 @@ ORDER BY ActivityId, QuoteRank, QuotationId", _connection);
                 _connection.Close();
             }
 
+            using var command = new SqlCommand("dbo.ReplaceQuotationItems", _connection)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
+            command.Parameters.AddInt("Id", quotationId);
+            command.Parameters.AddInt("SupplierId", args.SupplierId);
+            command.Parameters.Add(OptionalText("SupplierReference", NullIfBlank(args.SupplierReference), 100));
+            command.Parameters.AddTable("Items", ItemTable(args.Items), "dbo.DefaultGenericTableType");
             _connection.Open();
-            SqlTransaction transaction = null;
             try
             {
-                transaction = _connection.BeginTransaction();
-                using (var update = new SqlCommand(@"
-UPDATE projects.Quotations
-SET SupplierId = @SupplierId, SupplierReference = @SupplierReference, ModifiedAt = GETDATE()
-WHERE Id = @Id AND IsDeleted = 0", _connection, transaction))
-                {
-                    update.Parameters.AddInt("Id", quotationId);
-                    update.Parameters.AddInt("SupplierId", args.SupplierId);
-                    update.Parameters.Add(OptionalText("SupplierReference", NullIfBlank(args.SupplierReference), 100));
-                    if (await update.ExecuteNonQueryAsync() == 0)
-                    {
-                        transaction.Rollback();
-                        return false;
-                    }
-                }
-
-                using (var delete = new SqlCommand("DELETE FROM projects.QuotationItems WHERE QuotationId = @Id", _connection, transaction))
-                {
-                    delete.Parameters.AddInt("Id", quotationId);
-                    await delete.ExecuteNonQueryAsync();
-                }
-
-                foreach (var item in args.Items)
-                {
-                    await InsertItemAsync(quotationId, item, transaction);
-                }
-
-                transaction.Commit();
-                return true;
-            }
-            catch
-            {
-                transaction?.Rollback();
-                throw;
+                var updated = await command.ExecuteScalarAsync();
+                return updated != null && updated != DBNull.Value && Convert.ToInt32(updated) > 0;
             }
             finally
             {
-                transaction?.Dispose();
                 _connection.Close();
             }
         }
@@ -493,77 +458,30 @@ END", _connection);
             }
         }
 
-        private async Task<int> InsertQuotationAsync(CreateQuotationArgs args, SqlTransaction transaction)
+        private static DataTable ProjectIdTable(IReadOnlyList<int> projectIds)
         {
-            using var command = new SqlCommand(@"
-INSERT INTO projects.Quotations (SupplierId, Code, SupplierReference, DriveFileLink)
-OUTPUT INSERTED.Id
-VALUES (@SupplierId, @Code, @SupplierReference, @DriveFileLink)", _connection, transaction);
-            command.Parameters.AddInt("SupplierId", args.SupplierId);
-            command.Parameters.AddNVarChar("Code", "T" + Guid.NewGuid().ToString("N"), 50);
-            command.Parameters.Add(OptionalText("SupplierReference", NullIfBlank(args.SupplierReference), 100));
-            command.Parameters.Add(OptionalText("DriveFileLink", NullIfBlank(args.DriveFileLink), 1000));
-            var id = Convert.ToInt32(await command.ExecuteScalarAsync());
-
-            using var update = new SqlCommand(@"
-UPDATE projects.Quotations
-SET Code = @Code
-WHERE Id = @Id", _connection, transaction);
-            update.Parameters.AddInt("Id", id);
-            update.Parameters.AddNVarChar("Code", QuotationCode.Format(id), 50);
-            await update.ExecuteNonQueryAsync();
-            return id;
+            return (projectIds ?? Array.Empty<int>()).Where(id => id > 0).Distinct().ToArray().ToNumericDatatableArgs();
         }
 
-        private async Task InsertProjectLinkAsync(int quotationId, int projectId, SqlTransaction transaction)
+        private static DataTable ItemTable(IReadOnlyList<QuotationItemWrite> items)
         {
-            using var command = new SqlCommand(@"
-INSERT INTO projects.QuotationProjects (QuotationId, ProjectId)
-VALUES (@QuotationId, @ProjectId)", _connection, transaction);
-            command.Parameters.AddInt("QuotationId", quotationId);
-            command.Parameters.AddInt("ProjectId", projectId);
-            await command.ExecuteNonQueryAsync();
-        }
-
-        private async Task InsertItemAsync(int quotationId, QuotationItemWrite item, SqlTransaction transaction)
-        {
-            using var command = new SqlCommand(@"
-INSERT INTO projects.QuotationItems
-    (QuotationId, ActivityId, ActivityGroupId, IsAlternativePart, AlternativePartId, DsnNo, PartNo, PartDescription, UnitPrice, Quantity, TotalPrice, AwardedQuantity)
-VALUES
-    (@QuotationId, @ActivityId, @ActivityGroupId, @IsAlternativePart, @AlternativePartId, @DsnNo, @PartNo, @PartDescription, @UnitPrice, @Quantity, @TotalPrice, 0)", _connection, transaction);
-            command.Parameters.AddInt("QuotationId", quotationId);
-            command.Parameters.Add(new SqlParameter("@ActivityId", SqlDbType.Int) { Value = (object)item.ActivityId ?? DBNull.Value });
-            command.Parameters.Add(new SqlParameter("@ActivityGroupId", SqlDbType.Int) { Value = (object)item.ActivityGroupId ?? DBNull.Value });
-            command.Parameters.AddBit("IsAlternativePart", item.IsAlternativePart);
-            command.Parameters.Add(new SqlParameter("@AlternativePartId", SqlDbType.Int) { Value = (object)item.AlternativePartId ?? DBNull.Value });
-            command.Parameters.Add(OptionalText("DsnNo", TrimTo(item.DsnNo, 100), 100));
-            command.Parameters.Add(OptionalText("PartNo", TrimTo(item.PartNo, 100), 100));
-            command.Parameters.Add(OptionalText("PartDescription", TrimTo(item.PartDescription, 500), 500));
-            command.Parameters.Add(NullableDecimal("UnitPrice", item.UnitPrice));
-            command.Parameters.AddInt("Quantity", item.Quantity);
-            command.Parameters.Add(NullableDecimal("TotalPrice", item.TotalPrice));
-            await command.ExecuteNonQueryAsync();
-        }
-
-        private static SqlParameter NullableDecimal(string name, decimal? value)
-        {
-            return new SqlParameter("@" + name, SqlDbType.Decimal)
-            {
-                Precision = 18,
-                Scale = 4,
-                Value = (object)value ?? DBNull.Value,
-            };
-        }
-
-        private static SqlParameter DecimalParameter(string name, decimal value)
-        {
-            return new SqlParameter("@" + name, SqlDbType.Decimal)
-            {
-                Precision = 18,
-                Scale = 4,
-                Value = value,
-            };
+            var rows = (items ?? Array.Empty<QuotationItemWrite>())
+                .Where(item => item != null)
+                .Select(item => new DefaultGenericTableType
+                {
+                    NumericValue1 = item.ActivityId,
+                    NumericValue2 = item.ActivityGroupId,
+                    NumericValue3 = item.AlternativePartId,
+                    NumericValue4 = item.Quantity,
+                    BitValue1 = item.IsAlternativePart,
+                    TextValue1 = item.DsnNo,
+                    TextValue2 = item.PartNo,
+                    TextValue3 = item.PartDescription,
+                    DecimalValue1 = item.UnitPrice,
+                    DecimalValue2 = item.TotalPrice
+                })
+                .ToList();
+            return rows.ToGenericDatatableNullableArgs();
         }
 
         private static SqlParameter OptionalText(string name, string value, int size)
@@ -577,17 +495,6 @@ VALUES
         private static string NullIfBlank(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-        }
-
-        private static string TrimTo(string value, int length)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return null;
-            }
-
-            var trimmed = value.Trim();
-            return trimmed.Length <= length ? trimmed : trimmed.Substring(0, length);
         }
     }
 }
