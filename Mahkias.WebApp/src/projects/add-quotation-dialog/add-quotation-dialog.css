@@ -297,7 +297,10 @@ label.invalid input {
 .col-qty { width: 90px; }
 
 .filter-empty {
+  height: auto;
+  max-height: none;
   padding: 16px;
+  overflow: visible;
   color: #80868b;
   text-align: center;
 }
@@ -339,13 +342,17 @@ label.invalid input {
 .sheet th.description,
 .sheet td.description {
   min-width: 220px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .sheet th,
 .sheet td {
-  border: 1px solid #e0e0e0;
-  padding: 0;
   vertical-align: middle;
+}
+
+.sheet th {
+  border: 1px solid #e0e0e0;
 }
 
 .sheet th {
@@ -357,14 +364,7 @@ label.invalid input {
   font-size: 12px;
   font-weight: 500;
   text-align: left;
-  padding: 8px;
-}
-
-.sheet td input {
-  height: 36px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
+  padding: 10px 12px;
 }
 
 .sheet td.dsn input,

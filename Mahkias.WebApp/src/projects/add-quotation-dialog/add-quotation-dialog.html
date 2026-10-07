@@ -84,7 +84,7 @@
       <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="rowFilter" name="rowFilter" placeholder="Filter by DSN No or Part No" autocomplete="off" />
     </label>
     <div class="sheet-wrap">
-      <table class="sheet">
+      <table class="sheet app-grid-table">
         <colgroup>
           <col class="col-dsn" />
           <col class="col-part" />
@@ -106,12 +106,21 @@
         <tbody>
           @for (row of visibleRows; track row.key) {
             <tr>
-              <td class="dsn" [class.invalid]="invalid(row, 'dsn')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.dsnNo" (ngModelChange)="onDsn(row)" [name]="'dsn' + row.key" /></td>
-              <td class="part" [class.invalid]="invalid(row, 'part')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.partNo" (ngModelChange)="onPart(row)" [name]="'part' + row.key" /></td>
-              <td class="description"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.description" [name]="'desc' + row.key" /></td>
-              <td class="price" [class.invalid]="invalid(row, 'price')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.unitPrice" (ngModelChange)="onUnit(row)" [name]="'unit' + row.key" /></td>
-              <td class="qty" [class.invalid]="invalid(row, 'qty')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.quantity" (ngModelChange)="onQuantity(row)" (blur)="onQuantityBlur(row)" [name]="'qty' + row.key" /></td>
-              <td class="price" [class.invalid]="invalid(row, 'price')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.totalPrice" (ngModelChange)="onTotal(row)" [name]="'total' + row.key" /></td>
+              <td class="cell dsn" [class.invalid]="invalid(row, 'dsn')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.dsnNo" (ngModelChange)="onDsn(row)" [name]="'dsn' + row.key" /></td>
+              <td class="cell part" [class.invalid]="invalid(row, 'part')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.partNo" (ngModelChange)="onPart(row)" [name]="'part' + row.key" /></td>
+              <td class="cell description">
+                <textarea
+                  cdkTextareaAutosize
+                  cdkAutosizeMinRows="1"
+                  rows="1"
+                  [disabled]="isSaving"
+                  [(ngModel)]="row.description"
+                  [name]="'desc' + row.key"
+                ></textarea>
+              </td>
+              <td class="cell price" [class.invalid]="invalid(row, 'price')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.unitPrice" (ngModelChange)="onUnit(row)" [name]="'unit' + row.key" /></td>
+              <td class="cell qty" [class.invalid]="invalid(row, 'qty')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.quantity" (ngModelChange)="onQuantity(row)" (blur)="onQuantityBlur(row)" [name]="'qty' + row.key" /></td>
+              <td class="cell price" [class.invalid]="invalid(row, 'price')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.totalPrice" (ngModelChange)="onTotal(row)" [name]="'total' + row.key" /></td>
             </tr>
           } @empty {
             <tr>

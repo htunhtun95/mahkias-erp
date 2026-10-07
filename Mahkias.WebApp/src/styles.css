@@ -314,6 +314,85 @@ a.menu-text-left.active-menu .mat-icon {
   background: #fff;
 }
 
+.app-grid-table {
+  border-collapse: collapse;
+}
+
+.app-grid-table tbody td {
+  box-sizing: border-box;
+  height: 44px;
+  padding: 0;
+  border: 1px solid #e0e0e0;
+  vertical-align: middle;
+  background: #fff;
+  overflow: visible;
+}
+
+.app-grid-table tbody td:focus-within {
+  position: relative;
+  z-index: 1;
+  border: 2px solid #1a73e8;
+}
+
+.app-grid-table tbody td input,
+.app-grid-table tbody td select {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  color: #111827;
+  font: inherit;
+  font-size: 13px;
+  line-height: 26px;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.app-grid-table tbody td textarea {
+  display: block;
+  box-sizing: content-box;
+  width: calc(100% - 16px);
+  height: auto;
+  min-height: 26px;
+  max-height: none;
+  margin: 0;
+  padding: 9px 8px;
+  border: none;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  color: #111827;
+  font: inherit;
+  font-size: 13px;
+  line-height: 26px;
+  box-shadow: none;
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+textarea.cdk-textarea-autosize-measuring,
+textarea.cdk-textarea-autosize-measuring-firefox {
+  min-height: 0 !important;
+  max-height: none !important;
+}
+
+.app-grid-table tbody td input:focus,
+.app-grid-table tbody td textarea:focus,
+.app-grid-table tbody td select:focus {
+  outline: none;
+  border: none;
+  box-shadow: none;
+}
+
 @media (max-width: 900px) {
   .cdk-overlay-pane.app-dialog-pane,
   .cdk-overlay-pane.quotation-dialog-panel {
