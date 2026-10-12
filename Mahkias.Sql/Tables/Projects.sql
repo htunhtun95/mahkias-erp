@@ -9,5 +9,7 @@ CREATE TABLE [projects].[Projects]
     [IsDeleted] BIT CONSTRAINT [DF_Projects_IsDeleted] DEFAULT (0) NOT NULL,
     [DeletedAt] DATETIME2 NULL,
     [DeletedBy] NVARCHAR(100) NULL,
+    [GoogleDriveFolderId] NVARCHAR(128) NULL,
+    [ProcurementFolderId] NVARCHAR(128) NULL,
     CONSTRAINT [PK_Projects] PRIMARY KEY CLUSTERED ([Id] ASC)
 );

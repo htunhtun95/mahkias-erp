@@ -80,6 +80,7 @@
             <button
               class="icon-btn"
               type="button"
+              matTooltip="Edit project"
               aria-label="Edit project"
               [disabled]="isDeleting"
               (click)="openEditProject($event, project)"
@@ -90,6 +91,7 @@
             <button
               class="icon-btn delete"
               type="button"
+              matTooltip="Delete project"
               aria-label="Delete project"
               [disabled]="isDeleting"
               (click)="openDeleteProject($event, project)"

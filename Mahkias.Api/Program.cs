@@ -1,4 +1,6 @@
+using Mahkias.Api.Services;
 using Mahkias.Core.Data;
+using Mahkias.Core.Modules.Projects;
 using Mahkias.Core.Modules.Projects.Data.Args;
 using Mahkias.Data;
 using Mahkias.Data.Helpers;
@@ -37,6 +39,9 @@ builder.Services.AddScoped<IUow, Uow>((factory) =>
 {
     return new Uow(factory.GetRequiredService<IRepositoryProvider>(), builder.Configuration.GetConnectionString("DefaultConnection"));
 });
+
+builder.Services.AddSingleton<IGoogleDriveService, GoogleDriveService>();
+builder.Services.AddScoped<ProjectDriveFolders>();
 
 var app = builder.Build();
 

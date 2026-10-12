@@ -2,8 +2,8 @@
   <div class="import-overlay" role="status" aria-live="polite" aria-busy="true">
     <mat-progress-bar mode="indeterminate"></mat-progress-bar>
     <div class="import-overlay-body">
-      <mat-spinner diameter="28"></mat-spinner>
-      <p>Importing activities...</p>
+      <mat-spinner diameter="40"></mat-spinner>
+      <p>Importing...</p>
     </div>
   </div>
 }
@@ -140,9 +140,6 @@
       <button type="button" class="btn ghost" (click)="cancel()" [disabled]="isImporting || validating">Cancel</button>
       @if (validation === 'passed') {
         <button type="submit" class="btn primary" [disabled]="isImporting">
-          @if (isImporting) {
-            <mat-spinner diameter="18"></mat-spinner>
-          }
           {{ isImporting ? 'Importing...' : 'Start Import' }}
         </button>
       } @else {

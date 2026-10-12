@@ -1,3 +1,9 @@
+@if (isSaving) {
+  <div class="busy-overlay cover-pad" role="status" aria-live="polite" aria-busy="true">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p>Saving data...</p>
+  </div>
+}
 <h2>Edit activity</h2>
 <p>Tip: Use 'or' or '/' for alternative parts (e.g., P001/P002/P003).</p>
 
@@ -53,9 +59,6 @@
   <div class="actions">
     <button type="button" class="btn ghost" (click)="cancel()" [disabled]="isSaving">Cancel</button>
     <button type="submit" class="btn primary" [disabled]="isSaving">
-      @if (isSaving) {
-        <mat-spinner diameter="18"></mat-spinner>
-      }
       {{ isSaving ? 'Saving...' : 'Save Changes' }}
     </button>
   </div>

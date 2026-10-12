@@ -12,10 +12,10 @@
       <div class="header-copy">
         <div class="title-row">
           <h1>{{ project.name }}</h1>
-          <button class="icon-btn" type="button" (click)="openEditProject()" aria-label="Edit project" [disabled]="isDeleting">
+          <button class="icon-btn" type="button" matTooltip="Edit project" (click)="openEditProject()" aria-label="Edit project" [disabled]="isDeleting">
             <mat-icon>edit</mat-icon>
           </button>
-          <button class="delete-project" type="button" (click)="openDeleteProject()" [disabled]="isDeleting">
+          <button class="delete-project" type="button" matTooltip="Delete project" (click)="openDeleteProject()" [disabled]="isDeleting">
             @if (isDeleting) {
               <mat-spinner diameter="18"></mat-spinner>
               Deleting...
@@ -84,10 +84,6 @@
               />
             </label>
           }
-          <button class="action-outline" type="button" (click)="openNewGroup()" [disabled]="isDeleting">
-            <mat-icon>account_tree</mat-icon>
-            New Group
-          </button>
           <button class="action-outline" type="button" (click)="openImport()" [disabled]="isDeleting">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path fill="#107c41" d="M4 3h10l6 6v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />

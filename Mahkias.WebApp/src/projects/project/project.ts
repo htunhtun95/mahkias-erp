@@ -195,10 +195,6 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
     this.activitiesTab()?.openImport();
   }
 
-  openNewGroup() {
-    this.activitiesTab()?.openNewGroup();
-  }
-
   openAddActivity() {
     this.activitiesTab()?.openAddActivity();
   }

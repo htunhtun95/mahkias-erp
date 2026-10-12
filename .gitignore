@@ -70,6 +70,7 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Sensitive configuration and local secrets
+Mahkias.Api/credentials/
 appsettings.json
 appsettings.*.json
 secrets.json

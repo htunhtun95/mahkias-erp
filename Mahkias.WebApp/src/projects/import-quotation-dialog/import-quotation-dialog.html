@@ -1,11 +1,18 @@
 <form class="app-dialog-container quotation-dialog-container" (keydown.enter)="onFieldEnter($event)" (submit)="$event.preventDefault()">
+  @if (isImporting) {
+    <div class="busy-overlay" role="status" aria-live="polite" aria-busy="true">
+      <mat-spinner diameter="40"></mat-spinner>
+      <p>Importing...</p>
+    </div>
+  }
   <header class="app-dialog-header quotation-dialog-header">
     <div class="title-row">
       <h2>Import Quotation</h2>
-      <button class="icon-btn" type="button" aria-label="Close" [disabled]="busy" (click)="cancel()">
+      <button class="icon-btn" type="button" matTooltip="Close" aria-label="Close" [disabled]="busy" (click)="cancel()">
         <mat-icon>close</mat-icon>
       </button>
     </div>
+    @if (!isVerifyStep) {
     <div class="header-fields" [class.creating-supplier]="creatingSupplier">
       <label>
         <span>Quotation Reference</span>
@@ -21,7 +28,7 @@
             <span>Supplier Name</span>
             <span class="supplier-control">
               <input class="has-clear" [attr.disabled]="busy ? '' : null" [(ngModel)]="newSupplierName" name="newSupplierName" autocomplete="off" />
-              <button class="clear-supplier" type="button" aria-label="Clear supplier" [disabled]="busy" (mousedown)="$event.preventDefault()" (click)="clearSupplier()">
+              <button class="clear-supplier" type="button" matTooltip="Clear supplier" aria-label="Clear supplier" [disabled]="busy" (mousedown)="$event.preventDefault()" (click)="clearSupplier()">
                 <mat-icon>close</mat-icon>
               </button>
             </span>
@@ -48,7 +55,7 @@
             autocomplete="off"
           />
           @if (supplierQuery.trim()) {
-            <button class="clear-supplier" type="button" aria-label="Clear supplier" [disabled]="busy" (mousedown)="$event.preventDefault()" (click)="clearSupplier()">
+            <button class="clear-supplier" type="button" matTooltip="Clear supplier" aria-label="Clear supplier" [disabled]="busy" (mousedown)="$event.preventDefault()" (click)="clearSupplier()">
               <mat-icon>close</mat-icon>
             </button>
           }
@@ -76,83 +83,152 @@
         </label>
       }
     </div>
+    }
   </header>
 
   <div class="app-dialog-body quotation-dialog-body">
-    <label class="file">
-      <input type="file" accept=".xlsx,.xls,.csv" [attr.disabled]="busy ? '' : null" (change)="onFile($event)" />
-      <span>{{ fileName || 'Choose a spreadsheet' }}</span>
+    @if (!isVerifyStep) {
+    <label class="original-toggle">
+      <input type="checkbox" [disabled]="busy" [ngModel]="spreadsheetIsOriginal" (ngModelChange)="onOriginalChoice($event)" name="spreadsheetIsOriginal" />
+      <span>Imported spreadsheet is the original quotation file</span>
     </label>
+    <app-drive-upload-card
+      title="Quotation spreadsheet"
+      hint="Excel or CSV."
+      emptyLabel="Drag a spreadsheet here, or browse"
+      accept=".xlsx,.xls,.csv"
+      [disabled]="busy || reading"
+      [file]="file"
+      (fileChange)="onSpreadsheet($event)"
+    ></app-drive-upload-card>
+    @if (reading) {
+      <p class="reading" role="status" aria-live="polite">
+        <mat-spinner diameter="18"></mat-spinner>
+        <span>Reading spreadsheet...</span>
+      </p>
+    }
+    @if (!spreadsheetIsOriginal) {
+      <div class="original-file">
+        <span>Original Quotation File</span>
+        <input type="file" [accept]="documentAccept" [disabled]="busy" (change)="onOriginalFile($event)" aria-label="Original Quotation File" />
+        @if (originalFile) {
+          <span class="original-name">{{ originalFile.name }}</span>
+          <button class="original-clear" type="button" matTooltip="Remove file" aria-label="Remove original file" [disabled]="busy" (click)="clearOriginal()">
+            <mat-icon>close</mat-icon>
+          </button>
+        }
+      </div>
+    }
 
     @if (columns.length) {
-      <div class="map-grid">
-        @for (field of fields; track field.key) {
-          <div class="map-row" [class.invalid]="fieldInvalid(field.key)">
-            <span>{{ field.label }}</span>
-            <select [name]="field.key" [(ngModel)]="mapping[field.key]" (ngModelChange)="dirtyMapping()">
-              <option value="">Column</option>
-              @for (column of columns; track column.letter) {
-                <option [value]="column.letter">{{ column.letter }}{{ column.header ? ' · ' + column.header : '' }}</option>
-              }
-            </select>
-            <input [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping()" placeholder="Default" />
-          </div>
-        }
-      </div>
-      @if (requiredMissing) {
-        <p class="hint-error">Please select a Column Index or enter a Default Value for this required field.</p>
-      }
-      <p class="hint">DSN No and Part No are required. A row with no unit price and no total price is skipped.</p>
-    }
-
-    @if (checkState === 'passed' && choicesReady) {
-      <p class="verified">✓ Verified: Ready to Import</p>
-    }
-    @if (checkState === 'failed' && importErrors.length) {
-      <p class="hint-error">⚠ Validation Failed ({{ importErrors.length }} Errors Found)</p>
-      <ul class="errors">
-        @for (issue of importErrors; track $index) {
-          <li>Row {{ issue.row }}: [{{ issue.field }}] {{ issue.message }}</li>
-        }
-      </ul>
-    }
-    @if (lines.length) {
-      <div class="sheet-wrap">
-        <table class="sheet">
-          <colgroup>
-            <col class="col-dsn" />
-            <col class="col-part" />
-            <col class="col-qty" />
-            <col class="col-price" />
-            <col class="col-price" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th class="dsn">DSN No</th>
-              <th class="part">Part No</th>
-              <th class="qty">Quantity</th>
-              <th class="price">Unit Price</th>
-              <th class="price">Total Price</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (line of lines; track line.row) {
-              <tr>
-                <td class="dsn"><input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.dsnNo" (ngModelChange)="onDsn(line)" [name]="'dsn' + line.row" /></td>
-                <td class="part">
-                  <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.partNo" (ngModelChange)="onPart(line)" [name]="'part' + line.row" />
-                  @if (line.priceWarning) {
-                    <span class="map-badge warning" title="Unit × quantity does not match total">Price</span>
+        <div class="map-panel">
+          <div class="map-grid">
+            @for (field of fields; track field.key) {
+              <span class="map-label" [class.invalid]="fieldInvalid(field.key)">{{ field.label }}</span>
+              <select [class.invalid]="fieldInvalid(field.key)" [name]="field.key" [(ngModel)]="mapping[field.key]" (ngModelChange)="dirtyMapping()">
+                <option value="">Column</option>
+                @for (column of columns; track column.letter) {
+                  <option [value]="column.letter">{{ column.letter }}{{ column.header ? ' · ' + column.header : '' }}</option>
+                }
+              </select>
+              @if (field.key === 'currencyColumn') {
+                <select [disabled]="busy" [ngModel]="currencyId" (ngModelChange)="onDefaultImportCurrency($event)" name="defaultImportCurrency" aria-label="Default currency">
+                  @for (currency of currencies; track currency.id) {
+                    <option [ngValue]="currency.id">{{ currency.code }}</option>
                   }
-                </td>
-                <td class="qty"><input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.quantity" (ngModelChange)="onQuantity(line)" (blur)="onQuantityBlur(line)" [name]="'qty' + line.row" /></td>
-                <td class="price"><input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.unitPrice" (ngModelChange)="onUnit(line)" [name]="'unit' + line.row" /></td>
-                <td class="price"><input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.totalPrice" (ngModelChange)="onTotal(line)" [name]="'total' + line.row" /></td>
-              </tr>
+                </select>
+              } @else {
+                <input [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping()" placeholder="Default" />
+              }
             }
-          </tbody>
-        </table>
-      </div>
+          </div>
+          @if (requiredMissing) {
+            <p class="hint-error">Please select a Column Index or enter a Default Value for this required field.</p>
+          }
+          <p class="hint">DSN No and Part No are required. A row with no unit price and no total price is skipped.</p>
+          @if (checkState === 'failed' && importErrors.length) {
+            <p class="hint-error">⚠ Validation Failed ({{ importErrors.length }} Errors Found)</p>
+            <ul class="errors">
+              @for (issue of importErrors; track $index) {
+                <li>Row {{ issue.row }}: [{{ issue.field }}] {{ issue.message }}</li>
+              }
+            </ul>
+          }
+        </div>
+    }
+    } @else {
+        @if (checkState === 'passed' && choicesReady) {
+          <p class="verified">✓ Verified: Ready to Import</p>
+        }
+        <section class="preview">
+          <div class="preview-bar">
+            <label class="preview-search">
+              <mat-icon>search</mat-icon>
+              <input [attr.disabled]="busy ? '' : null" [(ngModel)]="previewQuery" name="previewQuery" placeholder="Search preview data..." autocomplete="off" />
+            </label>
+            <span class="preview-count">Showing {{ filteredLines.length }} of {{ lines.length }} rows</span>
+          </div>
+          <div class="sheet-wrap">
+          <table class="sheet">
+            <colgroup>
+              <col class="col-dsn" />
+              <col class="col-part" />
+              <col class="col-currency" />
+              <col class="col-qty" />
+              <col class="col-price" />
+              <col class="col-price" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th class="dsn">DSN No</th>
+                <th class="part">Part No</th>
+                <th>Currency</th>
+                <th class="qty">Quantity</th>
+                <th class="price">Unit Price</th>
+                <th class="price">Total Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (line of filteredLines; track line.row) {
+                <tr>
+                  <td class="dsn" [class.invalid]="lineInvalid(line, 'dsn')"><input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.dsnNo" (ngModelChange)="onDsn(line)" [name]="'dsn' + line.row" /></td>
+                  <td class="part" [class.invalid]="lineInvalid(line, 'part')">
+                    <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.partNo" (ngModelChange)="onPart(line)" [name]="'part' + line.row" />
+                    @if (line.priceWarning) {
+                      <span class="map-badge warning" title="Unit × quantity does not match total">Price</span>
+                    }
+                  </td>
+                  <td>
+                    <select [disabled]="busy" [(ngModel)]="line.currencyId" (ngModelChange)="onLineCurrency(line)" [name]="'currency' + line.row">
+                      @for (currency of currencies; track currency.id) {
+                        <option [ngValue]="currency.id">{{ currency.code }}</option>
+                      }
+                    </select>
+                  </td>
+                  <td class="qty" [class.invalid]="lineInvalid(line, 'qty')"><input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.quantity" (ngModelChange)="onQuantity(line)" (blur)="onQuantityBlur(line)" [name]="'qty' + line.row" /></td>
+                  <td class="price" [class.invalid]="lineInvalid(line, 'price')">
+                    <span class="price-field">
+                      <span class="price-mark">{{ currencyMark(line.currencyId) }}</span>
+                      <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.unitPrice" (ngModelChange)="onUnit(line)" [name]="'unit' + line.row" />
+                    </span>
+                  </td>
+                  <td class="price" [class.invalid]="lineInvalid(line, 'price')">
+                    <span class="price-field">
+                      <span class="price-mark">{{ currencyMark(line.currencyId) }}</span>
+                      <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.totalPrice" (ngModelChange)="onTotal(line)" [name]="'total' + line.row" />
+                    </span>
+                  </td>
+                </tr>
+              }
+              @if (!filteredLines.length) {
+                <tr>
+                  <td class="filter-empty" colspan="6">No preview rows match this search.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          </div>
+        </section>
     }
     @if (error) {
       <p class="hint-error">{{ error }}</p>
@@ -160,15 +236,14 @@
   </div>
 
   <footer class="app-dialog-actions quotation-dialog-footer">
+    @if (isVerifyStep) {
+      <button class="btn" type="button" [disabled]="isImporting" (click)="showMapping()">Back</button>
+    }
+    <span class="footer-spacer"></span>
     <button class="btn" type="button" [disabled]="busy" (click)="cancel()">Cancel</button>
-    @if (checkState === 'passed') {
-      <button class="btn primary" type="button" [disabled]="isImporting || !choicesReady" (click)="startImport()">
-        @if (isImporting) {
-          <mat-spinner diameter="18"></mat-spinner>
-          Importing...
-        } @else {
-          Start Import
-        }
+    @if (isVerifyStep) {
+      <button class="btn primary" type="button" [disabled]="isImporting || checkState !== 'passed'" (click)="startImport()">
+        {{ isImporting ? 'Importing...' : 'Start Import' }}
       </button>
     } @else {
       <button class="btn primary" type="button" [disabled]="!canCheck" (click)="checkData()">

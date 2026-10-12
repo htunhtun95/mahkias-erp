@@ -23,6 +23,8 @@ namespace Mahkias.Data
         public ISupplierRepository Suppliers { get { return GetAdoRepo<ISupplierRepository>(); } }
         public IQuotationRepository Quotations { get { return GetAdoRepo<IQuotationRepository>(); } }
         public IActivityGroupRepository ActivityGroups { get { return GetAdoRepo<IActivityGroupRepository>(); } }
+        public ICurrencyRepository Currencies { get { return GetAdoRepo<ICurrencyRepository>(); } }
+        public IProjectDocumentRepository ProjectDocuments { get { return GetAdoRepo<IProjectDocumentRepository>(); } }
 
         public void Dispose()
         {

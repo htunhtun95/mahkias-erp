@@ -29,6 +29,8 @@ namespace Mahkias.Api.Modules.Projects
         public List<int> ActivityIds { get; set; }
 
         public int? ActivityGroupId { get; set; }
+
+        public int? CurrencyId { get; set; }
     }
 
     public class CreateQuotationRequest
@@ -40,6 +42,8 @@ namespace Mahkias.Api.Modules.Projects
         public string DriveFileLink { get; set; }
 
         public List<int> ProjectIds { get; set; } = new List<int>();
+
+        public int? CurrencyId { get; set; }
 
         public List<QuotationItemRequest> Items { get; set; } = new List<QuotationItemRequest>();
 
@@ -62,6 +66,8 @@ namespace Mahkias.Api.Modules.Projects
 
         public string TotalPriceColumn { get; set; }
 
+        public string CurrencyColumn { get; set; }
+
         public string DefaultDsnNo { get; set; }
 
         public string DefaultPartNo { get; set; }
@@ -73,6 +79,8 @@ namespace Mahkias.Api.Modules.Projects
         public string DefaultQuantity { get; set; }
 
         public string DefaultTotalPrice { get; set; }
+
+        public int? CurrencyId { get; set; }
 
         public string SupplierReferenceColumn { get; set; }
 

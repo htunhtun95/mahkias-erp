@@ -114,6 +114,16 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
         public int ItemCount { get; set; }
 
         public decimal TotalPrice { get; set; }
+
+        public int CurrencyId { get; set; }
+
+        public string CurrencyCode { get; set; }
+
+        public string CurrencySymbol { get; set; }
+
+        public decimal ExchangeRate { get; set; }
+
+        public decimal BaseTotalAmount { get; set; }
     }
 
     public class QuotationLineResult
@@ -135,6 +145,18 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
         public int? ActivityId { get; set; }
 
         public string MappedActivity { get; set; }
+
+        public int? CurrencyId { get; set; }
+
+        public string CurrencyCode { get; set; }
+
+        public string CurrencySymbol { get; set; }
+
+        public decimal ExchangeRate { get; set; }
+
+        public decimal? BaseUnitPrice { get; set; }
+
+        public decimal? BaseTotalPrice { get; set; }
     }
 
     public class QuotationDetailResult : QuotationListItem
@@ -167,6 +189,14 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
         public decimal? UnitPrice { get; set; }
 
         public decimal? TotalPrice { get; set; }
+
+        public string CurrencyCode { get; set; }
+
+        public string CurrencySymbol { get; set; }
+
+        public decimal? BaseUnitPrice { get; set; }
+
+        public decimal? BaseTotalPrice { get; set; }
 
         public bool Lowest { get; set; }
 

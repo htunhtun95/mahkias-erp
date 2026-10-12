@@ -63,10 +63,10 @@
           <span><span class="count-chip">{{ supplier.quotationCount || 0 }}</span></span>
           <span class="col-date">{{ listDate(supplier) }}</span>
           <span class="col-actions row-actions">
-            <button class="icon-btn" type="button" aria-label="Edit supplier" [disabled]="isDeleting" (click)="openEdit($event, supplier)">
+            <button class="icon-btn" type="button" matTooltip="Edit supplier" aria-label="Edit supplier" [disabled]="isDeleting" (click)="openEdit($event, supplier)">
               <mat-icon>edit</mat-icon>
             </button>
-            <button class="icon-btn danger" type="button" aria-label="Delete supplier" [disabled]="isDeleting" (click)="openDelete($event, supplier)">
+            <button class="icon-btn danger" type="button" matTooltip="Delete supplier" aria-label="Delete supplier" [disabled]="isDeleting" (click)="openDelete($event, supplier)">
               @if (deletingId === supplier.id) {
                 <mat-spinner diameter="18"></mat-spinner>
               } @else {

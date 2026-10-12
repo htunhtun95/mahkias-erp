@@ -205,12 +205,47 @@ WHERE ProjectId = @ProjectId
                 });
                 result.Updated = await command.ExecuteNonQueryAsync();
                 result.Missing = result.Updated == 0;
+                if (result.Updated > 0)
+                {
+                    await DeleteEmptyGroupsAsync(projectId);
+                }
+
                 return result;
             }
             finally
             {
                 _connection.Close();
             }
+        }
+
+        private async Task DeleteEmptyGroupsAsync(int projectId)
+        {
+            using var command = new SqlCommand(@"
+DECLARE @Empty TABLE (Id INT PRIMARY KEY);
+
+INSERT INTO @Empty (Id)
+SELECT G.Id
+FROM projects.ActivityGroups AS G
+WHERE G.ProjectId = @ProjectId
+  AND NOT EXISTS (
+        SELECT 1
+        FROM projects.Activities AS A
+        WHERE A.ActivityGroupId = G.Id
+          AND A.IsDeleted = 0
+  );
+
+UPDATE projects.QuotationItems
+SET ActivityGroupId = NULL
+WHERE ActivityGroupId IN (SELECT Id FROM @Empty);
+
+UPDATE projects.Activities
+SET ActivityGroupId = NULL
+WHERE ActivityGroupId IN (SELECT Id FROM @Empty);
+
+DELETE FROM projects.ActivityGroups
+WHERE Id IN (SELECT Id FROM @Empty);", _connection);
+            command.Parameters.AddInt("ProjectId", projectId);
+            await command.ExecuteNonQueryAsync();
         }
 
         private async Task<ActivityGroupAssignResult> LockGroupTypeAsync(int projectId, int[] ids, int groupId)

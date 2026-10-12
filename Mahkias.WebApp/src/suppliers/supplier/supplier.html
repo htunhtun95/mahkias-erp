@@ -16,11 +16,11 @@
       </div>
     </div>
     <div class="header-actions">
-      <button class="action-outline" type="button" (click)="openEdit()" [disabled]="isDeleting">
+      <button class="action-outline" type="button" matTooltip="Edit supplier" (click)="openEdit()" [disabled]="isDeleting">
         <mat-icon>edit</mat-icon>
         Edit Supplier
       </button>
-      <button class="delete-supplier" type="button" (click)="openDelete()" [disabled]="isDeleting">
+      <button class="delete-supplier" type="button" matTooltip="Delete supplier" (click)="openDelete()" [disabled]="isDeleting">
         @if (isDeleting) {
           <mat-spinner diameter="18"></mat-spinner>
           Deleting...

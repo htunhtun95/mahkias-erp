@@ -28,6 +28,8 @@ namespace Mahkias.Core.Modules.Projects.Data.Args
         public int Quantity { get; set; }
 
         public decimal? TotalPrice { get; set; }
+
+        public int? CurrencyId { get; set; }
     }
 
     public class CreateQuotationArgs
@@ -37,6 +39,8 @@ namespace Mahkias.Core.Modules.Projects.Data.Args
         public string SupplierReference { get; set; }
 
         public string DriveFileLink { get; set; }
+
+        public int? CurrencyId { get; set; }
 
         public IReadOnlyList<int> ProjectIds { get; set; }
 

@@ -26,6 +26,8 @@ namespace Mahkias.Api.Helpers
         public bool UnitExplicit { get; set; }
 
         public bool TotalExplicit { get; set; }
+
+        public string CurrencyCode { get; set; }
     }
 
     public static class QuotationExcelPlanner
@@ -44,6 +46,7 @@ namespace Mahkias.Api.Helpers
                 var quantityText = Cell(source, form.QuantityColumn);
                 var unitText = Cell(source, form.UnitPriceColumn);
                 var totalText = Cell(source, form.TotalPriceColumn);
+                var currencyText = Cell(source, form.CurrencyColumn);
                 if (string.IsNullOrWhiteSpace(dsn)
                     && string.IsNullOrWhiteSpace(part)
                     && string.IsNullOrWhiteSpace(description)
@@ -152,6 +155,7 @@ namespace Mahkias.Api.Helpers
                     PriceWarning = priceWarning,
                     UnitExplicit = unitExplicit,
                     TotalExplicit = totalExplicit,
+                    CurrencyCode = currencyText,
                 });
             }
 

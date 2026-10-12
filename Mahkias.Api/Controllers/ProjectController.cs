@@ -1,5 +1,6 @@
 using Mahkias.Api.Helpers;
 using Mahkias.Api.Modules.Projects;
+using Mahkias.Api.Services;
 using Mahkias.Core.Data;
 using Mahkias.Core.Modules.Projects.Data.Args;
 using Mahkias.Data;
@@ -15,12 +16,14 @@ namespace Mahkias.Api.Controllers
         private readonly ILogger<ProjectController> _logger;
         private readonly MahkiasDbContext _context;
         private readonly IUow _uow;
+        private readonly ProjectDriveFolders _folders;
 
-        public ProjectController(ILogger<ProjectController> logger, MahkiasDbContext context, IUow uow)
+        public ProjectController(ILogger<ProjectController> logger, MahkiasDbContext context, IUow uow, ProjectDriveFolders folders)
         {
             _logger = logger;
             _context = context;
             _uow = uow;
+            _folders = folders;
         }
 
         [HttpGet("/api/projects")]
@@ -71,6 +74,15 @@ namespace Mahkias.Api.Controllers
             if (id < 0)
             {
                 return BadRequest(new { message = "Reference code already exists." });
+            }
+
+            try
+            {
+                await _folders.EnsureProjectFolderAsync(id);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Google Drive folder was not created for project {ProjectId}.", id);
             }
 
             return Ok(await ProjectResponseAsync(id));

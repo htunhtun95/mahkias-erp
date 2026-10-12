@@ -12,6 +12,26 @@ export interface Project {
   activities?: Activity[];
 }
 
+export interface ProjectDocument {
+  documentId: number;
+  projectId: number;
+  fileName: string;
+  fileType: string;
+  googleDriveFileId: string;
+  webViewLink: string;
+  uploadedAt?: string | null;
+}
+
+export interface QuotationDocument {
+  documentId: number;
+  quotationId: number;
+  fileName: string;
+  fileType: string;
+  googleDriveFileId: string;
+  webViewLink: string;
+  uploadedAt?: string | null;
+}
+
 export interface Activity {
   id: number;
   projectId: number;
@@ -118,6 +138,14 @@ export interface SupplierDetail extends Supplier {
   quotations: SupplierQuotation[];
 }
 
+export interface Currency {
+  id: number;
+  code: string;
+  name: string;
+  symbol: string;
+  isDefault: boolean;
+}
+
 export interface QuotationListItem {
   id: number;
   supplierId: number;
@@ -128,6 +156,11 @@ export interface QuotationListItem {
   modifiedAt?: string | null;
   itemCount: number;
   totalPrice: number;
+  currencyId?: number | null;
+  currencyCode?: string | null;
+  currencySymbol?: string | null;
+  exchangeRate?: number | null;
+  baseTotalAmount?: number | null;
 }
 
 export interface QuotationLine {
@@ -140,6 +173,12 @@ export interface QuotationLine {
   totalPrice?: number | null;
   activityId?: number | null;
   mappedActivity?: string | null;
+  currencyId?: number | null;
+  currencyCode?: string | null;
+  currencySymbol?: string | null;
+  exchangeRate?: number | null;
+  baseUnitPrice?: number | null;
+  baseTotalPrice?: number | null;
 }
 
 export interface QuotationDetail extends QuotationListItem {
@@ -159,6 +198,10 @@ export interface ActivityQuotationLink {
   alternativePart?: boolean;
   unitPrice?: number | null;
   totalPrice?: number | null;
+  currencyCode?: string | null;
+  currencySymbol?: string | null;
+  baseUnitPrice?: number | null;
+  baseTotalPrice?: number | null;
   lowest?: boolean;
   recordedAt?: string | null;
 }
@@ -172,6 +215,8 @@ export interface QuotationItemInput {
   totalPrice: number | null;
   activityId?: number | null;
   activityGroupId?: number | null;
+  currencyId?: number | null;
+  currencyExplicit?: boolean;
   row?: number;
   priceWarning?: boolean;
 }
@@ -205,6 +250,7 @@ export interface QuotationExcelMapping {
     unitPrice?: string;
     quantity?: string;
     totalPrice?: string;
+    currency?: string;
     supplierReference?: string;
   };
 }
@@ -237,7 +283,7 @@ export interface ActivityExcelUpload {
 
 @Injectable({ providedIn: 'root' })
 export class ProjectApiService {
-  private readonly baseUrl = `${environment.endPoints.systemApiEndPoint}api`;
+  private readonly baseUrl = `${environment.apiUrl}/api`;
 
   constructor(private http: HttpClient) {}
 
@@ -253,6 +299,36 @@ export class ProjectApiService {
     return this.http.get<Project>(`${this.baseUrl}/projects/${id}`, {
       params: { sortBy, sortDirection },
     });
+  }
+
+  projectDocuments(projectId: number) {
+    return this.http.get<ProjectDocument[]>(`${this.baseUrl}/projects/${projectId}/documents`);
+  }
+
+  uploadProjectDocument(projectId: number, file: File) {
+    const body = new FormData();
+    body.append('file', file, file.name);
+    return this.http.post<ProjectDocument>(`${this.baseUrl}/projects/${projectId}/documents`, body);
+  }
+
+  quotationDocuments(projectId: number, quotationId: number) {
+    return this.http.get<QuotationDocument[]>(`${this.baseUrl}/projects/${projectId}/quotations/${quotationId}/documents`);
+  }
+
+  uploadQuotationDocuments(projectId: number, quotationId: number, file: File) {
+    const body = new FormData();
+    body.append('files', file, file.name);
+    return this.http.post<QuotationDocument[]>(`${this.baseUrl}/projects/${projectId}/quotations/${quotationId}/documents`, body);
+  }
+
+  replaceQuotationDocument(projectId: number, quotationId: number, documentId: number, file: File) {
+    const body = new FormData();
+    body.append('file', file, file.name);
+    return this.http.put<QuotationDocument>(`${this.baseUrl}/projects/${projectId}/quotations/${quotationId}/documents/${documentId}`, body);
+  }
+
+  removeQuotationDocument(projectId: number, quotationId: number, documentId: number) {
+    return this.http.delete<void>(`${this.baseUrl}/projects/${projectId}/quotations/${quotationId}/documents/${documentId}`);
   }
 
   create(body: CreateProjectRequest) {
@@ -393,6 +469,10 @@ export class ProjectApiService {
     return this.http.get<QuotationListItem[]>(`${this.baseUrl}/projects/${projectId}/quotations`);
   }
 
+  currencies() {
+    return this.http.get<Currency[]>(`${this.baseUrl}/currencies`);
+  }
+
   quotation(id: number) {
     return this.http.get<QuotationDetail>(`${this.baseUrl}/quotations/${id}`);
   }
@@ -405,6 +485,7 @@ export class ProjectApiService {
     supplierId: number;
     supplierReference: string;
     projectIds: number[];
+    currencyId?: number | null;
     items: QuotationItemInput[];
   }) {
     return this.http.put<QuotationDetail>(`${this.baseUrl}/quotations/${id}`, body);
@@ -422,6 +503,7 @@ export class ProjectApiService {
     supplierId: number;
     supplierReference: string;
     projectIds: number[];
+    currencyId?: number | null;
     items: QuotationItemInput[];
     duplicateHandling?: 'merge' | 'choose' | 'separate';
   }) {
@@ -453,6 +535,8 @@ export class ProjectApiService {
       defaultUnitPrice: string;
       defaultQuantity: string;
       defaultTotalPrice: string;
+      currencyColumn?: string;
+      currencyId?: number | null;
       duplicateHandling?: string;
     },
   ) {
@@ -464,12 +548,16 @@ export class ProjectApiService {
     body.append('unitPriceColumn', mapping.unitPriceColumn ?? '');
     body.append('quantityColumn', mapping.quantityColumn ?? '');
     body.append('totalPriceColumn', mapping.totalPriceColumn ?? '');
+    body.append('currencyColumn', mapping.currencyColumn ?? '');
     body.append('defaultDsnNo', mapping.defaultDsnNo ?? '');
     body.append('defaultPartNo', mapping.defaultPartNo ?? '');
     body.append('defaultDescription', mapping.defaultDescription ?? '');
     body.append('defaultUnitPrice', mapping.defaultUnitPrice ?? '');
     body.append('defaultQuantity', mapping.defaultQuantity ?? '');
     body.append('defaultTotalPrice', mapping.defaultTotalPrice ?? '');
+    if (mapping.currencyId) {
+      body.append('currencyId', String(mapping.currencyId));
+    }
     body.append('duplicateHandling', mapping.duplicateHandling ?? 'choose');
     return this.http.post<QuotationImportValidation>(
       `${this.baseUrl}/projects/${projectId}/quotations/excel/validate`,

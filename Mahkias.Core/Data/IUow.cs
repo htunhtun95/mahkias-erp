@@ -9,5 +9,7 @@ namespace Mahkias.Core.Data
         ISupplierRepository Suppliers { get; }
         IQuotationRepository Quotations { get; }
         IActivityGroupRepository ActivityGroups { get; }
+        ICurrencyRepository Currencies { get; }
+        IProjectDocumentRepository ProjectDocuments { get; }
     }
 }

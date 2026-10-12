@@ -104,6 +104,7 @@ ORDER BY AP.ActivityId, AP.SortOrder, AP.Id;";
             command.Parameters.AddInt("SupplierId", args.SupplierId);
             command.Parameters.Add(OptionalText("SupplierReference", NullIfBlank(args.SupplierReference), 100));
             command.Parameters.Add(OptionalText("DriveFileLink", NullIfBlank(args.DriveFileLink), 1000));
+            command.Parameters.AddNullableInt("CurrencyId", args.CurrencyId);
             command.Parameters.AddTable("ProjectIds", ProjectIdTable(args.ProjectIds), "dbo.NumberTableType");
             command.Parameters.AddTable("Items", ItemTable(args.Items), "dbo.DefaultGenericTableType");
             _connection.Open();
@@ -123,15 +124,18 @@ ORDER BY AP.ActivityId, AP.SortOrder, AP.Id;";
             var items = new List<QuotationListItem>();
             using var command = new SqlCommand(@"
 SELECT Q.Id, Q.SupplierId, S.Name AS SupplierName, Q.Code, Q.SupplierReference, Q.CreatedAt, Q.ModifiedAt,
-       COUNT(I.Id) AS ItemCount, ISNULL(SUM(I.TotalPrice), 0) AS TotalPrice
+       Q.CurrencyId, C.Code AS CurrencyCode, C.Symbol AS CurrencySymbol, Q.ExchangeRate, Q.BaseTotalAmount,
+       COUNT(I.Id) AS ItemCount, Q.BaseTotalAmount AS TotalPrice
 FROM projects.Quotations Q
 INNER JOIN projects.QuotationProjects QP ON QP.QuotationId = Q.Id
 INNER JOIN projects.Suppliers S ON S.Id = Q.SupplierId
+INNER JOIN dbo.Currencies C ON C.Id = Q.CurrencyId
 LEFT JOIN projects.QuotationItems I ON I.QuotationId = Q.Id
 WHERE QP.ProjectId = @ProjectId
   AND Q.IsDeleted = 0
   AND S.IsDeleted = 0
-GROUP BY Q.Id, Q.SupplierId, S.Name, Q.Code, Q.SupplierReference, Q.CreatedAt, Q.ModifiedAt
+GROUP BY Q.Id, Q.SupplierId, S.Name, Q.Code, Q.SupplierReference, Q.CreatedAt, Q.ModifiedAt,
+         Q.CurrencyId, C.Code, C.Symbol, Q.ExchangeRate, Q.BaseTotalAmount
 ORDER BY Q.CreatedAt DESC, Q.Id DESC");
             command.Parameters.AddInt("ProjectId", projectId);
             command.Connection = _connection;
@@ -152,6 +156,11 @@ ORDER BY Q.CreatedAt DESC, Q.Id DESC");
                         ModifiedAt = reader.ReadNullableDateTimeValue("ModifiedAt"),
                         ItemCount = reader.ReadIntValue("ItemCount"),
                         TotalPrice = reader.GetDecimal(reader.GetOrdinal("TotalPrice")),
+                        CurrencyId = reader.ReadIntValue("CurrencyId"),
+                        CurrencyCode = reader.ReadStringValue("CurrencyCode"),
+                        CurrencySymbol = reader.ReadStringValue("CurrencySymbol"),
+                        ExchangeRate = reader.GetDecimal(reader.GetOrdinal("ExchangeRate")),
+                        BaseTotalAmount = reader.GetDecimal(reader.GetOrdinal("BaseTotalAmount")),
                     });
                 }
             }
@@ -167,16 +176,20 @@ ORDER BY Q.CreatedAt DESC, Q.Id DESC");
         {
             QuotationDetailResult detail = null;
             using var command = new SqlCommand(@"
-SELECT Q.Id, Q.SupplierId, S.Name AS SupplierName, Q.Code, Q.SupplierReference, Q.CreatedAt, Q.ModifiedAt
+SELECT Q.Id, Q.SupplierId, S.Name AS SupplierName, Q.Code, Q.SupplierReference, Q.CreatedAt, Q.ModifiedAt,
+       Q.CurrencyId, C.Code AS CurrencyCode, C.Symbol AS CurrencySymbol, Q.ExchangeRate, Q.BaseTotalAmount
 FROM projects.Quotations Q
 INNER JOIN projects.Suppliers S ON S.Id = Q.SupplierId
+INNER JOIN dbo.Currencies C ON C.Id = Q.CurrencyId
 WHERE Q.Id = @Id
   AND Q.IsDeleted = 0;
 
 SELECT I.Id, COALESCE(NULLIF(LTRIM(RTRIM(I.DsnNo)), N''), A.DSNNo) AS DsnNo, I.PartNo, I.PartDescription,
-       I.UnitPrice, I.Quantity, I.TotalPrice, I.ActivityId, A.DSNNo AS ActivityDsn, A.PartNo AS ActivityPart
+       I.UnitPrice, I.Quantity, I.TotalPrice, I.CurrencyId, C.Code AS CurrencyCode, C.Symbol AS CurrencySymbol,
+       I.ExchangeRate, I.BaseUnitPrice, I.BaseTotalPrice, I.ActivityId, A.DSNNo AS ActivityDsn, A.PartNo AS ActivityPart
 FROM projects.QuotationItems I
 LEFT JOIN projects.Activities A ON A.Id = I.ActivityId
+LEFT JOIN dbo.Currencies C ON C.Id = I.CurrencyId
 WHERE I.QuotationId = @Id
 ORDER BY I.Id;", _connection);
             command.Parameters.AddInt("Id", quotationId);
@@ -195,6 +208,11 @@ ORDER BY I.Id;", _connection);
                         SupplierReference = reader.ReadStringValue("SupplierReference"),
                         CreatedAt = reader.ReadDateTimeValue("CreatedAt"),
                         ModifiedAt = reader.ReadNullableDateTimeValue("ModifiedAt"),
+                        CurrencyId = reader.ReadIntValue("CurrencyId"),
+                        CurrencyCode = reader.ReadStringValue("CurrencyCode"),
+                        CurrencySymbol = reader.ReadStringValue("CurrencySymbol"),
+                        ExchangeRate = reader.GetDecimal(reader.GetOrdinal("ExchangeRate")),
+                        BaseTotalAmount = reader.GetDecimal(reader.GetOrdinal("BaseTotalAmount")),
                     };
                 }
 
@@ -216,11 +234,17 @@ ORDER BY I.Id;", _connection);
                             TotalPrice = reader.ReadNullableDecimalValue("TotalPrice"),
                             ActivityId = reader.ReadNullableIntValue("ActivityId"),
                             MappedActivity = string.IsNullOrWhiteSpace(mapped) ? null : mapped,
+                            CurrencyId = reader.ReadNullableIntValue("CurrencyId"),
+                            CurrencyCode = reader.ReadStringValue("CurrencyCode"),
+                            CurrencySymbol = reader.ReadStringValue("CurrencySymbol"),
+                            ExchangeRate = reader.GetDecimal(reader.GetOrdinal("ExchangeRate")),
+                            BaseUnitPrice = reader.ReadNullableDecimalValue("BaseUnitPrice"),
+                            BaseTotalPrice = reader.ReadNullableDecimalValue("BaseTotalPrice"),
                         });
                     }
 
                     detail.ItemCount = detail.Items.Count;
-                    detail.TotalPrice = detail.Items.Sum(item => item.TotalPrice ?? 0);
+                    detail.TotalPrice = detail.Items.Sum(item => item.BaseTotalPrice ?? item.TotalPrice ?? 0);
                 }
             }
             finally
@@ -238,7 +262,13 @@ ORDER BY I.Id;", _connection);
 WITH Matched AS (
     SELECT A.Id AS ActivityId, Q.Id AS QuotationId, I.Id AS ItemId, Q.Code AS QuotationRef, S.Name AS SupplierName,
            Q.SupplierReference AS SupplierQuotationRef, I.PartNo, I.PartDescription AS Description,
-           I.Quantity, I.UnitPrice, I.TotalPrice,
+           I.Quantity,
+           I.UnitPrice,
+           I.TotalPrice,
+           COALESCE(I.BaseUnitPrice, I.UnitPrice) AS BaseUnitPrice,
+           COALESCE(I.BaseTotalPrice, I.TotalPrice) AS BaseTotalPrice,
+           C.Code AS CurrencyCode,
+           C.Symbol AS CurrencySymbol,
            RecordedAt = (SELECT MAX(v) FROM (VALUES (I.CreatedAt), (I.ModifiedAt), (Q.CreatedAt), (Q.ModifiedAt)) AS Stamp(v)),
            CASE WHEN EXISTS (
                 SELECT 1
@@ -252,6 +282,7 @@ WITH Matched AS (
     INNER JOIN projects.Quotations Q ON Q.Id = QP.QuotationId
     INNER JOIN projects.Suppliers S ON S.Id = Q.SupplierId
     INNER JOIN projects.QuotationItems I ON I.QuotationId = Q.Id
+    LEFT JOIN dbo.Currencies C ON C.Id = I.CurrencyId
     WHERE A.ProjectId = @ProjectId
       AND A.IsDeleted = 0
       AND Q.IsDeleted = 0
@@ -304,10 +335,11 @@ WITH Matched AS (
 ),
 Ranked AS (
     SELECT *,
-           ROW_NUMBER() OVER (PARTITION BY ActivityId ORDER BY UnitPrice ASC, QuotationId ASC, ItemId ASC) AS QuoteRank
+           ROW_NUMBER() OVER (PARTITION BY ActivityId ORDER BY BaseUnitPrice ASC, QuotationId ASC, ItemId ASC) AS QuoteRank
     FROM Matched
 )
-SELECT ActivityId, ItemId, QuotationId, QuotationRef, SupplierName, SupplierQuotationRef, PartNo, Description, Quantity, AlternativePart, UnitPrice, TotalPrice, RecordedAt,
+SELECT ActivityId, ItemId, QuotationId, QuotationRef, SupplierName, SupplierQuotationRef, PartNo, Description, Quantity, AlternativePart,
+       UnitPrice, TotalPrice, CurrencyCode, CurrencySymbol, BaseUnitPrice, BaseTotalPrice, RecordedAt,
        CASE WHEN QuoteRank = 1 THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS Lowest
 FROM Ranked
 ORDER BY ActivityId, QuoteRank, QuotationId", _connection);
@@ -332,6 +364,10 @@ ORDER BY ActivityId, QuoteRank, QuotationId", _connection);
                         AlternativePart = reader.ReadBooleanValue("AlternativePart"),
                         UnitPrice = reader.ReadNullableDecimalValue("UnitPrice"),
                         TotalPrice = reader.ReadNullableDecimalValue("TotalPrice"),
+                        CurrencyCode = reader.ReadStringValue("CurrencyCode"),
+                        CurrencySymbol = reader.ReadStringValue("CurrencySymbol"),
+                        BaseUnitPrice = reader.ReadNullableDecimalValue("BaseUnitPrice"),
+                        BaseTotalPrice = reader.ReadNullableDecimalValue("BaseTotalPrice"),
                         Lowest = reader.ReadBooleanValue("Lowest"),
                         RecordedAt = reader.ReadDateTimeValue("RecordedAt"),
                     });
@@ -359,6 +395,7 @@ ORDER BY ActivityId, QuoteRank, QuotationId", _connection);
             command.Parameters.AddInt("Id", quotationId);
             command.Parameters.AddInt("SupplierId", args.SupplierId);
             command.Parameters.Add(OptionalText("SupplierReference", NullIfBlank(args.SupplierReference), 100));
+            command.Parameters.AddNullableInt("CurrencyId", args.CurrencyId);
             command.Parameters.AddTable("Items", ItemTable(args.Items), "dbo.DefaultGenericTableType");
             _connection.Open();
             try
@@ -477,6 +514,7 @@ END", _connection);
                     TextValue1 = item.DsnNo,
                     TextValue2 = item.PartNo,
                     TextValue3 = item.PartDescription,
+                    NumericValue5 = item.CurrencyId,
                     DecimalValue1 = item.UnitPrice,
                     DecimalValue2 = item.TotalPrice
                 })

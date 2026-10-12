@@ -1,4 +1,10 @@
 <div class="dialog-shell" [class.is-saving]="isSaving">
+  @if (isSaving) {
+    <div class="busy-overlay" role="status" aria-live="polite" aria-busy="true">
+      <mat-spinner diameter="40"></mat-spinner>
+      <p>Saving data...</p>
+    </div>
+  }
   <header class="dialog-header">
     <h2>Add activities</h2>
     <p>Empty rows are ignored. If you fill any field, DSN no, part number, and type are required. Tip: Use 'or' or '/' for alternative parts (e.g., P001/P002/P003).</p>
@@ -76,7 +82,7 @@
                 ></textarea>
               </td>
               <td class="action-cell">
-                <button type="button" class="icon" (click)="removeRow($index)" aria-label="Remove row">
+                <button type="button" class="icon" matTooltip="Remove row" (click)="removeRow($index)" aria-label="Remove row">
                   <mat-icon>delete</mat-icon>
                 </button>
               </td>
@@ -99,9 +105,6 @@
         <div class="actions">
           <button type="button" class="btn ghost" (click)="cancel()" [disabled]="isSaving">Cancel</button>
           <button type="submit" class="btn primary" [disabled]="isSaving">
-            @if (isSaving) {
-              <mat-spinner diameter="18"></mat-spinner>
-            }
             {{ isSaving ? 'Saving...' : 'Save' }}
           </button>
         </div>

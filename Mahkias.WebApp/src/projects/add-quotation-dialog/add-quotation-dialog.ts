@@ -5,13 +5,16 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { Observable, of, switchMap, tap } from 'rxjs';
 import { MaterialModule } from '../../app/material-module';
+import { DriveUploadCardComponent } from '../drive-upload-card/drive-upload-card';
 import { blockEnterSubmit } from '../../core/block-enter-submit';
 import { whileBusy } from '../../core/while-busy';
 import {
   Activity,
   ActivityImportIssue,
+  Currency,
   ProjectApiService,
   QuotationDetail,
+  QuotationDocument,
   QuotationItemInput,
   QuotationLine,
   Supplier,
@@ -27,6 +30,8 @@ interface QuoteRow {
   unitPrice: string;
   quantity: string;
   totalPrice: string;
+  currencyId: number | null;
+  currencyExplicit: boolean;
   unitExplicit: boolean;
   totalExplicit: boolean;
 }
@@ -34,7 +39,7 @@ interface QuoteRow {
 @Component({
   selector: 'app-create-quotation-dialog',
   standalone: true,
-  imports: [FormsModule, MaterialModule, TextFieldModule],
+  imports: [FormsModule, MaterialModule, TextFieldModule, DriveUploadCardComponent],
   templateUrl: './add-quotation-dialog.html',
   styleUrl: './add-quotation-dialog.css',
 })
@@ -45,8 +50,14 @@ export class CreateQuotationDialogComponent {
   private dialogRef = inject(MatDialogRef<CreateQuotationDialogComponent>);
   data = inject<{ projectId: number; activities: Activity[]; quotation?: QuotationDetail }>(MAT_DIALOG_DATA);
   quotationId = this.data.quotation?.id ?? null;
+  pendingFile: File | null = null;
+  storedCleared = false;
+  savedDocuments: QuotationDocument[] = [];
+  readonly documentAccept = '.pdf,.doc,.docx,.xls,.xlsx,.xlsm,.csv,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tif,.tiff';
   quotationCode = this.data.quotation?.code ?? '';
   rowFilter = '';
+  currencies: Currency[] = [];
+  currencyId: number | null = this.data.quotation?.currencyId ?? null;
 
   supplierQuotationRef = this.data.quotation?.supplierReference ?? '';
   supplierQuery = this.data.quotation?.supplierName ?? '';
@@ -67,6 +78,21 @@ export class CreateQuotationDialogComponent {
         this.suppliers = suppliers;
       },
     });
+    this.api.currencies().subscribe({
+      next: (currencies) => {
+        this.currencies = currencies;
+        const base = currencies.find((currency) => currency.isDefault) ?? currencies.find((currency) => currency.code === 'USD');
+        this.currencyId = base?.id ?? this.currencyId;
+        for (const row of this.rows) {
+          if (row.currencyId == null) {
+            row.currencyId = this.currencyId;
+          }
+        }
+      },
+    });
+    if (this.quotationId) {
+      this.loadSavedDocuments();
+    }
   }
 
   get activities(): Activity[] {
@@ -209,6 +235,15 @@ export class CreateQuotationDialogComponent {
     return !!row.totalPrice.trim() && this.money(row.totalPrice) == null;
   }
 
+  onRowCurrency(row: QuoteRow) {
+    row.currencyExplicit = true;
+  }
+
+  currencyMark(currencyId: number | null): string {
+    const currency = this.currencies.find((item) => item.id === currencyId);
+    return currency?.symbol || currency?.code || '$';
+  }
+
   cancel() {
     if (!this.isSaving) {
       this.dialogRef.close(false);
@@ -249,9 +284,14 @@ export class CreateQuotationDialogComponent {
       totalPrice: this.money(row.totalPrice),
       activityId: row.activityId,
       activityGroupId: null,
+      currencyId: row.currencyId ?? this.currencyId,
     }));
 
     this.dialogRef.disableClose = true;
+    let quotationSaved = false;
+    const editing = !!this.quotationId;
+    const currentFile = this.currentDocument;
+    const clearStored = this.storedCleared;
     this.withSupplier()
       .pipe(
         switchMap(() => {
@@ -259,11 +299,33 @@ export class CreateQuotationDialogComponent {
             supplierId: this.supplierId!,
             supplierReference: this.supplierQuotationRef.trim(),
             projectIds: [this.data.projectId],
+            currencyId: this.currencyId,
             items,
           };
           return this.quotationId
             ? this.api.updateQuotation(this.quotationId, body)
             : this.api.createQuotation(body);
+        }),
+        switchMap((saved) => {
+          quotationSaved = true;
+          const id = saved?.id ?? this.quotationId;
+          if (id) {
+            this.quotationId = id;
+          }
+          const file = this.pendingFile;
+          if (!id) {
+            return of(saved);
+          }
+          if (file && editing && currentFile) {
+            return this.api.replaceQuotationDocument(this.data.projectId, id, currentFile.documentId, file);
+          }
+          if (file) {
+            return this.api.uploadQuotationDocuments(this.data.projectId, id, file);
+          }
+          if (editing && clearStored && currentFile) {
+            return this.api.removeQuotationDocument(this.data.projectId, id, currentFile.documentId);
+          }
+          return of(saved);
         }),
         whileBusy((busy) => (this.isSaving = busy)),
       )
@@ -272,6 +334,12 @@ export class CreateQuotationDialogComponent {
           this.dialogRef.close(true);
         },
         error: (error: HttpErrorResponse) => {
+          if (quotationSaved) {
+            this.loadSavedDocuments();
+            const fileAction = this.pendingFile ? 'uploaded' : 'removed';
+            this.error = this.driveError(error) || `The quotation was saved, but the file could not be ${fileAction}.`;
+            return;
+          }
           if (this.creatingSupplier) {
             this.error = error.error?.message || 'The supplier could not be created.';
             return;
@@ -282,6 +350,42 @@ export class CreateQuotationDialogComponent {
             : error.error?.message || 'The quotation could not be saved.';
         },
       });
+  }
+
+  private loadSavedDocuments() {
+    if (!this.quotationId) {
+      return;
+    }
+    this.api.quotationDocuments(this.data.projectId, this.quotationId).subscribe({
+      next: (documents) => {
+        this.savedDocuments = documents ?? [];
+      },
+    });
+  }
+
+  get currentDocument(): QuotationDocument | null {
+    return this.savedDocuments[0] ?? null;
+  }
+
+  get visibleStored(): QuotationDocument[] {
+    if (this.pendingFile || this.storedCleared || !this.currentDocument) {
+      return [];
+    }
+    return [this.currentDocument];
+  }
+
+  onAttachment(file: File | null) {
+    this.pendingFile = file;
+  }
+
+  clearStoredAttachment() {
+    this.storedCleared = true;
+    this.pendingFile = null;
+  }
+
+  private driveError(error: HttpErrorResponse): string {
+    const body = error.error;
+    return typeof body === 'string' ? body : body?.message || '';
   }
 
   private supplierReady(): boolean {
@@ -370,6 +474,8 @@ export class CreateQuotationDialogComponent {
       quantity: item ? String(item.quantity || 1) : this.activityQuantity(activity),
       unitPrice: item?.unitPrice == null ? '' : String(item.unitPrice),
       totalPrice: item?.totalPrice == null ? '' : String(item.totalPrice),
+      currencyId: item?.currencyId ?? null,
+      currencyExplicit: item?.currencyId != null,
     });
     return row;
   }
@@ -384,6 +490,8 @@ export class CreateQuotationDialogComponent {
       quantity: String(item.quantity || 1),
       unitPrice: item.unitPrice == null ? '' : String(item.unitPrice),
       totalPrice: item.totalPrice == null ? '' : String(item.totalPrice),
+      currencyId: item.currencyId ?? null,
+      currencyExplicit: item.currencyId != null,
     });
   }
 

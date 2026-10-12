@@ -138,6 +138,7 @@ namespace Mahkias.Api.Controllers
                     unitPrice = Suggest(sheet.Columns, "unitprice", "price", "unitcost"),
                     quantity = Suggest(sheet.Columns, "quantity", "qty"),
                     totalPrice = Suggest(sheet.Columns, "totalprice", "total", "linetotal"),
+                    currency = Suggest(sheet.Columns, "currency", "currencycode", "ccy"),
                     supplierReference = Suggest(sheet.Columns, "supplierquotationref", "supplierquoteref", "supplierreference", "quotationref", "quotationreference", "quoteref"),
                 }
             });
@@ -180,6 +181,7 @@ namespace Mahkias.Api.Controllers
 
             var plan = QuotationExcelPlanner.Plan(sheet, form);
             var activities = await _uow.Quotations.GetActivitiesForMappingAsync(new[] { projectId });
+            var currencies = await _uow.Currencies.ListActiveAsync();
             var errors = plan.Errors.ToList();
             var items = new List<object>();
             var choices = new List<object>();
@@ -199,6 +201,8 @@ namespace Mahkias.Api.Controllers
                         unitPrice = unit,
                         quantity,
                         totalPrice = total,
+                        currencyId = ResolveImportedCurrency(row.CurrencyCode, form.CurrencyId, currencies),
+                        currencyExplicit = IsKnownCurrency(row.CurrencyCode, currencies),
                         priceWarning = row.PriceWarning,
                         unitExplicit = row.UnitExplicit,
                         totalExplicit = row.TotalExplicit,
@@ -256,6 +260,8 @@ namespace Mahkias.Api.Controllers
 
             var activities = await _uow.Quotations.GetActivitiesForMappingAsync(projectIds);
             var groups = await GroupsForAsync(projectIds);
+            var currencies = await _uow.Currencies.ListActiveAsync();
+            var headerCurrencyId = ResolveCurrencyId(request.CurrencyId, null, currencies);
             var handling = QuotationItemMapper.NormalizeHandling(request.DuplicateHandling);
             var errors = new List<ActivityImportIssue>();
             var writes = new List<QuotationItemWrite>();
@@ -289,7 +295,7 @@ namespace Mahkias.Api.Controllers
                     continue;
                 }
 
-                var mapError = AppendWrites(writes, entry.item, activities, groups, quantity, unit, total);
+                var mapError = AppendWrites(writes, entry.item, activities, groups, quantity, unit, total, ResolveCurrencyId(entry.item.CurrencyId, headerCurrencyId, currencies));
                 if (mapError != null)
                 {
                     errors.Add(new ActivityImportIssue { Row = entry.row, Field = "Part No", Message = mapError });
@@ -310,11 +316,14 @@ namespace Mahkias.Api.Controllers
                 }), null);
             }
 
+            int? currencyId = headerCurrencyId;
+
             return (null, new CreateQuotationArgs
             {
                 SupplierId = request.SupplierId,
                 SupplierReference = TrimTo(request.SupplierReference, 100),
                 DriveFileLink = request.DriveFileLink?.Trim(),
+                CurrencyId = currencyId,
                 ProjectIds = projectIds,
                 Items = writes,
             });
@@ -346,7 +355,8 @@ namespace Mahkias.Api.Controllers
             IReadOnlyList<QuotationMapGroup> groups,
             int quantity,
             decimal? unit,
-            decimal? total)
+            decimal? total,
+            int? currencyId)
         {
             QuotationMapActivity match = null;
             if (item.ActivityId.HasValue)
@@ -364,12 +374,12 @@ namespace Mahkias.Api.Controllers
 
             if (match == null)
             {
-                writes.Add(WriteItem(item, null, null, false, null, item.DsnNo, quantity, unit, total));
+                writes.Add(WriteItem(item, null, null, false, null, item.DsnNo, quantity, unit, total, currencyId));
                 return null;
             }
 
             var slice = QuotationAllocator.Allocate(quantity, new[] { match }, item.PartNo)[0];
-            writes.Add(WriteItem(item, slice.ActivityId, null, slice.IsAlternativePart, slice.AlternativePartId, item.DsnNo, quantity, unit, total));
+            writes.Add(WriteItem(item, slice.ActivityId, null, slice.IsAlternativePart, slice.AlternativePartId, item.DsnNo, quantity, unit, total, currencyId));
             return null;
         }
 
@@ -382,7 +392,8 @@ namespace Mahkias.Api.Controllers
             string dsnNo,
             int quantity,
             decimal? unit,
-            decimal? total)
+            decimal? total,
+            int? currencyId)
         {
             return new QuotationItemWrite
             {
@@ -396,6 +407,7 @@ namespace Mahkias.Api.Controllers
                 UnitPrice = unit,
                 Quantity = quantity,
                 TotalPrice = total,
+                CurrencyId = currencyId,
             };
         }
 
@@ -471,6 +483,7 @@ namespace Mahkias.Api.Controllers
                         UnitPrice = unit,
                         Quantity = quantity,
                         TotalPrice = total,
+                        CurrencyId = first.CurrencyId,
                     };
                 })
                 .ToList();
@@ -489,6 +502,44 @@ namespace Mahkias.Api.Controllers
             }
 
             return !item.UnitPrice.HasValue && !item.TotalPrice.HasValue;
+        }
+
+        private static int? ResolveCurrencyId(int? preferred, int? fallback, IReadOnlyList<CurrencyResult> currencies)
+        {
+            if (preferred is > 0 && currencies.Any(currency => currency.Id == preferred.Value))
+            {
+                return preferred;
+            }
+
+            if (fallback is > 0 && currencies.Any(currency => currency.Id == fallback.Value))
+            {
+                return fallback;
+            }
+
+            return currencies.FirstOrDefault(currency => currency.IsDefault)?.Id
+                ?? currencies.FirstOrDefault(currency => string.Equals(currency.Code, "USD", StringComparison.OrdinalIgnoreCase))?.Id;
+        }
+
+        private static int? ResolveImportedCurrency(string code, int? headerCurrencyId, IReadOnlyList<CurrencyResult> currencies)
+        {
+            var matched = MatchCurrency(code, currencies);
+            return matched?.Id ?? ResolveCurrencyId(headerCurrencyId, null, currencies);
+        }
+
+        private static bool IsKnownCurrency(string code, IReadOnlyList<CurrencyResult> currencies)
+        {
+            return MatchCurrency(code, currencies) != null;
+        }
+
+        private static CurrencyResult MatchCurrency(string code, IReadOnlyList<CurrencyResult> currencies)
+        {
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                return null;
+            }
+
+            var token = code.Trim();
+            return currencies.FirstOrDefault(currency => string.Equals(currency.Code, token, StringComparison.OrdinalIgnoreCase));
         }
 
         private static bool TryPrice(decimal? unitPrice, decimal? totalPrice, int quantity, out decimal? unit, out decimal? total)

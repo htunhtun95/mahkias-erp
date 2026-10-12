@@ -1,0 +1,91 @@
+<div class="app-dialog-container">
+  <header class="app-dialog-header detail-header">
+    <div class="title-block">
+      <h2>{{ data.title }}</h2>
+      <p>{{ data.subtitle }}</p>
+    </div>
+    <button type="button" class="icon-action" matTooltip="Close" (click)="close()" aria-label="Close">
+      <mat-icon>close</mat-icon>
+    </button>
+  </header>
+
+  <div class="app-dialog-body">
+    <section class="card">
+      <h3>{{ heading }}</h3>
+      @if (rows.length) {
+        <div class="quote-table">
+          <div class="quote-line heading" [class.group]="isGroup">
+            @if (isGroup) {
+              <span>DSN no</span>
+              <span>Part no</span>
+            }
+            <span>Supplier name</span>
+            <span>Quotation ref</span>
+            <span>Supplier quotation ref</span>
+            @if (!isGroup) {
+              <span>Quoted part no</span>
+            }
+            <span>Unit price</span>
+            <span>Quantity</span>
+            <span>Total price</span>
+          </div>
+          @for (row of rows; track (row.link?.itemId ?? row.dsnNo) + '-' + $index) {
+            <div class="quote-line" [class.group]="isGroup" [class.lowest]="!isGroup && !!row.link?.lowest">
+              @if (isGroup) {
+                <span>{{ row.dsnNo || '—' }}</span>
+                <span class="part">
+                  {{ row.partNo || '—' }}
+                  @if (row.link?.alternativePart) {
+                    <span class="alt-badge" title="Alternative part">Alt</span>
+                  }
+                </span>
+              }
+              <span>{{ row.link?.supplierName || '—' }}</span>
+              <span>{{ row.link?.quotationRef || '—' }}</span>
+              <span>{{ row.link?.supplierQuotationRef || '—' }}</span>
+              @if (!isGroup) {
+                <span class="part">
+                  {{ row.link?.partNo || '—' }}
+                  @if (row.link?.alternativePart) {
+                    <span class="alt-badge" title="Alternative part">Alt</span>
+                  }
+                </span>
+              }
+              <span class="price">
+                {{ row.link ? quotedUnit(row.link) : '—' }}
+                @if (!isGroup && row.link?.lowest) {
+                  <span class="lowest-badge">Lowest price</span>
+                }
+              </span>
+              <span>{{ row.link ? quantity(row.link.quantity) : '—' }}</span>
+              <span>{{ row.link ? quotedTotal(row.link) : '—' }}</span>
+            </div>
+          }
+        </div>
+      } @else {
+        <p class="empty">{{ emptyMessage }}</p>
+      }
+    </section>
+
+    @if (!isGroup) {
+      <section class="card">
+        <h3>Status</h3>
+        <div class="metrics">
+          <div class="metric">
+            <span class="metric-label">Quotation status</span>
+            <strong [class.quoted]="quotationStatus === 'Quoted'" [class.partial]="quotationStatus === 'Partial'">{{ quotationStatus }}</strong>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Quote received</span>
+            <strong>{{ quoteReceived }}%</strong>
+            <span class="meter" aria-hidden="true"><i [style.width.%]="quoteReceived"></i></span>
+          </div>
+        </div>
+      </section>
+    }
+  </div>
+
+  <div class="app-dialog-actions">
+    <button type="button" class="close-btn" (click)="close()">Close</button>
+  </div>
+</div>

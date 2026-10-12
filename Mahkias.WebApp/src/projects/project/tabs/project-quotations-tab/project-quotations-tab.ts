@@ -4,10 +4,11 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Subscription } from 'rxjs';
 import { MaterialModule } from '../../../../app/material-module';
-import { Project, ProjectApiService, QuotationLine, QuotationListItem } from '../../../../core/services/project-api.service';
+import { Project, ProjectApiService, QuotationDocument, QuotationLine, QuotationListItem } from '../../../../core/services/project-api.service';
 import { CreateQuotationDialogComponent } from '../../../add-quotation-dialog/add-quotation-dialog';
 import { ConfirmDialog } from '../../../confirm-dialog/confirm-dialog';
 import { QuotationSync } from '../../../quotation-sync';
+import { formatMoney } from '../../../money-format';
 
 @Component({
   selector: 'app-project-quotations-tab',
@@ -31,6 +32,7 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
   error = '';
   expanded = new Set<number>();
   lines = new Map<number, QuotationLine[]>();
+  documents = new Map<number, QuotationDocument[]>();
   loadingLine = new Set<number>();
   deletingId: number | null = null;
 
@@ -48,6 +50,7 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
     if (nextId !== previousId) {
       this.expanded.clear();
       this.lines.clear();
+      this.documents.clear();
       this.load();
     }
   }
@@ -74,8 +77,10 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
           if (!ids.has(id)) {
             this.expanded.delete(id);
             this.lines.delete(id);
+            this.documents.delete(id);
           } else {
             this.fetchLines(id);
+            this.fetchDocuments(id);
           }
         }
       },
@@ -96,6 +101,9 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
     if (!this.lines.has(quotation.id)) {
       this.fetchLines(quotation.id);
     }
+    if (!this.documents.has(quotation.id)) {
+      this.fetchDocuments(quotation.id);
+    }
   }
 
   isExpanded(id: number): boolean {
@@ -104,6 +112,10 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
 
   lineItems(id: number): QuotationLine[] {
     return this.lines.get(id) ?? [];
+  }
+
+  quotationDocuments(id: number): QuotationDocument[] {
+    return this.documents.get(id) ?? [];
   }
 
   edit(quotation: QuotationListItem) {
@@ -181,14 +193,11 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
 
   get quotedAmount(): string {
     const amount = this.quotations.reduce((total, quotation) => total + (quotation.totalPrice || 0), 0);
-    return this.money(amount);
+    return this.money(amount, '$', 'USD');
   }
 
-  money(value?: number | null): string {
-    if (value == null) {
-      return '—';
-    }
-    return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  money(value?: number | null, symbol?: string | null, code?: string | null): string {
+    return formatMoney(value, symbol, code);
   }
 
   when(value?: string | null): string {
@@ -212,6 +221,20 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
       error: () => {
         this.loadingLine.delete(id);
         this.lines.set(id, []);
+      },
+    });
+  }
+
+  private fetchDocuments(id: number) {
+    if (!this.project) {
+      return;
+    }
+    this.api.quotationDocuments(this.project.id, id).subscribe({
+      next: (documents) => {
+        this.documents.set(id, documents ?? []);
+      },
+      error: () => {
+        this.documents.set(id, []);
       },
     });
   }

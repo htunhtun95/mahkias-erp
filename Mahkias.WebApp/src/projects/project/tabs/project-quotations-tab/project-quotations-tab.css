@@ -96,7 +96,7 @@
 
 .line-row {
   display: grid;
-  grid-template-columns: 80px minmax(0, 1.2fr) minmax(0, 1.6fr) 110px 80px 110px;
+  grid-template-columns: 80px minmax(0, 1.2fr) minmax(0, 1.6fr) 72px 110px 80px 110px;
   gap: 8px;
   align-items: center;
   min-height: 36px;
@@ -119,6 +119,24 @@
   font-size: 13px;
 }
 
+.quote-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 4px 12px 10px 48px;
+}
+
+.doc-link {
+  color: #1a73e8;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.doc-link:hover {
+  text-decoration: underline;
+}
+
 .heading {
   color: #5f6368;
   font-size: 12px;
@@ -139,6 +157,22 @@
   color: #80868b;
   font-size: 14px;
   text-align: center;
+}
+
+.loading-row,
+.line-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-row {
+  min-height: 160px;
+  padding: 36px 16px;
+}
+
+.line-loading {
+  padding: 20px 0;
 }
 
 @media (max-width: 800px) {

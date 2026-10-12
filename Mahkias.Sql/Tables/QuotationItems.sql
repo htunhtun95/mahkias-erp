@@ -9,9 +9,13 @@ CREATE TABLE [projects].[QuotationItems]
     [DsnNo] NVARCHAR(100) NULL,
     [PartNo] NVARCHAR(100) NULL,
     [PartDescription] NVARCHAR(500) NULL,
-    [UnitPrice] DECIMAL(18, 4) NULL,
+    [CurrencyId] INT NOT NULL,
+    [ExchangeRate] DECIMAL(18, 6) CONSTRAINT [DF_QuotationItems_ExchangeRate] DEFAULT (1.0) NOT NULL,
+    [UnitPrice] DECIMAL(18, 2) NULL,
+    [BaseUnitPrice] DECIMAL(18, 2) NULL,
     [Quantity] INT CONSTRAINT [DF_QuotationItems_Quantity] DEFAULT (1) NOT NULL,
-    [TotalPrice] DECIMAL(18, 4) NULL,
+    [TotalPrice] DECIMAL(18, 2) NULL,
+    [BaseTotalPrice] DECIMAL(18, 2) NULL,
     [AwardedQuantity] INT CONSTRAINT [DF_QuotationItems_AwardedQuantity] DEFAULT (0) NOT NULL,
     [CreatedAt] DATETIME CONSTRAINT [DF_QuotationItems_CreatedAt] DEFAULT (GETDATE()) NOT NULL,
     [ModifiedAt] DATETIME NULL,
@@ -19,5 +23,6 @@ CREATE TABLE [projects].[QuotationItems]
     CONSTRAINT [FK_QuotationItems_Quotations] FOREIGN KEY ([QuotationId]) REFERENCES [projects].[Quotations] ([Id]) ON DELETE CASCADE,
     CONSTRAINT [FK_QuotationItems_Activities] FOREIGN KEY ([ActivityId]) REFERENCES [projects].[Activities] ([Id]) ON DELETE SET NULL,
     CONSTRAINT [FK_QuotationItems_ActivityGroups] FOREIGN KEY ([ActivityGroupId]) REFERENCES [projects].[ActivityGroups] ([Id]),
-    CONSTRAINT [FK_QuotationItems_ActivityAlternativeParts] FOREIGN KEY ([AlternativePartId]) REFERENCES [projects].[ActivityAlternativeParts] ([Id])
+    CONSTRAINT [FK_QuotationItems_ActivityAlternativeParts] FOREIGN KEY ([AlternativePartId]) REFERENCES [projects].[ActivityAlternativeParts] ([Id]),
+    CONSTRAINT [FK_QuotationItems_Currencies] FOREIGN KEY ([CurrencyId]) REFERENCES [dbo].[Currencies] ([Id])
 );

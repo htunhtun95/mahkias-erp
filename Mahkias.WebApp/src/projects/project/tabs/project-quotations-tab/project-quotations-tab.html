@@ -30,14 +30,16 @@
       <span></span>
     </div>
     @if (loading) {
-      <div class="empty-row">Loading quotations...</div>
+      <div class="loading-row" role="status" aria-live="polite" aria-busy="true">
+        <mat-spinner diameter="40"></mat-spinner>
+      </div>
     } @else if (quotations.length === 0) {
       <div class="empty-row">No quotations yet.</div>
     } @else {
       @for (quotation of quotations; track quotation.id) {
         <div class="quote-block">
           <div class="row">
-            <button class="expand" type="button" [attr.aria-expanded]="isExpanded(quotation.id)" [attr.aria-label]="isExpanded(quotation.id) ? 'Collapse quotation' : 'Expand quotation'" (click)="toggle(quotation)">
+            <button class="expand" type="button" [matTooltip]="isExpanded(quotation.id) ? 'Collapse quotation' : 'Expand quotation'" [attr.aria-expanded]="isExpanded(quotation.id)" [attr.aria-label]="isExpanded(quotation.id) ? 'Collapse quotation' : 'Expand quotation'" (click)="toggle(quotation)">
               <mat-icon>{{ isExpanded(quotation.id) ? 'expand_more' : 'chevron_right' }}</mat-icon>
             </button>
             <span class="ref">{{ quotation.code }}</span>
@@ -45,12 +47,12 @@
             <span>{{ quotation.supplierReference }}</span>
             <span>{{ quotation.itemCount }}</span>
             <span>{{ when(quotation.modifiedAt || quotation.createdAt) }}</span>
-            <span>{{ money(quotation.totalPrice) }}</span>
+            <span>{{ money(quotation.totalPrice, '$', 'USD') }}</span>
             <span class="actions">
-              <button class="icon-btn" type="button" aria-label="Edit quotation" [disabled]="deletingId != null" (click)="edit(quotation)">
+              <button class="icon-btn" type="button" matTooltip="Edit quotation" aria-label="Edit quotation" [disabled]="deletingId != null" (click)="edit(quotation)">
                 <mat-icon>edit</mat-icon>
               </button>
-              <button class="icon-btn danger" type="button" aria-label="Delete quotation" [disabled]="deletingId != null" (click)="remove(quotation)">
+              <button class="icon-btn danger" type="button" matTooltip="Delete quotation" aria-label="Delete quotation" [disabled]="deletingId != null" (click)="remove(quotation)">
                 @if (deletingId === quotation.id) {
                   <mat-spinner diameter="18"></mat-spinner>
                 } @else {
@@ -62,7 +64,9 @@
           @if (isExpanded(quotation.id)) {
             <div class="lines">
               @if (loadingLine.has(quotation.id)) {
-                <p class="line-empty">Loading line items...</p>
+                <div class="line-loading" role="status" aria-live="polite" aria-busy="true">
+                  <mat-spinner diameter="28"></mat-spinner>
+                </div>
               } @else if (!lineItems(quotation.id).length) {
                 <p class="line-empty">No line items.</p>
               } @else {
@@ -70,6 +74,7 @@
                   <span>DSN No</span>
                   <span>Part No</span>
                   <span>Description</span>
+                  <span>Currency</span>
                   <span>Unit Price</span>
                   <span>Quantity</span>
                   <span>Total Price</span>
@@ -79,10 +84,20 @@
                     <span>{{ line.dsnNo || '—' }}</span>
                     <span>{{ line.partNo || '—' }}</span>
                     <span>{{ line.description || '—' }}</span>
-                    <span>{{ money(line.unitPrice) }}</span>
+                    <span>{{ line.currencyCode || 'USD' }}</span>
+                    <span>{{ money(line.unitPrice, line.currencySymbol, line.currencyCode) }}</span>
                     <span>{{ line.quantity }}</span>
-                    <span>{{ money(line.totalPrice) }}</span>
+                    <span>{{ money(line.totalPrice, line.currencySymbol, line.currencyCode) }}</span>
                   </div>
+                }
+              }
+            </div>
+            <div class="quote-files">
+              @if (!quotationDocuments(quotation.id).length) {
+                <p class="line-empty">No files stored for this quotation.</p>
+              } @else {
+                @for (document of quotationDocuments(quotation.id); track document.documentId) {
+                  <a class="doc-link" [href]="document.webViewLink" target="_blank" rel="noopener noreferrer">{{ document.fileName }}</a>
                 }
               }
             </div>

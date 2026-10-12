@@ -4,9 +4,10 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { Observable, of, switchMap, tap } from 'rxjs';
 import { MaterialModule } from '../../app/material-module';
+import { DriveUploadCardComponent } from '../drive-upload-card/drive-upload-card';
 import { blockEnterSubmit } from '../../core/block-enter-submit';
 import { whileBusy } from '../../core/while-busy';
-import { Activity, ActivityImportIssue, ProjectApiService, QuotationItemInput, Supplier } from '../../core/services/project-api.service';
+import { Activity, ActivityImportIssue, Currency, ProjectApiService, QuotationItemInput, Supplier } from '../../core/services/project-api.service';
 import { directActivityId } from '../quotation-map';
 
 interface ImportLine {
@@ -17,6 +18,8 @@ interface ImportLine {
   unitPrice: string;
   quantity: string;
   totalPrice: string;
+  currencyId: number | null;
+  currencyExplicit: boolean;
   unitExplicit: boolean;
   totalExplicit: boolean;
   activityId: number | null;
@@ -31,6 +34,7 @@ interface QuoteMapping {
   unitPriceColumn: string;
   quantityColumn: string;
   totalPriceColumn: string;
+  currencyColumn: string;
   defaultDsnNo: string;
   defaultPartNo: string;
   defaultDescription: string;
@@ -44,7 +48,7 @@ type CheckState = 'idle' | 'checking' | 'passed' | 'failed';
 @Component({
   selector: 'app-import-quotation-dialog',
   standalone: true,
-  imports: [FormsModule, MaterialModule],
+  imports: [FormsModule, MaterialModule, DriveUploadCardComponent],
   templateUrl: './import-quotation-dialog.html',
   styleUrl: './import-quotation-dialog.css',
 })
@@ -61,19 +65,29 @@ export class ImportQuotationDialogComponent {
   suppliers: Supplier[] = [];
   supplierOpen = false;
   creatingSupplier = false;
+  currencies: Currency[] = [];
+  currencyId: number | null = null;
   newSupplierName = '';
   newSupplierReference = '';
   submitted = false;
   lines: ImportLine[] = [];
   file: File | null = null;
-  fileName = '';
+  spreadsheetIsOriginal = true;
+  originalFile: File | null = null;
+  isVerifyStep = false;
+  previewQuery = '';
+  importedQuotationId: number | null = null;
+  readonly documentAccept = '.pdf,.doc,.docx,.xls,.xlsx,.xlsm,.csv,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tif,.tiff';
   columns: { letter: string; header: string | null }[] = [];
   mapping: QuoteMapping = this.blankMapping();
   checkState: CheckState = 'idle';
+  reading = false;
   importErrors: ActivityImportIssue[] = [];
   isImporting = false;
+  lineSubmitted = false;
   error = '';
   private checkToken = 0;
+  private mappingToken = 0;
 
   readonly fields = [
     { key: 'dsnNoColumn', def: 'defaultDsnNo', label: 'DSN No' },
@@ -82,12 +96,25 @@ export class ImportQuotationDialogComponent {
     { key: 'unitPriceColumn', def: 'defaultUnitPrice', label: 'Unit Price' },
     { key: 'quantityColumn', def: 'defaultQuantity', label: 'Quantity' },
     { key: 'totalPriceColumn', def: 'defaultTotalPrice', label: 'Total Price' },
+    { key: 'currencyColumn', def: '', label: 'Currency' },
   ];
 
   constructor() {
     this.api.suppliers().subscribe({
       next: (suppliers) => {
         this.suppliers = suppliers;
+      },
+    });
+    this.api.currencies().subscribe({
+      next: (currencies) => {
+        this.currencies = currencies;
+        const base = currencies.find((currency) => currency.isDefault) ?? currencies.find((currency) => currency.code === 'USD');
+        this.currencyId = base?.id ?? this.currencyId;
+        for (const line of this.lines) {
+          if (!line.currencyExplicit && line.currencyId == null) {
+            line.currencyId = this.currencyId;
+          }
+        }
       },
     });
   }
@@ -98,6 +125,44 @@ export class ImportQuotationDialogComponent {
 
   onDsn(line: ImportLine) {
     this.linkLine(line);
+  }
+
+  onDefaultImportCurrency(value: number | null) {
+    const next = value == null ? null : Number(value);
+    this.currencyId = Number.isFinite(next) ? next : null;
+    for (const line of this.lines) {
+      if (!line.currencyExplicit) {
+        line.currencyId = this.currencyId;
+      }
+    }
+  }
+
+  onLineCurrency(line: ImportLine) {
+    line.currencyExplicit = true;
+  }
+
+  currencyMark(currencyId: number | null): string {
+    const currency = this.currencies.find((item) => item.id === currencyId);
+    return currency?.symbol || currency?.code || '$';
+  }
+
+  lineInvalid(line: ImportLine, field: 'dsn' | 'part' | 'price' | 'qty'): boolean {
+    if (!this.lineSubmitted || !this.isPriced(line)) {
+      return false;
+    }
+    if (field === 'dsn') {
+      return !line.dsnNo.trim();
+    }
+    if (field === 'part') {
+      return !line.partNo.trim();
+    }
+    if (field === 'qty') {
+      return !this.validQuantity(line.quantity);
+    }
+    if (line.unitPrice.trim() && this.money(line.unitPrice) == null) {
+      return true;
+    }
+    return !!line.totalPrice.trim() && this.money(line.totalPrice) == null;
   }
 
   onPart(line: ImportLine) {
@@ -162,7 +227,7 @@ export class ImportQuotationDialogComponent {
   }
 
   get canCheck(): boolean {
-    return !!this.file && !this.requiredMissing && this.checkState !== 'checking' && !this.isImporting;
+    return !!this.file && this.columns.length > 0 && !this.requiredMissing && this.checkState !== 'checking' && !this.isImporting;
   }
 
   get busy(): boolean {
@@ -230,19 +295,27 @@ export class ImportQuotationDialogComponent {
     }, 150);
   }
 
-  onFile(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0] ?? null;
+  onSpreadsheet(file: File | null) {
+    if (file === this.file) {
+      return;
+    }
     this.file = file;
-    this.fileName = file?.name ?? '';
+    const token = ++this.mappingToken;
     this.resetCheck();
     this.columns = [];
+    this.mapping = this.blankMapping();
     this.error = '';
+    this.reading = false;
     if (!file) {
       return;
     }
+    this.reading = true;
     this.api.quotationExcelMapping(this.data.projectId, file).subscribe({
       next: (mapping) => {
+        if (token !== this.mappingToken || this.file !== file) {
+          return;
+        }
+        this.reading = false;
         this.columns = mapping.columns;
         this.mapping = {
           ...this.blankMapping(),
@@ -252,16 +325,40 @@ export class ImportQuotationDialogComponent {
           unitPriceColumn: mapping.suggested.unitPrice ?? '',
           quantityColumn: mapping.suggested.quantity ?? '',
           totalPriceColumn: mapping.suggested.totalPrice ?? '',
+          currencyColumn: mapping.suggested.currency ?? '',
         };
       },
       error: () => {
+        if (token !== this.mappingToken) {
+          return;
+        }
+        this.reading = false;
         this.error = 'The spreadsheet could not be read.';
       },
     });
   }
 
+  onOriginalFile(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.originalFile = input.files?.[0] ?? null;
+    input.value = '';
+  }
+
+  clearOriginal() {
+    if (!this.busy) {
+      this.originalFile = null;
+    }
+  }
+
   dirtyMapping() {
-    this.resetCheck();
+    this.invalidatePreview();
+  }
+
+  showMapping() {
+    if (this.isImporting) {
+      return;
+    }
+    this.isVerifyStep = false;
   }
 
   fieldInvalid(fieldKey: string): boolean {
@@ -278,7 +375,12 @@ export class ImportQuotationDialogComponent {
   }
 
   checkData() {
-    if (!this.file || !this.canCheck || this.checkState === 'checking') {
+    if (!this.file || !this.columns.length || this.checkState === 'checking' || this.isImporting) {
+      return;
+    }
+    this.submitted = true;
+    this.error = '';
+    if (!this.supplierReady() || this.requiredMissing) {
       return;
     }
     const token = ++this.checkToken;
@@ -287,11 +389,12 @@ export class ImportQuotationDialogComponent {
     this.lines = [];
     this.error = '';
     this.dialogRef.disableClose = true;
-    this.api.quotationExcelValidate(this.data.projectId, this.file, { ...this.mapping }).subscribe({
+    this.api.quotationExcelValidate(this.data.projectId, this.file, { ...this.mapping, currencyId: this.currencyId }).subscribe({
       next: (result) => {
         if (token !== this.checkToken) {
           return;
         }
+        this.dialogRef.disableClose = this.isImporting;
         if (!result.valid) {
           this.checkState = 'failed';
           this.importErrors = result.errors ?? [];
@@ -306,11 +409,13 @@ export class ImportQuotationDialogComponent {
         }
         this.lines = [...items, ...choices].map((item, index) => this.toLine(item, index + 1));
         this.checkState = 'passed';
+        this.isVerifyStep = true;
       },
       error: (error: HttpErrorResponse) => {
         if (token !== this.checkToken) {
           return;
         }
+        this.dialogRef.disableClose = this.isImporting;
         this.checkState = 'failed';
         this.importErrors = error.error?.errors ?? [];
         this.error = error.error?.message || 'The spreadsheet could not be checked.';
@@ -319,17 +424,26 @@ export class ImportQuotationDialogComponent {
   }
 
   startImport() {
+    if (this.importedQuotationId) {
+      this.uploadImportedFiles(this.importedQuotationId);
+      return;
+    }
     const items = this.lineItems();
     if (this.isImporting || this.checkState !== 'passed' || items.length === 0) {
+      if (this.checkState === 'passed' && items.length === 0) {
+        this.lineSubmitted = true;
+        this.error = 'Enter a unit price or total price for at least one row.';
+      }
       return;
     }
-    if (items.some((item) => !item.dsnNo || !item.partNo || item.unitPrice == null && item.totalPrice == null)) {
-      this.error = 'DSN number, part number, and a price are required on every imported row.';
-      return;
-    }
-    this.submitted = true;
+    this.lineSubmitted = true;
     this.error = '';
+    if (this.lines.some((line) => this.isPriced(line) && (this.lineInvalid(line, 'dsn') || this.lineInvalid(line, 'part') || this.lineInvalid(line, 'qty') || this.lineInvalid(line, 'price')))) {
+      this.error = 'DSN number, part number, and quantity are required. Check the highlighted rows.';
+      return;
+    }
     if (!this.supplierReady()) {
+      this.isVerifyStep = false;
       return;
     }
     this.dialogRef.disableClose = true;
@@ -339,8 +453,17 @@ export class ImportQuotationDialogComponent {
           supplierId: this.supplierId!,
           supplierReference: this.supplierQuotationRef.trim(),
           projectIds: [this.data.projectId],
+          currencyId: this.currencyId,
           items,
         })),
+        switchMap((saved) => {
+          this.importedQuotationId = saved.id;
+          const file = this.storedFile();
+          if (!file) {
+            return of(saved);
+          }
+          return this.api.uploadQuotationDocuments(this.data.projectId, saved.id, file);
+        }),
         whileBusy((busy) => (this.isImporting = busy)),
       )
       .subscribe({
@@ -348,11 +471,17 @@ export class ImportQuotationDialogComponent {
           this.dialogRef.close(true);
         },
         error: (error: HttpErrorResponse) => {
+          if (this.importedQuotationId) {
+            const body = error.error;
+            this.error = (typeof body === 'string' ? body : body?.message) || 'The quotation was imported, but the file could not be uploaded.';
+            return;
+          }
           if (this.creatingSupplier) {
             this.error = error.error?.message || 'The supplier could not be created.';
             return;
           }
           const issues = (error.error?.errors as ActivityImportIssue[] | undefined) ?? [];
+          this.isVerifyStep = false;
           this.checkState = 'failed';
           this.importErrors = issues;
           this.lines = [];
@@ -405,11 +534,44 @@ export class ImportQuotationDialogComponent {
     this.supplierOpen = false;
   }
 
+  onOriginalChoice(checked: boolean) {
+    this.spreadsheetIsOriginal = checked;
+    if (checked) {
+      this.originalFile = null;
+    }
+  }
+
   resetCheck() {
+    this.invalidatePreview();
+  }
+
+  private invalidatePreview() {
     this.checkToken++;
     this.checkState = 'idle';
     this.importErrors = [];
     this.lines = [];
+    this.previewQuery = '';
+    this.isVerifyStep = false;
+    this.lineSubmitted = false;
+    if (!this.isImporting) {
+      this.dialogRef.disableClose = false;
+    }
+  }
+
+  get filteredLines(): ImportLine[] {
+    const query = this.previewQuery.trim().toLowerCase();
+    if (!query) {
+      return this.lines;
+    }
+    return this.lines.filter((line) => this.lineSearchText(line).includes(query));
+  }
+
+  private lineSearchText(line: ImportLine): string {
+    const currency = this.currencies.find((item) => item.id === line.currencyId);
+    return [line.dsnNo, line.partNo, line.description, line.quantity, line.unitPrice, line.totalPrice, currency?.code, currency?.symbol]
+      .filter((value) => !!value)
+      .join(' ')
+      .toLowerCase();
   }
 
   private toLine(source: {
@@ -424,6 +586,8 @@ export class ImportQuotationDialogComponent {
     unitExplicit?: boolean;
     totalExplicit?: boolean;
     activityId?: number | null;
+    currencyId?: number | null;
+    currencyExplicit?: boolean;
   }, fallbackRow: number): ImportLine {
     const unitText = source.unitPrice == null ? '' : String(source.unitPrice);
     const totalText = source.totalPrice == null ? '' : String(source.totalPrice);
@@ -439,6 +603,8 @@ export class ImportQuotationDialogComponent {
       totalExplicit: source.totalExplicit ?? !!totalText,
       activityId: source.activityId ?? directActivityId(source.dsnNo ?? '', source.partNo ?? '', this.activities),
       priceWarning: !!source.priceWarning,
+      currencyId: source.currencyId ?? this.currencyId,
+      currencyExplicit: !!source.currencyExplicit,
     };
     return line;
   }
@@ -460,6 +626,31 @@ export class ImportQuotationDialogComponent {
     }
   }
 
+  private storedFile(): File | null {
+    return this.spreadsheetIsOriginal ? this.file : this.originalFile;
+  }
+
+  private uploadImportedFiles(quotationId: number) {
+    const file = this.storedFile();
+    if (!file) {
+      this.dialogRef.close(true);
+      return;
+    }
+    this.error = '';
+    this.dialogRef.disableClose = true;
+    this.api.uploadQuotationDocuments(this.data.projectId, quotationId, file)
+      .pipe(whileBusy((busy) => (this.isImporting = busy)))
+      .subscribe({
+        next: () => {
+          this.dialogRef.close(true);
+        },
+        error: (error: HttpErrorResponse) => {
+          const body = error.error;
+          this.error = (typeof body === 'string' ? body : body?.message) || 'The quotation was imported, but the file could not be uploaded.';
+        },
+      });
+  }
+
   private lineItems(): QuotationItemInput[] {
     return this.lines.filter((line) => this.isPriced(line)).map((line) => {
       if (!line.quantity.trim()) {
@@ -475,6 +666,7 @@ export class ImportQuotationDialogComponent {
         totalPrice: this.money(line.totalPrice),
         activityId: line.activityId,
         activityGroupId: null,
+        currencyId: line.currencyId ?? this.currencyId,
       };
     });
   }
@@ -486,6 +678,14 @@ export class ImportQuotationDialogComponent {
   private quantity(line: ImportLine): number {
     const parsed = Number(line.quantity);
     return Number.isInteger(parsed) && parsed >= 1 ? parsed : 1;
+  }
+
+  private validQuantity(value: string): boolean {
+    if (!value.trim()) {
+      return true;
+    }
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed >= 1;
   }
 
   private formatMoney(value: number): string {
@@ -509,6 +709,7 @@ export class ImportQuotationDialogComponent {
       unitPriceColumn: '',
       quantityColumn: '',
       totalPriceColumn: '',
+      currencyColumn: '',
       defaultDsnNo: '',
       defaultPartNo: '',
       defaultDescription: '',
