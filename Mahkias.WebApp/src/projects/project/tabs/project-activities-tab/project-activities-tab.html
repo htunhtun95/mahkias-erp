@@ -79,7 +79,7 @@
             <span>Part no</span>
             <span>Description</span>
             <span>Quantity</span>
-            <span>Lowest price</span>
+            <span>Quotes</span>
             <span></span>
           </div>
           @for (block of group.groups; track block.group.id) {
@@ -97,7 +97,7 @@
                 <span>{{ block.activities.length }}</span>
                 <span class="lowest-price">
                   @if (groupLowestLink(block.activities); as link) {
-                    <button class="price-link" type="button" matTooltip="View lowest prices" (click)="openGroupQuotations(block.group, block.activities)" [disabled]="isSaving || deletingId != null" [attr.aria-label]="'View lowest prices for ' + block.group.name">{{ priceText(link) }}</button>
+                    <button class="price-link" type="button" matTooltip="View quotes" (click)="openGroupQuotations(block.group, block.activities)" [disabled]="isSaving || deletingId != null" [attr.aria-label]="'View quotes for ' + block.group.name">{{ priceText(link) }}</button>
                   } @else {
                     <span class="price-empty">—</span>
                   }

@@ -42,7 +42,7 @@ export class QuotationDataDialog {
   }
 
   get heading(): string {
-    return this.isGroup ? 'Lowest prices' : 'Quoted options';
+    return this.isGroup ? 'Quotes' : 'Quoted options';
   }
 
   get emptyMessage(): string {
