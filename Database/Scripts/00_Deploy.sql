@@ -1,6 +1,6 @@
 -- Deploy Mahkias ERP schema to Azure SQL.
 -- From Database\Scripts:
---   sqlcmd -S mahkiasdb-server.database.windows.net -d mahkias -U mahkias_admin -I -i 00_Deploy.sql
+--   sqlcmd -S mahkiaserpdb-server.database.windows.net -d mahkias -U mahkias_admin -I -i 00_Deploy.sql
 :r .\Tables\01_CreateTables.sql
 :r .\Tables\02_DefaultData.sql
 :r .\UserDefinedTypes\CreateUserDefinedTypes.sql

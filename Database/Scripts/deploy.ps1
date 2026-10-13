@@ -4,7 +4,7 @@
 # The password is prompted for and is not stored in this file.
 
 param(
-    [string]$Server = "mahkiasdb-server.database.windows.net",
+    [string]$Server = "mahkiaserpdb-server.database.windows.net",
     [string]$Database = "mahkias",
     [string]$User = "mahkias_admin",
     [string]$Password
