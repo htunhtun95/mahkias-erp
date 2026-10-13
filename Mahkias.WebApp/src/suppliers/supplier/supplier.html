@@ -55,22 +55,20 @@
         <span>Project Name</span>
         <span>Items Count</span>
         <span>Created Date</span>
-        <span class="col-actions"></span>
       </div>
       @if (supplier.quotations.length === 0) {
         <div class="empty-row">No quotations for this supplier yet.</div>
       } @else {
         @for (quotation of supplier.quotations; track quotation.id) {
           <div class="row">
-            <span class="ref">{{ quotation.code }}</span>
+            @if (projectLink(quotation); as link) {
+              <a class="ref-link" [routerLink]="link" [queryParams]="{ tab: 'quotations' }">{{ quotation.code }}</a>
+            } @else {
+              <span class="ref">{{ quotation.code }}</span>
+            }
             <span>{{ quotation.projectNames || '—' }}</span>
             <span>{{ quotation.itemCount }}</span>
             <span>{{ listDate(quotation.createdAt) }}</span>
-            <span class="col-actions">
-              @if (projectLink(quotation); as link) {
-                <a class="view-link" [routerLink]="link" [queryParams]="{ tab: 'quotations' }">View</a>
-              }
-            </span>
           </div>
         }
       }

@@ -125,7 +125,7 @@ h2 {
 
 .row {
   display: grid;
-  grid-template-columns: 1.2fr 1.6fr 0.7fr 0.9fr 72px;
+  grid-template-columns: 1.2fr 1.6fr 0.7fr 0.9fr;
   gap: 12px;
   align-items: center;
   min-height: 44px;
@@ -150,10 +150,14 @@ h2 {
   font-weight: 500;
 }
 
-.view-link {
+.ref-link {
   color: #1a73e8;
   font-weight: 500;
   text-decoration: none;
+}
+
+.ref-link:hover {
+  text-decoration: underline;
 }
 
 .empty-row,

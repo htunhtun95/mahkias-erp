@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, inject } from '@angular/core';
+import { RouterModule } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Subscription } from 'rxjs';
@@ -13,7 +14,7 @@ import { formatMoney } from '../../../money-format';
 @Component({
   selector: 'app-project-quotations-tab',
   standalone: true,
-  imports: [MaterialModule],
+  imports: [MaterialModule, RouterModule],
   templateUrl: './project-quotations-tab.html',
   styleUrl: './project-quotations-tab.css',
 })

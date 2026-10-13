@@ -137,6 +137,16 @@
   text-decoration: underline;
 }
 
+.cell-link {
+  color: #1a73e8;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cell-link:hover {
+  text-decoration: underline;
+}
+
 .heading {
   color: #5f6368;
   font-size: 12px;

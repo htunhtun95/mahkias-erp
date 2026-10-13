@@ -43,7 +43,11 @@
               <mat-icon>{{ isExpanded(quotation.id) ? 'expand_more' : 'chevron_right' }}</mat-icon>
             </button>
             <span class="ref">{{ quotation.code }}</span>
-            <span>{{ quotation.supplierName }}</span>
+            @if (quotation.supplierId) {
+              <a class="cell-link" [routerLink]="['/suppliers', quotation.supplierId]">{{ quotation.supplierName }}</a>
+            } @else {
+              <span>{{ quotation.supplierName }}</span>
+            }
             <span>{{ quotation.supplierReference }}</span>
             <span>{{ quotation.itemCount }}</span>
             <span>{{ when(quotation.modifiedAt || quotation.createdAt) }}</span>
