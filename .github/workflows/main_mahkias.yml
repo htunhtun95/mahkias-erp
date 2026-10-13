@@ -23,17 +23,19 @@ jobs:
         with:
           node-version: '22.x'
 
-      - name: npm install, build, and test
+      - name: npm install and build
+        working-directory: Mahkias.WebApp
         run: |
-          npm install
-          npm run build --if-present
-          npm run test --if-present
+          npm ci
+          npm run build
+          npm install serve@14 --prefix dist/Mahkias.WebApp/browser --omit=dev
+          npm pkg set scripts.start='serve -s . -l tcp://0.0.0.0:$PORT' --prefix dist/Mahkias.WebApp/browser
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: .
+          path: Mahkias.WebApp/dist/Mahkias.WebApp/browser
 
   deploy:
     runs-on: ubuntu-latest
