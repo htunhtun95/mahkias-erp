@@ -5,6 +5,7 @@ using Mahkias.Core.Modules.Projects;
 using Mahkias.Core.Modules.Projects.Data.Args;
 using Mahkias.Data;
 using Mahkias.Data.Helpers;
+using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
@@ -75,6 +76,34 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<MahkiasDbContext>();
     await DbInitialiser.SeedAsync(db);
 }
+
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.Value?.EndsWith("swagger.json", StringComparison.OrdinalIgnoreCase) != true)
+    {
+        await next();
+        return;
+    }
+
+    var originalBody = context.Response.Body;
+    using var buffer = new MemoryStream();
+    context.Response.Body = buffer;
+    await next();
+    context.Response.Body = originalBody;
+
+    if (context.Response.StatusCode != StatusCodes.Status200OK)
+    {
+        buffer.Position = 0;
+        await buffer.CopyToAsync(originalBody);
+        return;
+    }
+
+    // Swagger UI builds from before 5.19 reject the 3.0.4 version Microsoft.OpenApi writes.
+    var json = Encoding.UTF8.GetString(buffer.ToArray())
+        .Replace("\"openapi\": \"3.0.4\"", "\"openapi\": \"3.0.1\"", StringComparison.Ordinal);
+    context.Response.Headers.ContentLength = Encoding.UTF8.GetByteCount(json);
+    await context.Response.WriteAsync(json);
+});
 
 app.UseSwagger();
 app.UseSwaggerUI();
