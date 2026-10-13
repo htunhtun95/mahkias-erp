@@ -1,9 +1,11 @@
+using Mahkias.Api.Security;
 using Mahkias.Core.Data;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Mahkias.Api.Controllers
 {
     [ApiController]
+    [RequireApiKey]
     public class CurrencyController : Controller
     {
         private readonly IUow _uow;

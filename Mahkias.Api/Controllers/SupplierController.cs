@@ -1,4 +1,5 @@
 using Mahkias.Api.Modules.Projects;
+using Mahkias.Api.Security;
 using Mahkias.Core.Data;
 using Mahkias.Core.Modules.Projects.Data.Args;
 using Microsoft.AspNetCore.Mvc;
@@ -6,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Mahkias.Api.Controllers
 {
     [ApiController]
+    [RequireApiKey]
     public class SupplierController : Controller
     {
         private readonly IUow _uow;

@@ -29,7 +29,8 @@ jobs:
           npm ci
           npm run build
           npm install serve@14 --prefix dist/Mahkias.WebApp/browser --omit=dev
-          npm pkg set scripts.start='serve -s . -l tcp://0.0.0.0:$PORT' --prefix dist/Mahkias.WebApp/browser
+          npm pkg set dependencies.serve='^14.2.6' scripts.start='node node_modules/serve/build/main.js -s . -l tcp://0.0.0.0:$PORT' --prefix dist/Mahkias.WebApp/browser
+          test -f dist/Mahkias.WebApp/browser/node_modules/serve/build/main.js
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4

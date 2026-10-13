@@ -1,4 +1,5 @@
 using Mahkias.Api.Helpers;
+using Mahkias.Api.Security;
 using Mahkias.Api.Modules.Projects;
 using Mahkias.Core.Data;
 using Mahkias.Core.Modules.Projects.Data.Args;
@@ -10,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Mahkias.Api.Controllers
 {
     [ApiController]
+    [RequireApiKey]
     public class QuotationController : Controller
     {
         private readonly MahkiasDbContext _context;

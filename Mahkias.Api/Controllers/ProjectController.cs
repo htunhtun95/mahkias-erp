@@ -1,4 +1,5 @@
 using Mahkias.Api.Helpers;
+using Mahkias.Api.Security;
 using Mahkias.Api.Modules.Projects;
 using Mahkias.Api.Services;
 using Mahkias.Core.Data;
@@ -10,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Mahkias.Api.Controllers
 {
     [ApiController]
+    [RequireApiKey]
     [Route("projects")]
     public class ProjectController : Controller
     {

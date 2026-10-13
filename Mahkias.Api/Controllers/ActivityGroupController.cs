@@ -1,3 +1,4 @@
+using Mahkias.Api.Security;
 using Mahkias.Core.Data;
 using Mahkias.Core.Modules.Projects.Data.Result;
 using Mahkias.Data;
@@ -7,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Mahkias.Api.Controllers
 {
     [ApiController]
+    [RequireApiKey]
     public class ActivityGroupController : Controller
     {
         private readonly MahkiasDbContext _context;

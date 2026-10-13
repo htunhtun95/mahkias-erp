@@ -1,3 +1,4 @@
+using Mahkias.Api.Security;
 using Mahkias.Api.Services;
 using Mahkias.Core.Data;
 using Mahkias.Core.Modules.Projects;
@@ -7,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Mahkias.Api.Controllers
 {
     [ApiController]
+    [RequireApiKey]
     [Route("api/projects/{projectId:int}/quotations/{quotationId:int}/documents")]
     public class QuotationDocumentController : Controller
     {
