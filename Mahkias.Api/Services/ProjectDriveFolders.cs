@@ -1,6 +1,5 @@
 using Mahkias.Core.Data;
 using Mahkias.Core.Modules.Projects;
-using Microsoft.Extensions.Logging;
 
 namespace Mahkias.Api.Services
 {
@@ -8,13 +7,11 @@ namespace Mahkias.Api.Services
     {
         private readonly IUow _uow;
         private readonly IGoogleDriveService _drive;
-        private readonly ILogger<ProjectDriveFolders> _logger;
 
-        public ProjectDriveFolders(IUow uow, IGoogleDriveService drive, ILogger<ProjectDriveFolders> logger)
+        public ProjectDriveFolders(IUow uow, IGoogleDriveService drive)
         {
             _uow = uow;
             _drive = drive;
-            _logger = logger;
         }
 
         public async Task<string> EnsureProjectFolderAsync(int projectId, CancellationToken cancellationToken = default)
@@ -26,22 +23,14 @@ namespace Mahkias.Api.Services
             }
 
             var folderName = ProjectFolderName(project.Reference, project.Name);
-            if (!string.IsNullOrWhiteSpace(project.GoogleDriveFolderId))
+            var parentFolderId = await _drive.EnsureProjectParentFolderAsync(cancellationToken);
+            var folderId = await _drive.CreateFolderAsync(folderName, parentFolderId, cancellationToken);
+            if (!string.Equals(folderId, project.GoogleDriveFolderId, StringComparison.Ordinal))
             {
-                try
-                {
-                    await _drive.EnsureFolderNameAsync(project.GoogleDriveFolderId, folderName, cancellationToken);
-                }
-                catch (InvalidOperationException ex)
-                {
-                    _logger.LogWarning(ex, "Google Drive folder {FolderId} for project {ProjectId} could not be renamed to {FolderName}.", project.GoogleDriveFolderId, projectId, folderName);
-                }
-
-                return project.GoogleDriveFolderId;
+                folderId = await _uow.ProjectDocuments.SetDriveFolderAsync(projectId, folderId);
             }
 
-            var folderId = await _drive.CreateFolderAsync(folderName, null, cancellationToken);
-            return await _uow.ProjectDocuments.SetDriveFolderAsync(projectId, folderId);
+            return folderId;
         }
 
         public async Task<string> EnsureProcurementFolderAsync(int projectId, CancellationToken cancellationToken = default)
@@ -53,13 +42,37 @@ namespace Mahkias.Api.Services
             }
 
             var project = await _uow.ProjectDocuments.GetDriveFolderAsync(projectId);
-            if (!string.IsNullOrWhiteSpace(project.ProcurementFolderId))
+            var folderId = await _drive.CreateFolderAsync("Procurement", projectFolderId, cancellationToken);
+            if (!string.Equals(folderId, project.ProcurementFolderId, StringComparison.Ordinal))
             {
-                return project.ProcurementFolderId;
+                folderId = await _uow.ProjectDocuments.SetProcurementFolderAsync(projectId, folderId);
             }
 
-            var folderId = await _drive.CreateFolderAsync("Procurement", projectFolderId, cancellationToken);
-            return await _uow.ProjectDocuments.SetProcurementFolderAsync(projectId, folderId);
+            await _drive.CreateFolderAsync("Quotations", folderId, cancellationToken);
+            await _drive.CreateFolderAsync("Purchases", folderId, cancellationToken);
+            return folderId;
+        }
+
+        public async Task<string> EnsureQuotationsFolderAsync(int projectId, CancellationToken cancellationToken = default)
+        {
+            var procurementFolderId = await EnsureProcurementFolderAsync(projectId, cancellationToken);
+            if (string.IsNullOrWhiteSpace(procurementFolderId))
+            {
+                return null;
+            }
+
+            return await _drive.CreateFolderAsync("Quotations", procurementFolderId, cancellationToken);
+        }
+
+        public async Task<string> EnsurePurchasesFolderAsync(int projectId, CancellationToken cancellationToken = default)
+        {
+            var procurementFolderId = await EnsureProcurementFolderAsync(projectId, cancellationToken);
+            if (string.IsNullOrWhiteSpace(procurementFolderId))
+            {
+                return null;
+            }
+
+            return await _drive.CreateFolderAsync("Purchases", procurementFolderId, cancellationToken);
         }
 
         public static string ProjectFolderName(string reference, string name)

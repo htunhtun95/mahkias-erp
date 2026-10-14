@@ -11,9 +11,9 @@ namespace Mahkias.Core.Modules.Projects
 
     public interface IGoogleDriveService
     {
-        Task<string> CreateFolderAsync(string name, string parentFolderId, CancellationToken cancellationToken = default);
+        Task<string> EnsureProjectParentFolderAsync(CancellationToken cancellationToken = default);
 
-        Task EnsureFolderNameAsync(string folderId, string name, CancellationToken cancellationToken = default);
+        Task<string> CreateFolderAsync(string name, string parentFolderId, CancellationToken cancellationToken = default);
 
         Task<GoogleDriveUploadResult> UploadAsync(string folderId, string fileName, string contentType, Stream content, CancellationToken cancellationToken = default);
     }

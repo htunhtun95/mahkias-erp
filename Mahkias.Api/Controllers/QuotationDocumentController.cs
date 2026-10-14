@@ -57,7 +57,7 @@ namespace Mahkias.Api.Controllers
 
             try
             {
-                var folderId = await _folders.EnsureProcurementFolderAsync(projectId, cancellationToken);
+                var folderId = await _folders.EnsureQuotationsFolderAsync(projectId, cancellationToken);
                 if (string.IsNullOrWhiteSpace(folderId))
                 {
                     return NotFound(new { message = "Project was not found." });
@@ -137,7 +137,7 @@ namespace Mahkias.Api.Controllers
 
             try
             {
-                var folderId = await _folders.EnsureProcurementFolderAsync(projectId, cancellationToken);
+                var folderId = await _folders.EnsureQuotationsFolderAsync(projectId, cancellationToken);
                 if (string.IsNullOrWhiteSpace(folderId))
                 {
                     return NotFound(new { message = "Project was not found." });

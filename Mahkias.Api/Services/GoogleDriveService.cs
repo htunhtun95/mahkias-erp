@@ -13,6 +13,8 @@ namespace Mahkias.Api.Services
 
         public string RootFolderId { get; set; }
 
+        public string[] FolderPath { get; set; }
+
         public string CredentialsFilePath { get; set; }
     }
 
@@ -29,10 +31,33 @@ namespace Mahkias.Api.Services
             _options = configuration.GetSection(GoogleDriveOptions.SectionName).Get<GoogleDriveOptions>() ?? new GoogleDriveOptions();
         }
 
+        public async Task<string> EnsureProjectParentFolderAsync(CancellationToken cancellationToken = default)
+        {
+            var parentId = RootFolderId();
+            foreach (var segment in _options.FolderPath ?? Array.Empty<string>())
+            {
+                var folderName = segment?.Trim();
+                if (string.IsNullOrWhiteSpace(folderName))
+                {
+                    continue;
+                }
+
+                parentId = await CreateFolderAsync(folderName, parentId, cancellationToken);
+            }
+
+            return parentId;
+        }
+
         public async Task<string> CreateFolderAsync(string name, string parentFolderId, CancellationToken cancellationToken = default)
         {
             var folderName = string.IsNullOrWhiteSpace(name) ? "Project" : name.Trim();
             var parent = string.IsNullOrWhiteSpace(parentFolderId) ? RootFolderId() : parentFolderId.Trim();
+            var existingId = await FindFolderIdAsync(folderName, parent, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(existingId))
+            {
+                return existingId;
+            }
+
             var metadata = new Google.Apis.Drive.v3.Data.File
             {
                 Name = folderName,
@@ -56,35 +81,6 @@ namespace Mahkias.Api.Services
             catch (Google.GoogleApiException ex)
             {
                 throw new InvalidOperationException(ex.Error?.Message ?? "Google Drive could not create the project folder.", ex);
-            }
-        }
-
-        public async Task EnsureFolderNameAsync(string folderId, string name, CancellationToken cancellationToken = default)
-        {
-            if (string.IsNullOrWhiteSpace(folderId))
-            {
-                return;
-            }
-
-            var folderName = string.IsNullOrWhiteSpace(name) ? "Project" : name.Trim();
-            try
-            {
-                var lookup = Drive().Files.Get(folderId);
-                lookup.Fields = "name";
-                lookup.SupportsAllDrives = true;
-                var current = await lookup.ExecuteAsync(cancellationToken);
-                if (string.Equals(current?.Name, folderName, StringComparison.Ordinal))
-                {
-                    return;
-                }
-
-                var update = Drive().Files.Update(new Google.Apis.Drive.v3.Data.File { Name = folderName }, folderId);
-                update.SupportsAllDrives = true;
-                await update.ExecuteAsync(cancellationToken);
-            }
-            catch (Google.GoogleApiException ex)
-            {
-                throw new InvalidOperationException(ex.Error?.Message ?? "Google Drive could not update the project folder name.", ex);
             }
         }
 
@@ -140,6 +136,72 @@ namespace Mahkias.Api.Services
                 FileName = storedName,
                 WebViewLink = link,
             };
+        }
+
+        private async Task<string> FindFolderIdAsync(string folderName, string parentFolderId, CancellationToken cancellationToken)
+        {
+            var scoped = parentFolderId.StartsWith("0A", StringComparison.Ordinal);
+            try
+            {
+                return await FindFolderPageAsync(folderName, parentFolderId, scoped, cancellationToken);
+            }
+            catch (Google.GoogleApiException ex) when (scoped && (ex.HttpStatusCode == System.Net.HttpStatusCode.Forbidden || ex.HttpStatusCode == System.Net.HttpStatusCode.NotFound))
+            {
+                try
+                {
+                    return await FindFolderPageAsync(folderName, parentFolderId, false, cancellationToken);
+                }
+                catch (Google.GoogleApiException fallback)
+                {
+                    throw new InvalidOperationException(fallback.Error?.Message ?? "Google Drive could not look up the folder.", fallback);
+                }
+            }
+            catch (Google.GoogleApiException ex)
+            {
+                throw new InvalidOperationException(ex.Error?.Message ?? "Google Drive could not look up the folder.", ex);
+            }
+        }
+
+        private async Task<string> FindFolderPageAsync(string folderName, string parentFolderId, bool sharedDrive, CancellationToken cancellationToken)
+        {
+            string pageToken = null;
+            var name = EscapeQuery(folderName);
+            var parent = EscapeQuery(parentFolderId);
+            do
+            {
+                var list = Drive().Files.List();
+                list.Q = $"mimeType = 'application/vnd.google-apps.folder' and name = '{name}' and '{parent}' in parents and trashed = false";
+                list.Fields = "nextPageToken, files(id, name, parents)";
+                list.Spaces = "drive";
+                list.PageSize = 10;
+                list.SupportsAllDrives = true;
+                list.IncludeItemsFromAllDrives = true;
+                list.Corpora = sharedDrive ? "drive" : "allDrives";
+                if (sharedDrive)
+                {
+                    list.DriveId = parentFolderId;
+                }
+
+                list.PageToken = pageToken;
+                var page = await list.ExecuteAsync(cancellationToken);
+                var match = page.Files?.FirstOrDefault(file =>
+                    string.Equals(file.Name, folderName, StringComparison.Ordinal)
+                    && (file.Parents == null || file.Parents.Count == 0 || file.Parents.Contains(parentFolderId)));
+                if (!string.IsNullOrWhiteSpace(match?.Id))
+                {
+                    return match.Id;
+                }
+
+                pageToken = page.NextPageToken;
+            }
+            while (!string.IsNullOrEmpty(pageToken));
+
+            return null;
+        }
+
+        private static string EscapeQuery(string value)
+        {
+            return (value ?? string.Empty).Replace("\\", "\\\\").Replace("'", "\\'");
         }
 
         private async Task<HashSet<string>> FolderFileNamesAsync(string folderId, CancellationToken cancellationToken)
