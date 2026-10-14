@@ -117,8 +117,8 @@ namespace Mahkias.Api.Controllers
                 return prepared.Error;
             }
 
-            var id = await _uow.Quotations.CreateAsync(prepared.Args);
             var projectId = prepared.Args.ProjectIds.First();
+            var id = await _uow.Quotations.ImportAsync(prepared.Args, null, HttpContext.RequestAborted);
             var saved = (await _uow.Quotations.GetByProjectAsync(projectId)).FirstOrDefault(item => item.Id == id);
             return Ok(saved);
         }
@@ -183,28 +183,10 @@ namespace Mahkias.Api.Controllers
 
             try
             {
-                var id = await _uow.Quotations.ImportAsync(prepared.Args, buffer == null
-                    ? null
-                    : async (quotationId, token) =>
-                    {
-                        var folderId = await _folders.EnsureQuotationsFolderAsync(projectId, token);
-                        if (string.IsNullOrWhiteSpace(folderId))
-                        {
-                            throw new InvalidOperationException("The quotation folder could not be prepared.");
-                        }
-
-                        buffer.Position = 0;
-                        var uploaded = await _drive.UploadAsync(folderId, uploadName, contentType, buffer, token);
-                        return new CreateQuotationDocumentArgs
-                        {
-                            ProjectId = projectId,
-                            QuotationId = quotationId,
-                            FileName = string.IsNullOrWhiteSpace(uploaded.FileName) ? uploadName : uploaded.FileName,
-                            FileType = fileType,
-                            GoogleDriveFileId = uploaded.FileId,
-                            WebViewLink = uploaded.WebViewLink ?? string.Empty,
-                        };
-                    }, cancellationToken);
+                var id = await _uow.Quotations.ImportAsync(
+                    prepared.Args,
+                    buffer == null ? null : (quotationId, token) => UploadQuotationFileAsync(projectId, quotationId, 0, uploadName, contentType, fileType, buffer, token),
+                    cancellationToken);
                 var saved = (await _uow.Quotations.GetByProjectAsync(projectId)).FirstOrDefault(item => item.Id == id);
                 return Ok(saved);
             }
@@ -219,6 +201,115 @@ namespace Mahkias.Api.Controllers
                     await buffer.DisposeAsync();
                 }
             }
+        }
+
+        [HttpPost("/api/projects/{projectId:int}/quotations/{quotationId:int}/save")]
+        [RequestSizeLimit(MaxImportRequestBytes)]
+        [RequestFormLimits(MultipartBodyLengthLimit = MaxImportRequestBytes)]
+        public async Task<IActionResult> Save(int projectId, int quotationId, [FromForm] QuotationImportForm form, CancellationToken cancellationToken)
+        {
+            if (form == null)
+            {
+                return BadRequest(new { message = "Quotation details are required." });
+            }
+
+            if (form.File == null || form.File.Length == 0)
+            {
+                return BadRequest(new { message = "Choose a document to upload." });
+            }
+
+            List<QuotationItemRequest> items;
+            try
+            {
+                items = string.IsNullOrWhiteSpace(form.Items)
+                    ? new List<QuotationItemRequest>()
+                    : JsonSerializer.Deserialize<List<QuotationItemRequest>>(form.Items, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                      ?? new List<QuotationItemRequest>();
+            }
+            catch (JsonException)
+            {
+                return BadRequest(new { message = "Quotation items could not be read." });
+            }
+
+            var prepared = await PrepareAsync(new CreateQuotationRequest
+            {
+                SupplierId = form.SupplierId,
+                SupplierReference = form.SupplierReference,
+                CurrencyId = form.CurrencyId,
+                ProjectIds = new List<int> { projectId },
+                Items = items,
+            });
+            if (prepared.Error != null)
+            {
+                return prepared.Error;
+            }
+
+            if (form.File.Length > MaxImportFileBytes)
+            {
+                return BadRequest(new { message = "Each document must be 50 MB or smaller." });
+            }
+
+            if (!DriveDocumentTypes.TryDescribe(form.File.FileName, out var uploadName, out var contentType, out var fileType, out var fileError))
+            {
+                return BadRequest(new { message = fileError });
+            }
+
+            var buffer = new MemoryStream();
+            await form.File.CopyToAsync(buffer, cancellationToken);
+            buffer.Position = 0;
+            try
+            {
+                await _uow.Quotations.SaveExistingAsync(
+                    quotationId,
+                    prepared.Args,
+                    (id, token) => UploadQuotationFileAsync(projectId, id, form.DocumentId, uploadName, contentType, fileType, buffer, token),
+                    cancellationToken);
+                var saved = await _uow.Quotations.GetDetailAsync(quotationId);
+                return saved == null ? NotFound() : Ok(saved);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            finally
+            {
+                await buffer.DisposeAsync();
+            }
+        }
+
+        private async Task<CreateQuotationDocumentArgs> UploadQuotationFileAsync(int projectId, int quotationId, int documentId, string uploadName, string contentType, string fileType, MemoryStream buffer, CancellationToken cancellationToken)
+        {
+            var folderId = await _folders.EnsureQuotationsFolderAsync(projectId, cancellationToken);
+            if (string.IsNullOrWhiteSpace(folderId))
+            {
+                throw new InvalidOperationException("The quotation folder could not be prepared.");
+            }
+
+            buffer.Position = 0;
+            var uploaded = await _drive.UploadAsync(folderId, uploadName, contentType, buffer, cancellationToken);
+            if (documentId > 0)
+            {
+                return new UpdateQuotationDocumentArgs
+                {
+                    ProjectId = projectId,
+                    QuotationId = quotationId,
+                    DocumentId = documentId,
+                    FileName = string.IsNullOrWhiteSpace(uploaded.FileName) ? uploadName : uploaded.FileName,
+                    FileType = fileType,
+                    GoogleDriveFileId = uploaded.FileId,
+                    WebViewLink = uploaded.WebViewLink ?? string.Empty,
+                };
+            }
+
+            return new CreateQuotationDocumentArgs
+            {
+                ProjectId = projectId,
+                QuotationId = quotationId,
+                FileName = string.IsNullOrWhiteSpace(uploaded.FileName) ? uploadName : uploaded.FileName,
+                FileType = fileType,
+                GoogleDriveFileId = uploaded.FileId,
+                WebViewLink = uploaded.WebViewLink ?? string.Empty,
+            };
         }
 
         [HttpPost("/api/projects/{projectId}/quotations/excel/mapping")]

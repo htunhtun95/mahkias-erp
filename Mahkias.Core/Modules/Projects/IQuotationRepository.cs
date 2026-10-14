@@ -17,6 +17,8 @@ namespace Mahkias.Core.Modules.Projects
 
         Task<int> ImportAsync(CreateQuotationArgs args, Func<int, CancellationToken, Task<CreateQuotationDocumentArgs>> attachFile, CancellationToken cancellationToken = default);
 
+        Task SaveExistingAsync(int quotationId, CreateQuotationArgs args, Func<int, CancellationToken, Task<CreateQuotationDocumentArgs>> attachFile, CancellationToken cancellationToken = default);
+
         Task<string> NextCodeAsync();
 
         Task<IReadOnlyList<QuotationListItem>> GetByProjectAsync(int projectId);

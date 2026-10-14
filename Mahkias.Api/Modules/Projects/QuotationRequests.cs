@@ -61,6 +61,8 @@ namespace Mahkias.Api.Modules.Projects
         public string Items { get; set; }
 
         public IFormFile File { get; set; }
+
+        public int DocumentId { get; set; }
     }
 
     public class QuotationExcelUploadForm

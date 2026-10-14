@@ -292,40 +292,34 @@ export class CreateQuotationDialogComponent {
     const editing = !!this.quotationId;
     const currentFile = this.currentDocument;
     const clearStored = this.storedCleared;
+    const file = this.pendingFile;
     this.withSupplier()
       .pipe(
         switchMap(() => {
           const body = {
             supplierId: this.supplierId!,
             supplierReference: this.supplierQuotationRef.trim(),
-            projectIds: [this.data.projectId],
             currencyId: this.currencyId,
             items,
           };
-          return this.quotationId
-            ? this.api.updateQuotation(this.quotationId, body)
-            : this.api.createQuotation(body);
-        }),
-        switchMap((saved) => {
-          quotationSaved = true;
-          const id = saved?.id ?? this.quotationId;
-          if (id) {
-            this.quotationId = id;
-          }
-          const file = this.pendingFile;
-          if (!id) {
-            return of(saved);
-          }
-          if (file && editing && currentFile) {
-            return this.api.replaceQuotationDocument(this.data.projectId, id, currentFile.documentId, file);
+          if (!this.quotationId) {
+            return this.api.importQuotation(this.data.projectId, body, file);
           }
           if (file) {
-            return this.api.uploadQuotationDocuments(this.data.projectId, id, file);
+            return this.api.saveQuotation(this.data.projectId, this.quotationId, body, file, currentFile?.documentId);
           }
-          if (editing && clearStored && currentFile) {
-            return this.api.removeQuotationDocument(this.data.projectId, id, currentFile.documentId);
-          }
-          return of(saved);
+          return this.api.updateQuotation(this.quotationId, {
+            ...body,
+            projectIds: [this.data.projectId],
+          }).pipe(
+            switchMap((saved) => {
+              quotationSaved = true;
+              if (editing && clearStored && currentFile) {
+                return this.api.removeQuotationDocument(this.data.projectId, this.quotationId!, currentFile.documentId);
+              }
+              return of(saved);
+            }),
+          );
         }),
         whileBusy((busy) => (this.isSaving = busy)),
       )

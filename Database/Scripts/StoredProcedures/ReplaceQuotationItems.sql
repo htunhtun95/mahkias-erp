@@ -16,7 +16,12 @@ BEGIN
     SET XACT_ABORT ON;
 
     BEGIN TRY
-        BEGIN TRANSACTION;
+        DECLARE @OwnTransaction BIT = 0;
+        IF @@TRANCOUNT = 0
+        BEGIN
+            BEGIN TRANSACTION;
+            SET @OwnTransaction = 1;
+        END
 
         UPDATE projects.Quotations
         SET SupplierId = @SupplierId,
@@ -27,7 +32,11 @@ BEGIN
 
         IF @@ROWCOUNT = 0
         BEGIN
-            ROLLBACK TRANSACTION;
+            IF @OwnTransaction = 1
+            BEGIN
+                ROLLBACK TRANSACTION;
+            END
+
             SELECT Updated = 0;
             RETURN;
         END
@@ -135,11 +144,15 @@ BEGIN
             ), 0), 2)
         WHERE Id = @Id;
 
-        COMMIT TRANSACTION;
+        IF @OwnTransaction = 1
+        BEGIN
+            COMMIT TRANSACTION;
+        END
+
         SELECT Updated = 1;
     END TRY
     BEGIN CATCH
-        IF @@TRANCOUNT > 0
+        IF @OwnTransaction = 1 AND @@TRANCOUNT > 0
         BEGIN
             ROLLBACK TRANSACTION;
         END
