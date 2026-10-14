@@ -101,12 +101,7 @@ ORDER BY AP.ActivityId, AP.SortOrder, AP.Id;";
             {
                 CommandType = CommandType.StoredProcedure
             };
-            command.Parameters.AddInt("SupplierId", args.SupplierId);
-            command.Parameters.Add(OptionalText("SupplierReference", NullIfBlank(args.SupplierReference), 100));
-            command.Parameters.Add(OptionalText("DriveFileLink", NullIfBlank(args.DriveFileLink), 1000));
-            command.Parameters.AddNullableInt("CurrencyId", args.CurrencyId);
-            command.Parameters.AddTable("ProjectIds", ProjectIdTable(args.ProjectIds), "dbo.NumberTableType");
-            command.Parameters.AddTable("Items", ItemTable(args.Items), "dbo.DefaultGenericTableType");
+            BindCreate(command, args);
             _connection.Open();
             try
             {
@@ -115,6 +110,57 @@ ORDER BY AP.ActivityId, AP.SortOrder, AP.Id;";
             }
             finally
             {
+                _connection.Close();
+            }
+        }
+
+        public async Task<int> ImportAsync(CreateQuotationArgs args, Func<int, CancellationToken, Task<CreateQuotationDocumentArgs>> attachFile, CancellationToken cancellationToken = default)
+        {
+            if (_connection.State != ConnectionState.Closed)
+            {
+                _connection.Close();
+            }
+
+            await _connection.OpenAsync(cancellationToken);
+            SqlTransaction transaction = null;
+            try
+            {
+                transaction = (SqlTransaction)await _connection.BeginTransactionAsync(cancellationToken);
+                var id = await ExecuteCreateAsync(args, transaction, cancellationToken);
+                if (id <= 0)
+                {
+                    throw new InvalidOperationException("The quotation could not be saved.");
+                }
+
+                if (attachFile != null)
+                {
+                    var document = await attachFile(id, cancellationToken);
+                    if (document != null)
+                    {
+                        document.QuotationId = id;
+                        var linked = await ExecuteCreateDocumentAsync(document, transaction, cancellationToken);
+                        if (!linked)
+                        {
+                            throw new InvalidOperationException("The quotation file could not be saved.");
+                        }
+                    }
+                }
+
+                await transaction.CommitAsync(cancellationToken);
+                return id;
+            }
+            catch
+            {
+                await RollbackQuietlyAsync(transaction);
+                throw;
+            }
+            finally
+            {
+                if (transaction != null)
+                {
+                    await transaction.DisposeAsync();
+                }
+
                 _connection.Close();
             }
         }
@@ -492,6 +538,59 @@ END", _connection);
             finally
             {
                 _connection.Close();
+            }
+        }
+
+        private async Task<int> ExecuteCreateAsync(CreateQuotationArgs args, SqlTransaction transaction, CancellationToken cancellationToken)
+        {
+            using var command = new SqlCommand("dbo.CreateQuotation", _connection, transaction)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
+            BindCreate(command, args);
+            var id = await command.ExecuteScalarAsync(cancellationToken);
+            return id == null || id == DBNull.Value ? 0 : Convert.ToInt32(id);
+        }
+
+        private async Task<bool> ExecuteCreateDocumentAsync(CreateQuotationDocumentArgs args, SqlTransaction transaction, CancellationToken cancellationToken)
+        {
+            using var command = new SqlCommand("dbo.CreateQuotationDocument", _connection, transaction)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
+            command.Parameters.AddInt("ProjectId", args.ProjectId);
+            command.Parameters.AddInt("QuotationId", args.QuotationId);
+            command.Parameters.AddNVarChar("FileName", args.FileName, 260, false);
+            command.Parameters.AddNVarChar("FileType", args.FileType, 100, false);
+            command.Parameters.AddNVarChar("GoogleDriveFileId", args.GoogleDriveFileId, 128, false);
+            command.Parameters.AddNVarChar("WebViewLink", args.WebViewLink, 1000, false);
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            return await reader.ReadAsync(cancellationToken);
+        }
+
+        private static void BindCreate(SqlCommand command, CreateQuotationArgs args)
+        {
+            command.Parameters.AddInt("SupplierId", args.SupplierId);
+            command.Parameters.Add(OptionalText("SupplierReference", NullIfBlank(args.SupplierReference), 100));
+            command.Parameters.Add(OptionalText("DriveFileLink", NullIfBlank(args.DriveFileLink), 1000));
+            command.Parameters.AddNullableInt("CurrencyId", args.CurrencyId);
+            command.Parameters.AddTable("ProjectIds", ProjectIdTable(args.ProjectIds), "dbo.NumberTableType");
+            command.Parameters.AddTable("Items", ItemTable(args.Items), "dbo.DefaultGenericTableType");
+        }
+
+        private static async Task RollbackQuietlyAsync(SqlTransaction transaction)
+        {
+            if (transaction == null)
+            {
+                return;
+            }
+
+            try
+            {
+                await transaction.RollbackAsync();
+            }
+            catch (InvalidOperationException)
+            {
             }
         }
 

@@ -50,6 +50,19 @@ namespace Mahkias.Api.Modules.Projects
         public string DuplicateHandling { get; set; }
     }
 
+    public class QuotationImportForm
+    {
+        public int SupplierId { get; set; }
+
+        public string SupplierReference { get; set; }
+
+        public int? CurrencyId { get; set; }
+
+        public string Items { get; set; }
+
+        public IFormFile File { get; set; }
+    }
+
     public class QuotationExcelUploadForm
     {
         public IFormFile File { get; set; }

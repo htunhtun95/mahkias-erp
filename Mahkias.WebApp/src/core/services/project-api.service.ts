@@ -510,6 +510,29 @@ export class ProjectApiService {
     return this.http.post<QuotationListItem>(`${this.baseUrl}/quotations`, body);
   }
 
+  importQuotation(
+    projectId: number,
+    body: {
+      supplierId: number;
+      supplierReference: string;
+      currencyId?: number | null;
+      items: QuotationItemInput[];
+    },
+    file: File | null,
+  ) {
+    const form = new FormData();
+    form.append('supplierId', String(body.supplierId));
+    form.append('supplierReference', body.supplierReference ?? '');
+    if (body.currencyId != null) {
+      form.append('currencyId', String(body.currencyId));
+    }
+    form.append('items', JSON.stringify(body.items));
+    if (file) {
+      form.append('file', file, file.name);
+    }
+    return this.http.post<QuotationListItem>(`${this.baseUrl}/projects/${projectId}/quotations/import`, form);
+  }
+
   quotationExcelMapping(projectId: number, file: File) {
     const body = new FormData();
     body.append('file', file);

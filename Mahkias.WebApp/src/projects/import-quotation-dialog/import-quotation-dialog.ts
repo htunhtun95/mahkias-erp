@@ -76,7 +76,6 @@ export class ImportQuotationDialogComponent {
   originalFile: File | null = null;
   isVerifyStep = false;
   previewQuery = '';
-  importedQuotationId: number | null = null;
   readonly documentAccept = '.pdf,.doc,.docx,.xls,.xlsx,.xlsm,.csv,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tif,.tiff';
   columns: { letter: string; header: string | null }[] = [];
   mapping: QuoteMapping = this.blankMapping();
@@ -424,10 +423,6 @@ export class ImportQuotationDialogComponent {
   }
 
   startImport() {
-    if (this.importedQuotationId) {
-      this.uploadImportedFiles(this.importedQuotationId);
-      return;
-    }
     const items = this.lineItems();
     if (this.isImporting || this.checkState !== 'passed' || items.length === 0) {
       if (this.checkState === 'passed' && items.length === 0) {
@@ -449,21 +444,12 @@ export class ImportQuotationDialogComponent {
     this.dialogRef.disableClose = true;
     this.withSupplier()
       .pipe(
-        switchMap(() => this.api.createQuotation({
+        switchMap(() => this.api.importQuotation(this.data.projectId, {
           supplierId: this.supplierId!,
           supplierReference: this.supplierQuotationRef.trim(),
-          projectIds: [this.data.projectId],
           currencyId: this.currencyId,
           items,
-        })),
-        switchMap((saved) => {
-          this.importedQuotationId = saved.id;
-          const file = this.storedFile();
-          if (!file) {
-            return of(saved);
-          }
-          return this.api.uploadQuotationDocuments(this.data.projectId, saved.id, file);
-        }),
+        }, this.storedFile())),
         whileBusy((busy) => (this.isImporting = busy)),
       )
       .subscribe({
@@ -471,23 +457,22 @@ export class ImportQuotationDialogComponent {
           this.dialogRef.close(true);
         },
         error: (error: HttpErrorResponse) => {
-          if (this.importedQuotationId) {
-            const body = error.error;
-            this.error = (typeof body === 'string' ? body : body?.message) || 'The quotation was imported, but the file could not be uploaded.';
-            return;
-          }
+          this.dialogRef.disableClose = false;
           if (this.creatingSupplier) {
             this.error = error.error?.message || 'The supplier could not be created.';
             return;
           }
           const issues = (error.error?.errors as ActivityImportIssue[] | undefined) ?? [];
-          this.isVerifyStep = false;
-          this.checkState = 'failed';
-          this.importErrors = issues;
-          this.lines = [];
-          this.error = issues.length
-            ? issues.map((issue) => `Row ${issue.row}: [${issue.field}] ${issue.message}`).join(' ')
-            : error.error?.message || 'The quotation could not be imported.';
+          if (issues.length) {
+            this.isVerifyStep = false;
+            this.checkState = 'failed';
+            this.importErrors = issues;
+            this.lines = [];
+            this.error = issues.map((issue) => `Row ${issue.row}: [${issue.field}] ${issue.message}`).join(' ');
+            return;
+          }
+          const body = error.error;
+          this.error = (typeof body === 'string' ? body : body?.message) || 'The quotation could not be imported.';
         },
       });
   }
@@ -628,27 +613,6 @@ export class ImportQuotationDialogComponent {
 
   private storedFile(): File | null {
     return this.spreadsheetIsOriginal ? this.file : this.originalFile;
-  }
-
-  private uploadImportedFiles(quotationId: number) {
-    const file = this.storedFile();
-    if (!file) {
-      this.dialogRef.close(true);
-      return;
-    }
-    this.error = '';
-    this.dialogRef.disableClose = true;
-    this.api.uploadQuotationDocuments(this.data.projectId, quotationId, file)
-      .pipe(whileBusy((busy) => (this.isImporting = busy)))
-      .subscribe({
-        next: () => {
-          this.dialogRef.close(true);
-        },
-        error: (error: HttpErrorResponse) => {
-          const body = error.error;
-          this.error = (typeof body === 'string' ? body : body?.message) || 'The quotation was imported, but the file could not be uploaded.';
-        },
-      });
   }
 
   private lineItems(): QuotationItemInput[] {
