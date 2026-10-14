@@ -15,9 +15,11 @@ import { ProjectPurchasesTabComponent } from './tabs/project-purchases-tab/proje
 import { ProjectQuotationsTabComponent } from './tabs/project-quotations-tab/project-quotations-tab';
 import { QuotationSync } from '../quotation-sync';
 
-export type ProjectTab = 'activities' | 'quotations' | 'purchases';
+export type ProjectTab = 'activities' | 'procurement';
+export type ProcurementSection = 'quotations' | 'purchases';
 
-const PROJECT_TABS: ProjectTab[] = ['activities', 'quotations', 'purchases'];
+const PROJECT_TABS: ProjectTab[] = ['activities', 'procurement'];
+const PROCUREMENT_SECTIONS: ProcurementSection[] = ['quotations', 'purchases'];
 
 @Component({
   selector: 'app-project',
@@ -46,6 +48,7 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
   project: Project | null = null;
   types: ActivityType[] = [];
   tab: ProjectTab = 'activities';
+  section: ProcurementSection = 'quotations';
   loading = true;
   isDeleting = false;
   activityFilter = '';
@@ -64,7 +67,46 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
     });
 
     this.route.queryParamMap.subscribe((params) => {
-      this.tab = this.readTab(params.get('tab'));
+      const rawTab = params.get('tab');
+      if (rawTab === 'quotations' || rawTab === 'purchases') {
+        this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: { tab: 'procurement', section: rawTab },
+          replaceUrl: true,
+        });
+        return;
+      }
+
+      const tab = this.readTab(rawTab);
+      if (tab === 'procurement') {
+        const rawSection = params.get('section');
+        const section = PROCUREMENT_SECTIONS.includes(rawSection as ProcurementSection)
+          ? (rawSection as ProcurementSection)
+          : null;
+        if (!section) {
+          this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { tab: 'procurement', section: 'quotations' },
+            queryParamsHandling: 'merge',
+            replaceUrl: true,
+          });
+          return;
+        }
+
+        this.tab = 'procurement';
+        this.section = section;
+        return;
+      }
+
+      this.tab = 'activities';
+      if (params.get('section')) {
+        this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: { section: null },
+          queryParamsHandling: 'merge',
+          replaceUrl: true,
+        });
+      }
     });
 
     this.syncSub = this.quotationSync.changes$.subscribe((projectId) => {
@@ -98,7 +140,21 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
 
     this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: { tab },
+      queryParams: tab === 'procurement'
+        ? { tab, section: this.section }
+        : { tab, section: null },
+      queryParamsHandling: 'merge',
+    });
+  }
+
+  selectSection(section: ProcurementSection) {
+    if (this.tab === 'procurement' && section === this.section) {
+      return;
+    }
+
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab: 'procurement', section },
       queryParamsHandling: 'merge',
     });
   }

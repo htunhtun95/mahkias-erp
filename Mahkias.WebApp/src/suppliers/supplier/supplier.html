@@ -62,7 +62,7 @@
         @for (quotation of supplier.quotations; track quotation.id) {
           <div class="row">
             @if (projectLink(quotation); as link) {
-              <a class="ref-link" [routerLink]="link" [queryParams]="{ tab: 'quotations' }">{{ quotation.code }}</a>
+              <a class="ref-link" [routerLink]="link" [queryParams]="{ tab: 'procurement', section: 'quotations' }">{{ quotation.code }}</a>
             } @else {
               <span class="ref">{{ quotation.code }}</span>
             }

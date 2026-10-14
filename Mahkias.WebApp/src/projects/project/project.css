@@ -183,6 +183,64 @@ h1 {
   border-bottom-color: #1a73e8;
 }
 
+.procurement-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 16px;
+  padding: 4px;
+  border-radius: 999px;
+  background: #f1f3f4;
+}
+
+.segment-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #5f6368;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.segment-btn:hover {
+  color: #202124;
+}
+
+.segment-btn.active {
+  background: #fff;
+  color: #1a73e8;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.16);
+}
+
+.segment-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.segment-count {
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #e8eaed;
+  color: #5f6368;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.segment-btn.active .segment-count {
+  background: #e8f0fe;
+  color: #1a73e8;
+}
+
 .header-actions {
   display: flex;
   flex-wrap: wrap;

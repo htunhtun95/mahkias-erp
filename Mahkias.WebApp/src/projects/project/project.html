@@ -51,21 +51,11 @@
         class="tab"
         type="button"
         role="tab"
-        [class.active]="tab === 'quotations'"
-        [attr.aria-selected]="tab === 'quotations'"
-        (click)="selectTab('quotations')"
+        [class.active]="tab === 'procurement'"
+        [attr.aria-selected]="tab === 'procurement'"
+        (click)="selectTab('procurement')"
       >
-        Quotations ({{ quotationCount }})
-      </button>
-      <button
-        class="tab"
-        type="button"
-        role="tab"
-        [class.active]="tab === 'purchases'"
-        [attr.aria-selected]="tab === 'purchases'"
-        (click)="selectTab('purchases')"
-      >
-        Purchases (0)
+        Procurement
       </button>
     </div>
 
@@ -97,29 +87,62 @@
             Add Activity
           </button>
         }
-        @case ('quotations') {
-          <button class="action-outline" type="button" (click)="openImportQuotation()" [disabled]="isDeleting">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path fill="#107c41" d="M4 3h10l6 6v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
-              <path fill="#fff" d="M14 3v6h6" />
-              <path fill="#fff" d="M7 12h10v1.4H7zm0 2.6h10V16H7zm0 2.6h7v1.4H7z" />
-            </svg>
-            Import Quotation
-          </button>
-          <button class="action-primary" type="button" (click)="openQuotation()" [disabled]="isDeleting">
-            <mat-icon>add</mat-icon>
-            Create Quotation
-          </button>
-        }
-        @case ('purchases') {
-          <button class="action-primary" type="button">
-            <mat-icon>add</mat-icon>
-            New Purchase Order
-          </button>
+        @case ('procurement') {
+          @switch (section) {
+            @case ('quotations') {
+              <button class="action-outline" type="button" (click)="openImportQuotation()" [disabled]="isDeleting">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path fill="#107c41" d="M4 3h10l6 6v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
+                  <path fill="#fff" d="M14 3v6h6" />
+                  <path fill="#fff" d="M7 12h10v1.4H7zm0 2.6h10V16H7zm0 2.6h7v1.4H7z" />
+                </svg>
+                Import Quotation
+              </button>
+              <button class="action-primary" type="button" (click)="openQuotation()" [disabled]="isDeleting">
+                <mat-icon>add</mat-icon>
+                Create Quotation
+              </button>
+            }
+            @case ('purchases') {
+              <button class="action-primary" type="button">
+                <mat-icon>add</mat-icon>
+                New Purchase Order
+              </button>
+            }
+          }
         }
       }
     </div>
   </div>
+
+  @if (tab === 'procurement') {
+    <div class="procurement-switch" role="tablist" aria-label="Procurement sections">
+      <button
+        class="segment-btn"
+        type="button"
+        role="tab"
+        [class.active]="section === 'quotations'"
+        [attr.aria-selected]="section === 'quotations'"
+        [disabled]="isDeleting"
+        (click)="selectSection('quotations')"
+      >
+        Quotations
+        <span class="segment-count">{{ quotationCount }}</span>
+      </button>
+      <button
+        class="segment-btn"
+        type="button"
+        role="tab"
+        [class.active]="section === 'purchases'"
+        [attr.aria-selected]="section === 'purchases'"
+        [disabled]="isDeleting"
+        (click)="selectSection('purchases')"
+      >
+        Purchases
+        <span class="segment-count">0</span>
+      </button>
+    </div>
+  }
 
   @if (error) {
     <p class="error">{{ error }}</p>
@@ -138,11 +161,11 @@
     />
     <app-project-quotations-tab
       class="tab-panel"
-      [class.is-hidden]="tab !== 'quotations'"
+      [class.is-hidden]="tab !== 'procurement' || section !== 'quotations'"
       [project]="project"
       (countChange)="quotationCount = $event"
     />
-    <app-project-purchases-tab class="tab-panel" [class.is-hidden]="tab !== 'purchases'" />
+    <app-project-purchases-tab class="tab-panel" [class.is-hidden]="tab !== 'procurement' || section !== 'purchases'" />
   </div>
 } @else {
   <p class="error">{{ error || 'Project not found.' }}</p>
