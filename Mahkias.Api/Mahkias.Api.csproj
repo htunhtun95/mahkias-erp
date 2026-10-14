@@ -5,6 +5,7 @@
     <Nullable>disable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AcceptNPOIOSMFLicense>true</AcceptNPOIOSMFLicense>
+    <DefaultItemExcludes>$(DefaultItemExcludes);credentials/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
