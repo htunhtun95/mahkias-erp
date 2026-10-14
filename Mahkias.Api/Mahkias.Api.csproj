@@ -22,4 +22,8 @@
     <ProjectReference Include="..\Mahkias.Data\Mahkias.Data.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="credentials/google-drive-key.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="Exists('credentials/google-drive-key.json')" />
+  </ItemGroup>
+
 </Project>

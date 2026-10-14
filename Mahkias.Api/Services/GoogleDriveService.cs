@@ -16,6 +16,8 @@ namespace Mahkias.Api.Services
         public string[] FolderPath { get; set; }
 
         public string CredentialsFilePath { get; set; }
+
+        public string CredentialsJson { get; set; }
     }
 
     public class GoogleDriveService : IGoogleDriveService
@@ -314,8 +316,7 @@ namespace Mahkias.Api.Services
                     return _drive;
                 }
 
-                var account = CredentialFactory.FromFile<ServiceAccountCredential>(CredentialsPath());
-                var credential = account.ToGoogleCredential().CreateScoped(DriveService.Scope.Drive);
+                var credential = LoadCredential();
                 _drive = new DriveService(new BaseClientService.Initializer
                 {
                     HttpClientInitializer = credential,
@@ -325,27 +326,52 @@ namespace Mahkias.Api.Services
             }
         }
 
+        private GoogleCredential LoadCredential()
+        {
+            var json = FirstConfigured(
+                _options.CredentialsJson,
+                Environment.GetEnvironmentVariable("GOOGLE_DRIVE_CREDENTIALS"),
+                Environment.GetEnvironmentVariable("GoogleDrive__CredentialsJson"));
+            if (!string.IsNullOrWhiteSpace(json))
+            {
+                return GoogleCredential.FromJson(json).CreateScoped(DriveService.Scope.Drive);
+            }
+
+            var account = CredentialFactory.FromFile<ServiceAccountCredential>(CredentialsPath());
+            return account.ToGoogleCredential().CreateScoped(DriveService.Scope.Drive);
+        }
+
         private string CredentialsPath()
         {
-            var configured = _options.CredentialsFilePath?.Trim();
+            var configured = FirstConfigured(
+                _options.CredentialsFilePath,
+                Environment.GetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS"));
             if (string.IsNullOrWhiteSpace(configured))
             {
                 throw new InvalidOperationException("Google Drive credentials file is not configured.");
             }
 
+            configured = Environment.ExpandEnvironmentVariables(configured);
             if (Path.IsPathRooted(configured) && File.Exists(configured))
             {
                 return configured;
             }
 
-            var candidates = new[]
+            var roots = new[]
             {
-                Path.Combine(_environment.ContentRootPath, configured),
-                Path.Combine(AppContext.BaseDirectory, configured),
+                _environment.ContentRootPath,
+                AppContext.BaseDirectory,
+                Directory.GetCurrentDirectory(),
             };
 
-            foreach (var candidate in candidates)
+            foreach (var root in roots)
             {
+                if (string.IsNullOrWhiteSpace(root))
+                {
+                    continue;
+                }
+
+                var candidate = Path.GetFullPath(Path.Combine(root, configured));
                 if (File.Exists(candidate))
                 {
                     return candidate;
@@ -353,6 +379,19 @@ namespace Mahkias.Api.Services
             }
 
             throw new InvalidOperationException("Google Drive credentials file was not found.");
+        }
+
+        private static string FirstConfigured(params string[] values)
+        {
+            foreach (var value in values)
+            {
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    return value.Trim();
+                }
+            }
+
+            return null;
         }
     }
 }

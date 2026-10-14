@@ -23,11 +23,26 @@ jobs:
         with:
           dotnet-version: '10.x'
 
+      - name: Add Google Drive credentials
+        env:
+          GOOGLE_DRIVE_CREDENTIALS: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
+        run: |
+          if [ -z "$GOOGLE_DRIVE_CREDENTIALS" ]; then
+            echo "Google Drive credentials secret is not configured."
+            exit 1
+          fi
+          mkdir -p Mahkias.Api/credentials
+          printf '%s\n' "$GOOGLE_DRIVE_CREDENTIALS" > Mahkias.Api/credentials/google-drive-key.json
+
       - name: Build with dotnet
         run: dotnet build Mahkias.Api/Mahkias.Api.csproj --configuration Release
 
       - name: dotnet publish
-        run: dotnet publish Mahkias.Api/Mahkias.Api.csproj -c Release -o ${{env.DOTNET_ROOT}}/myapp
+        run: |
+          dotnet publish Mahkias.Api/Mahkias.Api.csproj -c Release -o ${{env.DOTNET_ROOT}}/myapp
+          mkdir -p ${{env.DOTNET_ROOT}}/myapp/credentials
+          cp Mahkias.Api/credentials/google-drive-key.json ${{env.DOTNET_ROOT}}/myapp/credentials/google-drive-key.json
+          test -s ${{env.DOTNET_ROOT}}/myapp/credentials/google-drive-key.json
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
