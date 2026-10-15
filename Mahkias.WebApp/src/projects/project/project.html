@@ -62,18 +62,32 @@
     <div class="header-actions">
       @switch (tab) {
         @case ('activities') {
-          @if (activityCount > 10) {
-            <label class="activity-search">
-              <mat-icon>search</mat-icon>
-              <input
-                type="search"
-                placeholder="Filter activities (DSN, Part No, Description)..."
-                [value]="activityFilter"
-                [attr.disabled]="isDeleting ? '' : null"
-                (input)="activityFilter = $any($event.target).value"
-              />
-            </label>
-          }
+          <div class="activity-filters">
+            <mat-form-field class="quote-status-filter" appearance="outline" subscriptSizing="dynamic">
+              <mat-select
+                [value]="quoteFilter"
+                (selectionChange)="quoteFilter = $event.value"
+                [disabled]="isDeleting"
+                aria-label="Quotation status"
+              >
+                <mat-option value="all">All Items</mat-option>
+                <mat-option value="quoted">Quoted</mat-option>
+                <mat-option value="unquoted">Not Quoted</mat-option>
+              </mat-select>
+            </mat-form-field>
+            @if (activityCount > 10) {
+              <label class="activity-search">
+                <mat-icon>search</mat-icon>
+                <input
+                  type="search"
+                  placeholder="Filter activities (DSN, Part No, Description)..."
+                  [value]="activityFilter"
+                  [attr.disabled]="isDeleting ? '' : null"
+                  (input)="activityFilter = $any($event.target).value"
+                />
+              </label>
+            }
+          </div>
           <button class="action-outline" type="button" (click)="openImport()" [disabled]="isDeleting">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path fill="#107c41" d="M4 3h10l6 6v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
@@ -155,6 +169,7 @@
       [project]="project"
       [types]="types"
       [activityFilter]="activityCount > 10 ? activityFilter : ''"
+      [quoteFilter]="quoteFilter"
       (reload)="reload()"
       (activitiesChange)="onActivitiesChange()"
       (failed)="error = $event"

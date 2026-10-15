@@ -39,6 +39,7 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
   @Input({ required: true }) project!: Project;
   @Input() types: ActivityType[] = [];
   @Input() activityFilter = '';
+  @Input() quoteFilter: 'all' | 'quoted' | 'unquoted' = 'all';
   @Output() reload = new EventEmitter<void>();
   @Output() activitiesChange = new EventEmitter<void>();
   @Output() failed = new EventEmitter<string>();
@@ -842,6 +843,7 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     const query = this.activeFilter;
     return [...(this.project?.activities ?? [])]
       .filter((activity) => !query || this.matchesFilter(activity, query))
+      .filter((activity) => this.matchesQuote(activity))
       .sort((left, right) => compareDsnNo(left.dsnNo, right.dsnNo));
   }
 
@@ -853,7 +855,19 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     const query = this.activeFilter;
     return this.members(groupId)
       .filter((activity) => !query || this.matchesFilter(activity, query))
+      .filter((activity) => this.matchesQuote(activity))
       .sort((left, right) => compareDsnNo(left.dsnNo, right.dsnNo));
+  }
+
+  private matchesQuote(activity: Activity): boolean {
+    const quoted = this.quotesFor(activity.id).length > 0;
+    if (this.quoteFilter === 'quoted') {
+      return quoted;
+    }
+    if (this.quoteFilter === 'unquoted') {
+      return !quoted;
+    }
+    return true;
   }
 
   private groupBlocks(typeId: number): GroupBlock[] {

@@ -251,6 +251,18 @@ h1 {
   padding-bottom: 8px;
 }
 
+.activity-filters {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.quote-status-filter {
+  width: 136px;
+  flex: 0 0 136px;
+  margin: 0;
+}
+
 .activity-search {
   display: flex;
   align-items: center;
@@ -287,6 +299,52 @@ h1 {
 
 .activity-search input::placeholder {
   color: #80868b;
+}
+
+:host ::ng-deep .quote-status-filter .mat-mdc-text-field-wrapper {
+  box-sizing: border-box;
+  width: 100%;
+  height: 42px;
+  margin: 0;
+  padding: 0 8px 0 14px;
+  border: 1px solid #dadce0;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.08);
+}
+
+:host ::ng-deep .quote-status-filter .mdc-notched-outline,
+:host ::ng-deep .quote-status-filter .mat-mdc-form-field-subscript-wrapper {
+  display: none;
+}
+
+:host ::ng-deep .quote-status-filter .mat-mdc-form-field-flex {
+  height: 40px;
+  align-items: center;
+}
+
+:host ::ng-deep .quote-status-filter .mat-mdc-form-field-infix {
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+}
+
+:host ::ng-deep .quote-status-filter .mat-mdc-select-trigger {
+  height: 40px;
+}
+
+:host ::ng-deep .quote-status-filter .mat-mdc-form-field-focus-overlay {
+  background: transparent;
+}
+
+:host ::ng-deep .quote-status-filter .mat-mdc-select-value-text,
+:host ::ng-deep .quote-status-filter .mat-mdc-select-min-line {
+  font-size: 13px;
+  color: #202124;
+}
+
+:host ::ng-deep .quote-status-filter .mat-mdc-select-arrow {
+  color: #5f6368;
 }
 
 .action-outline,
@@ -522,10 +580,18 @@ h1 {
     flex-direction: column;
   }
 
+  .activity-filters {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .quote-status-filter,
   .activity-search,
   .action-outline,
   .action-primary {
     width: 100%;
+    flex-basis: auto;
   }
 
   h1 {

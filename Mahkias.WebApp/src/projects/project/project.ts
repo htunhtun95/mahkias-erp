@@ -52,6 +52,7 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
   loading = true;
   isDeleting = false;
   activityFilter = '';
+  quoteFilter: 'all' | 'quoted' | 'unquoted' = 'all';
   quotationCount = 0;
   error = '';
 
