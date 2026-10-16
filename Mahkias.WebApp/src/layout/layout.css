@@ -26,7 +26,7 @@
   height: 64px;
   padding: 0 12px 0 20px;
   box-sizing: border-box;
-  background: #fff;
+  background: #ebeff4;
   color: #202124;
   border-bottom: 1px solid #e8eaed;
 }
@@ -97,7 +97,7 @@
   flex-direction: column;
   flex-shrink: 0;
   height: 100vh;
-  background: #e1e6ec;
+  background: #ebeff4;
   border-right: 0;
   color: #10233d;
   transition: width 0.22s ease;
