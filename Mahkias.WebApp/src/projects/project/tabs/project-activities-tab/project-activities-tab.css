@@ -297,13 +297,28 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  padding: 0;
   border: 0;
   border-radius: 8px;
   background: transparent;
   color: #5f6368;
   cursor: pointer;
+  overflow: visible;
+  flex-shrink: 0;
+}
+
+.expand mat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  font-size: 24px;
+  line-height: 24px;
+  overflow: visible;
 }
 
 .expand:hover {
@@ -385,16 +400,16 @@
 
 .row {
   display: grid;
-  grid-template-columns: 28px 40px 100px minmax(0, 1.7fr) minmax(0, 2.4fr) minmax(72px, 0.7fr) minmax(104px, 0.9fr) 108px;
+  grid-template-columns: 32px 48px 100px minmax(0, 1.7fr) minmax(0, 2.4fr) minmax(72px, 0.7fr) minmax(104px, 0.9fr) 108px;
   column-gap: 4px;
   row-gap: 0;
   align-items: center;
   min-height: 48px;
   padding: 10px 16px;
-  border-bottom: 1px solid #e8eaed;
+  border-bottom: 1px solid #e0e0e0;
 }
 
-.row:last-child {
+.activity-table > .activity-block:last-child > .row:last-child {
   border-bottom: 0;
 }
 
@@ -402,8 +417,13 @@
   background: #f8f9fa;
 }
 
+.row.group-row {
+  overflow: visible;
+}
+
 .row.group-row .expand {
   justify-self: center;
+  align-self: center;
 }
 
 .row.child {

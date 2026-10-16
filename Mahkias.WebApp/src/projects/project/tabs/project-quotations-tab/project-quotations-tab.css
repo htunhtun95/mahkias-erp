@@ -52,6 +52,11 @@
   align-items: center;
   min-height: 44px;
   padding: 10px 16px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.table > .quote-block:last-child > .row:last-child {
+  border-bottom: 0;
 }
 
 .expand,
@@ -85,8 +90,8 @@
   gap: 2px;
 }
 
-.quote-block + .quote-block {
-  border-top: 1px solid #e8eaed;
+.quote-block:not(:last-child) > .quote-files {
+  border-bottom: 1px solid #e0e0e0;
 }
 
 .lines {
@@ -99,7 +104,9 @@
   grid-template-columns: 80px minmax(0, 1.2fr) minmax(0, 1.6fr) 72px 110px 80px 110px;
   gap: 8px;
   align-items: center;
-  min-height: 36px;
+  min-height: 48px;
+  padding: 10px 0;
+  border-bottom: 1px solid #e0e0e0;
   color: #202124;
   font-size: 13px;
 }

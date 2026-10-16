@@ -1,36 +1,76 @@
-<mat-toolbar class="toolbar">
-  <div class="brand">
-    <mat-icon>dashboard</mat-icon>
-    <span>Mahkias ERP</span>
-  </div>
-  <span class="spacer"></span>
-  @if (user) {
-    <span class="user-name">{{ user.name }}</span>
-    <img class="avatar" [src]="user.picture" [alt]="user.name" referrerpolicy="no-referrer" />
-    <button mat-icon-button matTooltip="Sign out" (click)="logout()">
-      <mat-icon>logout</mat-icon>
+<div class="shell">
+  <aside class="nav" [class.is-collapsed]="collapsed" [style.width.px]="collapsed ? 76 : 248">
+    <button
+      class="brand"
+      type="button"
+      [attr.aria-label]="collapsed ? 'Expand menu' : 'Collapse menu'"
+      [attr.aria-expanded]="!collapsed"
+      (click)="toggleCollapsed()"
+    >
+      <svg class="brand-logo" viewBox="0 0 32 32" aria-hidden="true">
+        <defs>
+          <linearGradient id="mStem" x1="6" y1="4" x2="26" y2="28" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#0078D4" />
+            <stop offset="1" stop-color="#003B95" />
+          </linearGradient>
+          <linearGradient id="mDiag" x1="8" y1="8" x2="24" y2="20" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#2899F5" />
+            <stop offset="1" stop-color="#0078D4" />
+          </linearGradient>
+        </defs>
+        <path
+          d="M7.4 25.4V8.8L16 17.6 24.6 8.8v16.6"
+          fill="none"
+          stroke="url(#mStem)"
+          stroke-width="4.2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <path
+          d="M7.4 11.2 16 17.6 24.6 11.2"
+          fill="none"
+          stroke="url(#mDiag)"
+          stroke-width="2.15"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+      <span class="brand-name">Mahkias <span class="brand-highlight">ERP</span></span>
     </button>
-  }
-</mat-toolbar>
+    <nav class="nav-scroll" aria-label="Main">
+      @for (item of nav; track item.id) {
+        <a
+          class="nav-item"
+          [routerLink]="item.link"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: !!item.exact }"
+          [attr.aria-label]="item.label"
+          [matTooltip]="item.label"
+          matTooltipPosition="right"
+          [matTooltipDisabled]="!collapsed"
+        >
+          <mat-icon>{{ item.icon }}</mat-icon>
+          <span class="nav-label">{{ item.label }}</span>
+        </a>
+      }
+    </nav>
+  </aside>
 
-<mat-sidenav-container class="shell">
-  <mat-sidenav mode="side" opened>
-    <a mat-button routerLink="/dashboard" routerLinkActive="active" class="menu-text-left" [routerLinkActiveOptions]="{ exact: true }">
-      <mat-icon>space_dashboard</mat-icon>
-      Overview
-    </a>
-    <a mat-button routerLink="/projects" routerLinkActive="active" class="menu-text-left" [routerLinkActiveOptions]="{ exact: false }">
-      <mat-icon>folder</mat-icon>
-      Projects
-    </a>
-    <a mat-button routerLink="/suppliers" routerLinkActive="active" class="menu-text-left" [routerLinkActiveOptions]="{ exact: false }">
-      <mat-icon>local_shipping</mat-icon>
-      Suppliers
-    </a>
-  </mat-sidenav>
-  <mat-sidenav-content>
-    <div class="content">
-      <router-outlet></router-outlet>
+  <div class="workspace">
+    <header class="toolbar">
+      <span class="spacer"></span>
+      @if (user) {
+        <span class="user-name">{{ user.name }}</span>
+        <img class="avatar" [src]="user.picture" [alt]="user.name" referrerpolicy="no-referrer" />
+        <button mat-icon-button matTooltip="Sign out" (click)="logout()">
+          <mat-icon>logout</mat-icon>
+        </button>
+      }
+    </header>
+    <div class="stage">
+      <div class="content">
+        <router-outlet></router-outlet>
+      </div>
     </div>
-  </mat-sidenav-content>
-</mat-sidenav-container>
+  </div>
+</div>

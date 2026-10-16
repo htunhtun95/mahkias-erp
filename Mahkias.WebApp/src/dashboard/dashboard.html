@@ -1,27 +1,150 @@
 <section class="dashboard">
-  <header>
-    <p class="eyebrow">Overview</p>
-    <h1>Welcome{{ userName ? ', ' + userName : '' }}</h1>
-    <p class="lede">Mahkias ERP is ready. The workspace modules are being prepared.</p>
+  <header class="intro">
+    <div class="intro-copy">
+      <p class="eyebrow">Overview</p>
+      <h1>Welcome{{ userName ? ', ' + userName : '' }}</h1>
+      <p class="lede">Track supplier quotations as they move from an empty request into a priced quote.</p>
+    </div>
+    <div class="filter-bar" role="group" aria-label="Created date">
+      <mat-form-field class="created-filter" appearance="outline" subscriptSizing="dynamic">
+        <mat-select [value]="filters.created" (selectionChange)="setCreated($event.value)" aria-label="Created date">
+          <mat-option value="all">All Time</mat-option>
+          <mat-option value="today">Today</mat-option>
+          <mat-option value="week">Last Week</mat-option>
+          <mat-option value="month">Last Month</mat-option>
+          <mat-option value="year">Last Year</mat-option>
+          <mat-option value="custom">Custom Range</mat-option>
+        </mat-select>
+      </mat-form-field>
+      @if (filters.created === 'custom') {
+        <mat-form-field class="date-pill" appearance="outline" subscriptSizing="dynamic" (click)="startPicker.open()">
+          <input
+            matInput
+            [matDatepicker]="startPicker"
+            [(ngModel)]="startDate"
+            (ngModelChange)="syncRange()"
+            [max]="endDate"
+            placeholder="Start date"
+            aria-label="Start date"
+            readonly
+          />
+          <mat-datepicker-toggle matIconSuffix [for]="startPicker"></mat-datepicker-toggle>
+          <mat-datepicker #startPicker></mat-datepicker>
+        </mat-form-field>
+        <mat-form-field class="date-pill" appearance="outline" subscriptSizing="dynamic" (click)="endPicker.open()">
+          <input
+            matInput
+            [matDatepicker]="endPicker"
+            [(ngModel)]="endDate"
+            (ngModelChange)="syncRange()"
+            [min]="startDate"
+            placeholder="End date"
+            aria-label="End date"
+            readonly
+          />
+          <mat-datepicker-toggle matIconSuffix [for]="endPicker"></mat-datepicker-toggle>
+          <mat-datepicker #endPicker></mat-datepicker>
+        </mat-form-field>
+      }
+    </div>
   </header>
 
-  <div class="hero">
-    <span class="badge">Coming soon</span>
-    <h2>Your operations dashboard</h2>
-    <p>
-      Projects, inventory, quotations, and orders will appear here after sign-in.
-      The projects API is already wired for list and create.
-    </p>
+  <div class="metrics" role="group" aria-label="Quotation summary">
+    <button class="metric" type="button" [class.active]="filters.status === 'all'" (click)="setStatus('all')">
+      <span class="metric-icon total" aria-hidden="true"><mat-icon>request_quote</mat-icon></span>
+      <span class="metric-copy">
+        <span class="metric-label">Total Quotations</span>
+        <strong>{{ scopedRows.length }}</strong>
+      </span>
+    </button>
+    <button class="metric" type="button" [class.active]="filters.status === 'pending'" (click)="setStatus('pending')">
+      <span class="metric-icon pending" aria-hidden="true"><mat-icon>hourglass_empty</mat-icon></span>
+      <span class="metric-copy">
+        <span class="metric-label">Pending</span>
+        <strong>{{ pendingCount }}</strong>
+        <span class="metric-hint">No line items yet</span>
+      </span>
+    </button>
+    <button class="metric" type="button" [class.active]="filters.status === 'processing'" (click)="setStatus('processing')">
+      <span class="metric-icon processing" aria-hidden="true"><mat-icon>local_shipping</mat-icon></span>
+      <span class="metric-copy">
+        <span class="metric-label">Processing</span>
+        <strong>{{ processingCount }}</strong>
+        <span class="metric-hint">Priced and in procurement</span>
+      </span>
+    </button>
+    <article class="metric value">
+      <span class="metric-icon value" aria-hidden="true"><mat-icon>payments</mat-icon></span>
+      <span class="metric-copy">
+        <span class="metric-label">Quoted value</span>
+        <strong>{{ quotedValue }}</strong>
+        <span class="metric-hint">USD base total</span>
+      </span>
+    </article>
   </div>
 
-  <div class="cards">
-    @for (module of modules; track module.title) {
-      <article>
-        <mat-icon>{{ module.icon }}</mat-icon>
-        <h3>{{ module.title }}</h3>
-        <p>{{ module.description }}</p>
-        <span>Coming soon</span>
-      </article>
+  <section class="board" aria-label="Quotation tracking">
+    <div class="board-head">
+      <div>
+        <h2>Quotation tracking</h2>
+        <p>Supplier quotes across projects, newest activity first.</p>
+      </div>
+    </div>
+
+    @if (error) {
+      <p class="error">{{ error }}</p>
     }
-  </div>
+
+    <div class="track">
+      <div class="track-row heading">
+        <span>Status</span>
+        <span>Reference</span>
+        <span>Supplier</span>
+        <span>Project</span>
+        <span>Items</span>
+        <span>Updated</span>
+        <span>Value</span>
+      </div>
+
+      @if (loading) {
+        <div class="state" role="status" aria-live="polite" aria-busy="true">
+          <mat-spinner diameter="36"></mat-spinner>
+        </div>
+      } @else if (!visibleRows.length) {
+        <div class="state">
+          <mat-icon>inventory_2</mat-icon>
+          <p>{{ rows.length ? 'No quotations match this filter.' : 'No quotations yet.' }}</p>
+        </div>
+      } @else {
+        @for (row of visibleRows; track row.id) {
+          <article class="track-row">
+            <span class="status" [class.pending]="row.status === 'pending'" [class.processing]="row.status === 'processing'">
+              <span class="dot" aria-hidden="true"></span>
+              {{ row.status === 'pending' ? 'Pending' : 'Processing' }}
+            </span>
+            <span class="refs">
+              <a
+                class="ref-tag"
+                [routerLink]="['/projects', row.projectId]"
+                [queryParams]="{ tab: 'procurement', section: 'quotations' }"
+              >{{ row.code }}</a>
+              @if (row.supplierReference) {
+                <span class="ref-note">{{ row.supplierReference }}</span>
+              }
+            </span>
+            <a class="supplier" [routerLink]="['/suppliers', row.supplierId]">{{ row.supplierName }}</a>
+            <span class="project">
+              @if (row.projectReference) {
+                <a class="project-tag project-ref-link" [routerLink]="['/projects', row.projectId]">{{ row.projectReference }}</a>
+              }
+              <span class="project-name">{{ row.projectName }}</span>
+            </span>
+            <span class="items">{{ row.itemCount }}</span>
+            <span class="when">{{ when(row.updatedAt) }}</span>
+            <span class="value">{{ money(row.baseTotalAmount) }}</span>
+          </article>
+        }
+      }
+    </div>
+  </section>
 </section>

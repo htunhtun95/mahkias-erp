@@ -1,9 +1,41 @@
 .dashboard {
-  max-width: 1080px;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.intro,
+.metrics,
+.board,
+.filter-bar,
+.metric {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.intro-copy,
+.filter-bar {
+  grid-area: 1 / 1;
+}
+
+.intro-copy {
+  min-width: 0;
+  padding-right: 540px;
 }
 
 .eyebrow {
-  margin: 0 0 8px;
+  margin: 0 0 4px;
   color: #1a73e8;
   font-size: 13px;
   font-weight: 500;
@@ -13,103 +45,492 @@
 
 h1 {
   margin: 0;
-  font-size: 40px;
+  font-size: 32px;
   font-weight: 400;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.4px;
 }
 
 .lede {
-  margin: 12px 0 0;
+  margin: 6px 0 0;
   max-width: 640px;
   color: #5f6368;
-  font-size: 16px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.45;
 }
 
-.hero {
-  margin-top: 28px;
-  padding: 32px;
-  border-radius: 24px;
-  background:
-    linear-gradient(135deg, #e8f0fe 0%, #ffffff 55%),
-    #fff;
-  border: 1px solid #e8eaed;
-}
-
-.badge {
-  display: inline-block;
-  margin-bottom: 12px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: #1a73e8;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.hero h2 {
-  margin: 0 0 8px;
-  font-size: 28px;
-  font-weight: 400;
-}
-
-.hero p {
-  margin: 0;
-  max-width: 560px;
-  color: #3c4043;
-  line-height: 1.5;
-}
-
-.cards {
+.metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-  margin-top: 20px;
+  gap: 12px;
+  width: 100%;
 }
 
-article {
-  padding: 20px;
+.metric {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: auto;
+  margin: 0;
+  padding: 12px 14px;
   border: 1px solid #e8eaed;
-  border-radius: 20px;
+  border-radius: 16px;
   background: #fff;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.06);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
 }
 
-mat-icon {
+.metric.value {
+  cursor: default;
+}
+
+.metric:hover,
+.metric.active {
+  border-color: #d2e3fc;
+  box-shadow: 0 1px 2px rgba(26, 115, 232, 0.12);
+}
+
+.metric.active {
+  background: #f8fbff;
+}
+
+.metric-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.metric-icon mat-icon {
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+}
+
+.metric-icon.total {
+  background: #e8f0fe;
   color: #1a73e8;
 }
 
-h3 {
-  margin: 12px 0 6px;
+.metric-icon.pending {
+  background: #fef7e0;
+  color: #b06000;
+}
+
+.metric-icon.processing {
+  background: #e8f0fe;
+  color: #1967d2;
+}
+
+.metric-icon.value {
+  background: #e6f4ea;
+  color: #137333;
+}
+
+.metric-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.metric-label {
+  color: #5f6368;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.metric-copy strong {
+  margin-top: 2px;
+  color: #202124;
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.3px;
+}
+
+.metric-hint {
+  margin-top: 2px;
+  color: #80868b;
+  font-size: 12px;
+}
+
+.board {
+  width: 100%;
+  margin-top: 14px;
+  border: 1px solid #e8eaed;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.06);
+  overflow: hidden;
+}
+
+.filter-bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+  margin: 0;
+  pointer-events: none;
+}
+
+.filter-bar .created-filter,
+.filter-bar .date-pill {
+  pointer-events: auto;
+}
+
+.created-filter {
+  width: 176px;
+  margin: 0;
+}
+
+.date-pill {
+  width: 158px;
+  margin: 0;
+}
+
+.board-head {
+  padding: 14px 16px 4px;
+}
+
+:host ::ng-deep .created-filter .mat-mdc-text-field-wrapper {
+  box-sizing: border-box;
+  width: 100%;
+  height: 42px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #dadce0;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.08);
+  cursor: pointer;
+}
+
+:host ::ng-deep .created-filter .mdc-notched-outline,
+:host ::ng-deep .created-filter .mat-mdc-form-field-subscript-wrapper {
+  display: none;
+}
+
+:host ::ng-deep .created-filter .mat-mdc-form-field-flex,
+:host ::ng-deep .date-pill .mat-mdc-form-field-flex {
+  height: 40px;
+  align-items: center;
+}
+
+:host ::ng-deep .created-filter .mat-mdc-form-field-infix,
+:host ::ng-deep .date-pill .mat-mdc-form-field-infix {
+  display: flex;
+  align-items: center;
+  min-height: 0;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  width: 100%;
+}
+
+:host ::ng-deep .created-filter .mat-mdc-select,
+:host ::ng-deep .created-filter .mat-mdc-select-trigger,
+:host ::ng-deep .created-filter .mat-mdc-select-value {
+  display: flex;
+  align-items: center;
+  height: 40px;
+}
+
+:host ::ng-deep .created-filter .mat-mdc-select-trigger {
+  width: 100%;
+  padding: 0 12px 0 14px;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+:host ::ng-deep .created-filter .mat-mdc-select-value-text,
+:host ::ng-deep .created-filter .mat-mdc-select-min-line,
+:host ::ng-deep .date-pill .mat-mdc-input-element,
+:host ::ng-deep .date-pill .mat-mdc-input-element::placeholder {
+  font-size: 13px;
+  line-height: 40px;
+}
+
+:host ::ng-deep .created-filter .mat-mdc-select-value-text,
+:host ::ng-deep .created-filter .mat-mdc-select-min-line,
+:host ::ng-deep .date-pill .mat-mdc-input-element {
+  color: #202124;
+}
+
+:host ::ng-deep .date-pill .mat-mdc-input-element {
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+:host ::ng-deep .created-filter .mat-mdc-form-field-focus-overlay {
+  background: transparent;
+}
+
+:host ::ng-deep .created-filter .mat-mdc-select-value-text,
+:host ::ng-deep .created-filter .mat-mdc-select-min-line {
+  font-size: 13px;
+  color: #202124;
+}
+
+:host ::ng-deep .created-filter .mat-mdc-select-arrow {
+  color: #5f6368;
+}
+
+:host ::ng-deep .date-pill .mat-mdc-text-field-wrapper {
+  box-sizing: border-box;
+  width: 100%;
+  height: 42px;
+  margin: 0;
+  padding: 0 2px 0 14px;
+  border: 1px solid #dadce0;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.08);
+  cursor: pointer;
+}
+
+:host ::ng-deep .date-pill .mdc-notched-outline,
+:host ::ng-deep .date-pill .mat-mdc-form-field-subscript-wrapper {
+  display: none;
+}
+
+:host ::ng-deep .date-pill .mat-mdc-form-field-flex {
+  height: 40px;
+  align-items: center;
+}
+
+:host ::ng-deep .date-pill .mat-datepicker-toggle .mat-mdc-icon-button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: #5f6368;
+}
+
+:host ::ng-deep .date-pill .mat-datepicker-toggle .mat-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+
+.board-head h2 {
+  margin: 0;
   font-size: 16px;
   font-weight: 500;
 }
 
-article p {
-  margin: 0 0 16px;
-  min-height: 40px;
+.board-head p {
+  margin: 4px 0 0;
   color: #5f6368;
-  font-size: 14px;
-  line-height: 1.4;
+  font-size: 13px;
 }
 
-article span {
-  color: #1a73e8;
+.error {
+  margin: 0 20px 8px;
+  color: #c5221f;
+  font-size: 13px;
+}
+
+.track-row {
+  display: grid;
+  grid-template-columns: 128px minmax(120px, 1.1fr) minmax(120px, 1.2fr) minmax(140px, 1.4fr) 64px 110px minmax(90px, 110px);
+  gap: 12px;
+  align-items: center;
+  min-height: 48px;
+  padding: 8px 16px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.track-row.heading {
+  min-height: 40px;
+  color: #80868b;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
   font-size: 12px;
   font-weight: 500;
 }
 
-@media (max-width: 960px) {
-  .cards {
+.status.pending {
+  background: #fef7e0;
+  color: #b06000;
+}
+
+.status.processing {
+  background: #e8f0fe;
+  color: #1967d2;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.refs {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ref-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: #e8f0fe;
+  color: #1a73e8;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+
+.ref-tag:hover {
+  background: #d2e3fc;
+  text-decoration: underline;
+}
+
+.ref-note,
+.project-name {
+  color: #5f6368;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.supplier {
+  color: #1a73e8;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.supplier:hover {
+  text-decoration: underline;
+}
+
+.project {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.project-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #e8f0fe;
+  color: #0078d4;
+  font-size: 11px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.project-ref-link:hover {
+  color: #005a9e;
+  text-decoration: underline;
+}
+
+.items,
+.when,
+.value {
+  color: #202124;
+  font-size: 13px;
+}
+
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 36px 16px;
+  color: #5f6368;
+}
+
+.state p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.state mat-icon {
+  color: #80868b;
+}
+
+@media (max-width: 1100px) {
+  .metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  h1 {
-    font-size: 32px;
+  .track {
+    overflow-x: auto;
+  }
+
+  .track-row {
+    min-width: 840px;
   }
 }
 
 @media (max-width: 640px) {
-  .cards {
+  h1 {
+    font-size: 28px;
+  }
+
+  .intro {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .intro-copy,
+  .filter-bar {
+    grid-area: auto;
+  }
+
+  .intro-copy {
+    padding-right: 0;
+  }
+
+  .filter-bar {
+    pointer-events: auto;
+    justify-content: stretch;
+  }
+
+  .metrics,
+  .filter-bar,
+  .created-filter,
+  .date-pill {
+    width: 100%;
+  }
+
+  .metrics {
     grid-template-columns: 1fr;
   }
 }
