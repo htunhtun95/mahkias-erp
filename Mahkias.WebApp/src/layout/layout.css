@@ -105,9 +105,11 @@
 }
 
 .stage {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .nav-scroll {
@@ -189,9 +191,14 @@
 }
 
 .content {
-  min-height: calc(100% - 48px);
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  box-sizing: border-box;
   margin: 16px;
   padding: 28px;
+  overflow-y: auto;
   background: #fff;
   border-radius: 24px;
   box-shadow: 0 1px 2px rgba(60, 64, 67, 0.08);

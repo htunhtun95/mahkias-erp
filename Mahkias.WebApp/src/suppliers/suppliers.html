@@ -37,10 +37,18 @@
     </div>
   } @else {
     <div class="drive-table">
-      <div class="row heading">
-        <span>Supplier</span>
+      <div class="table-scroll">
+      <div
+        class="row heading"
+        matSort
+        [matSortActive]="sortBy"
+        [matSortDirection]="sortDirection"
+        matSortDisableClear
+        (matSortChange)="onSort($event)"
+      >
+        <span mat-sort-header="name">Supplier</span>
         <span>Total Quotations</span>
-        <span>Created At</span>
+        <span class="col-date" mat-sort-header="createdAt">Created At</span>
         <span class="col-actions">Actions</span>
       </div>
       @for (supplier of page; track supplier.id) {
@@ -76,6 +84,7 @@
           </span>
         </div>
       }
+      </div>
     </div>
     <mat-paginator
       [length]="suppliers.length"

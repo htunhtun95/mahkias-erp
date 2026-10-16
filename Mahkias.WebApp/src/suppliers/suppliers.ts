@@ -4,6 +4,7 @@ import { Router, RouterModule } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { PageEvent } from '@angular/material/paginator';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { Sort } from '@angular/material/sort';
 import { MaterialModule } from '../app/material-module';
 import { whileBusy } from '../core/while-busy';
 import { ProjectApiService, Supplier } from '../core/services/project-api.service';
@@ -26,6 +27,8 @@ export class SuppliersComponent implements OnInit {
 
   suppliers: Supplier[] = [];
   searchTerm = '';
+  sortBy: 'name' | 'createdAt' = 'createdAt';
+  sortDirection: 'asc' | 'desc' = 'desc';
   loading = true;
   deletingId: number | null = null;
   error = '';
@@ -43,7 +46,13 @@ export class SuppliersComponent implements OnInit {
 
   get page() {
     const start = this.pageIndex * this.pageSize;
-    return this.suppliers.slice(start, start + this.pageSize);
+    return this.ordered.slice(start, start + this.pageSize);
+  }
+
+  onSort(event: Sort) {
+    this.sortBy = event.active === 'name' ? 'name' : 'createdAt';
+    this.sortDirection = event.direction === 'asc' ? 'asc' : 'desc';
+    this.pageIndex = 0;
   }
 
   onSearch(value: string) {
@@ -154,6 +163,21 @@ export class SuppliersComponent implements OnInit {
         },
       });
     });
+  }
+
+  private get ordered() {
+    const direction = this.sortDirection === 'asc' ? 1 : -1;
+    return [...this.suppliers].sort((left, right) => {
+      const compared = this.sortBy === 'name'
+        ? left.name.localeCompare(right.name, undefined, { sensitivity: 'base' })
+        : this.createdTime(left) - this.createdTime(right);
+      return compared === 0 ? left.id - right.id : compared * direction;
+    });
+  }
+
+  private createdTime(supplier: Supplier) {
+    const time = Date.parse(supplier.createdAt ?? '');
+    return Number.isNaN(time) ? 0 : time;
   }
 
   private dialogConfig(data?: { supplier: Supplier }) {
