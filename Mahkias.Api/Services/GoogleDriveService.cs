@@ -91,6 +91,35 @@ namespace Mahkias.Api.Services
             }
         }
 
+        public async Task RenameFolderAsync(string folderId, string name, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(folderId))
+            {
+                throw new InvalidOperationException("A Google Drive folder id is required.");
+            }
+
+            var folderName = string.IsNullOrWhiteSpace(name) ? "Project" : name.Trim();
+            var metadata = new Google.Apis.Drive.v3.Data.File
+            {
+                Name = folderName,
+            };
+            var request = Drive().Files.Update(metadata, folderId.Trim());
+            request.Fields = "id, name";
+            ApplySharedDrive(request);
+            try
+            {
+                var updated = await request.ExecuteAsync(cancellationToken);
+                if (string.IsNullOrWhiteSpace(updated?.Id))
+                {
+                    throw new InvalidOperationException("Google Drive did not return a folder id.");
+                }
+            }
+            catch (Google.GoogleApiException ex)
+            {
+                throw new InvalidOperationException(ex.Error?.Message ?? "Google Drive could not rename the project folder.", ex);
+            }
+        }
+
         public async Task<GoogleDriveUploadResult> UploadAsync(string folderId, string fileName, string contentType, Stream content, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(folderId))
@@ -264,6 +293,12 @@ namespace Mahkias.Api.Services
         }
 
         private static void ApplySharedDrive(Google.Apis.Drive.v3.FilesResource.CreateRequest request)
+        {
+            request.SupportsAllDrives = true;
+            request.SupportsTeamDrives = true;
+        }
+
+        private static void ApplySharedDrive(Google.Apis.Drive.v3.FilesResource.UpdateRequest request)
         {
             request.SupportsAllDrives = true;
             request.SupportsTeamDrives = true;

@@ -33,6 +33,17 @@ namespace Mahkias.Api.Services
             return folderId;
         }
 
+        public async Task RenameProjectFolderAsync(int projectId, CancellationToken cancellationToken = default)
+        {
+            var project = await _uow.ProjectDocuments.GetDriveFolderAsync(projectId);
+            if (!project.Exists || string.IsNullOrWhiteSpace(project.GoogleDriveFolderId))
+            {
+                return;
+            }
+
+            await _drive.RenameFolderAsync(project.GoogleDriveFolderId, ProjectFolderName(project.Reference, project.Name), cancellationToken);
+        }
+
         public async Task<string> EnsureProcurementFolderAsync(int projectId, CancellationToken cancellationToken = default)
         {
             var projectFolderId = await EnsureProjectFolderAsync(projectId, cancellationToken);

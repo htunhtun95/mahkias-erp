@@ -98,10 +98,17 @@ namespace Mahkias.Api.Controllers
                 return BadRequest("Name is required.");
             }
 
+            var current = await _uow.ProjectDocuments.GetDriveFolderAsync(id);
+            var name = request.Name.Trim();
+            var reference = request.Reference?.Trim();
+            var folderNameChanged = current.Exists && (
+                !string.Equals(current.Name?.Trim(), name, StringComparison.Ordinal)
+                || !string.Equals(current.Reference?.Trim() ?? string.Empty, reference ?? string.Empty, StringComparison.Ordinal));
+
             var status = await _uow.Projects.UpdateAsync(id, new UpsertProjectArgs
             {
-                Name = request.Name.Trim(),
-                Reference = request.Reference?.Trim(),
+                Name = name,
+                Reference = reference,
                 Description = request.Description?.Trim()
             });
 
@@ -113,6 +120,18 @@ namespace Mahkias.Api.Controllers
             if (status == 0)
             {
                 return NotFound();
+            }
+
+            if (folderNameChanged)
+            {
+                try
+                {
+                    await _folders.RenameProjectFolderAsync(id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Google Drive folder was not renamed for project {ProjectId}.", id);
+                }
             }
 
             return Ok(await ProjectResponseAsync(id));
