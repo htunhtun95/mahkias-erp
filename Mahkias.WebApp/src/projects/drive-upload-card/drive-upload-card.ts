@@ -38,6 +38,10 @@ export class DriveUploadCardComponent {
   onDragLeave(event: DragEvent) {
     event.preventDefault();
     event.stopPropagation();
+    const next = event.relatedTarget as Node | null;
+    if (next && (event.currentTarget as HTMLElement).contains(next)) {
+      return;
+    }
     this.dragging = false;
   }
 

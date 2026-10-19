@@ -108,7 +108,13 @@
       </p>
     }
     @if (!spreadsheetIsOriginal) {
-      <div class="original-file">
+      <div
+        class="original-file"
+        [class.dragging]="originalDragging"
+        (dragover)="onOriginalDragOver($event)"
+        (dragleave)="onOriginalDragLeave($event)"
+        (drop)="onOriginalDrop($event)"
+      >
         <span>Original Quotation File</span>
         <input type="file" [accept]="documentAccept" [disabled]="busy" (change)="onOriginalFile($event)" aria-label="Original Quotation File" />
         @if (originalFile) {

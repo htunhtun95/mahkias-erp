@@ -1,4 +1,12 @@
-<mat-card class="upload-card" appearance="outlined">
+<mat-card
+  class="upload-card"
+  appearance="outlined"
+  [class.dragging]="dragging"
+  [class.disabled]="disabled"
+  (dragover)="onDragOver($event)"
+  (dragleave)="onDragLeave($event)"
+  (drop)="onDrop($event)"
+>
   <div class="upload-top">
     <div class="upload-heading">
       <mat-icon>cloud_upload</mat-icon>
@@ -8,16 +16,11 @@
 
   <div
       class="drop-zone"
-      [class.dragging]="dragging"
-      [class.disabled]="disabled"
       role="button"
       tabindex="0"
       (click)="browse(picker)"
       (keydown.enter)="browse(picker)"
       (keydown.space)="$event.preventDefault(); browse(picker)"
-      (dragover)="onDragOver($event)"
-      (dragleave)="onDragLeave($event)"
-      (drop)="onDrop($event)"
     >
       <mat-icon>upload_file</mat-icon>
       <span>{{ emptyLabel }}</span>

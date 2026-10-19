@@ -4,8 +4,19 @@
   gap: 4px;
   margin: 0;
   padding: 6px 10px;
+  border: 1.5px dashed #dadce0;
   border-radius: 10px;
+  background: #f8f9fa;
   box-shadow: none;
+}
+
+.upload-card.dragging {
+  border-color: #1a73e8;
+  background: #e8f0fe;
+}
+
+.upload-card.disabled {
+  opacity: 0.6;
 }
 
 .upload-hint {
@@ -41,11 +52,10 @@
   justify-content: center;
   gap: 8px;
   min-height: 32px;
-  height: 32px;
   padding: 0 10px;
-  border: 1.5px dashed #dadce0;
+  border: 0;
   border-radius: 8px;
-  background: #f8f9fa;
+  background: transparent;
   color: #5f6368;
   font-size: 13px;
   text-align: left;
@@ -58,14 +68,13 @@
   font-size: 18px;
 }
 
-.drop-zone.dragging {
-  border-color: #1a73e8;
-  background: #e8f0fe;
+.upload-card.dragging .drop-zone,
+.upload-card.dragging .upload-heading,
+.upload-card.dragging .upload-hint {
   color: #1a73e8;
 }
 
-.drop-zone.disabled {
-  opacity: 0.6;
+.upload-card.disabled .drop-zone {
   cursor: default;
 }
 

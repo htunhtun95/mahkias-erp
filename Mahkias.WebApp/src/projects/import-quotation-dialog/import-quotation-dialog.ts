@@ -74,6 +74,7 @@ export class ImportQuotationDialogComponent {
   file: File | null = null;
   spreadsheetIsOriginal = true;
   originalFile: File | null = null;
+  originalDragging = false;
   isVerifyStep = false;
   previewQuery = '';
   readonly documentAccept = '.pdf,.doc,.docx,.xls,.xlsx,.xlsm,.csv,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tif,.tiff';
@@ -341,6 +342,46 @@ export class ImportQuotationDialogComponent {
     const input = event.target as HTMLInputElement;
     this.originalFile = input.files?.[0] ?? null;
     input.value = '';
+  }
+
+  onOriginalDragOver(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!this.busy) {
+      this.originalDragging = true;
+    }
+  }
+
+  onOriginalDragLeave(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    const next = event.relatedTarget as Node | null;
+    if (next && (event.currentTarget as HTMLElement).contains(next)) {
+      return;
+    }
+    this.originalDragging = false;
+  }
+
+  onOriginalDrop(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.originalDragging = false;
+    if (this.busy) {
+      return;
+    }
+    const file = Array.from(event.dataTransfer?.files ?? []).find((item) => this.originalAccepted(item));
+    if (file) {
+      this.originalFile = file;
+    }
+  }
+
+  private originalAccepted(file: File) {
+    const name = file.name.toLowerCase();
+    return this.documentAccept
+      .split(',')
+      .map((item) => item.trim().toLowerCase())
+      .filter((item) => item.startsWith('.'))
+      .some((extension) => name.endsWith(extension));
   }
 
   clearOriginal() {

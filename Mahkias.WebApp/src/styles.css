@@ -6,6 +6,32 @@ html, body {
   font-family: Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.28) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+  background: transparent;
+  border: 0;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 0;
+  border-radius: 999px;
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.35);
+}
+
 #splash-screen {
   position: fixed;
   inset: 0;
@@ -113,29 +139,23 @@ a.menu-text-left.active-menu .mat-icon {
 }
 
 .cdk-overlay-pane.mat-mdc-dialog-panel {
+  --mat-dialog-container-shape: 16px;
+  --mdc-dialog-container-shape: 16px;
   height: auto !important;
   max-height: calc(100vh - 48px) !important;
   overflow: hidden;
+  border-radius: 16px;
+  background: transparent;
 }
 
 .cdk-overlay-pane.mat-mdc-dialog-panel > .mat-mdc-dialog-container,
-.cdk-overlay-pane.mat-mdc-dialog-panel .mat-mdc-dialog-inner-container {
-  height: auto;
-  max-height: calc(100vh - 48px);
-  overflow: hidden;
-}
-
+.cdk-overlay-pane.mat-mdc-dialog-panel .mat-mdc-dialog-inner-container,
 .cdk-overlay-pane.mat-mdc-dialog-panel .mat-mdc-dialog-surface {
   height: auto;
   max-height: calc(100vh - 48px);
-  overflow-x: hidden;
-  overflow-y: auto;
-}
-
-.cdk-overlay-pane.add-project-dialog-panel,
-.cdk-overlay-pane.activity-dialog-panel {
-  --mat-dialog-container-shape: 24px;
-  --mat-dialog-container-elevation-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  border-radius: 16px;
+  background-color: #fff;
 }
 
 .cdk-overlay-pane.activity-dialog-panel {
@@ -147,7 +167,7 @@ a.menu-text-left.active-menu .mat-icon {
 
 .cdk-overlay-pane.add-project-dialog-panel .mat-mdc-dialog-surface,
 .cdk-overlay-pane.activity-dialog-panel .mat-mdc-dialog-surface {
-  border-radius: 24px;
+  border-radius: 16px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
 }
 
@@ -165,7 +185,8 @@ a.menu-text-left.active-menu .mat-icon {
   overflow: hidden;
 }
 
-.cdk-overlay-pane.activity-dialog-panel app-add-activity-dialog {
+.cdk-overlay-pane.activity-dialog-panel app-add-activity-dialog,
+.cdk-overlay-pane.activity-dialog-panel app-import-activity-dialog {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
@@ -258,23 +279,13 @@ a.menu-text-left.active-menu .mat-icon {
   padding: 20px 24px;
 }
 
-.app-dialog-body::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.app-dialog-body::-webkit-scrollbar-thumb {
-  background: #dadce0;
-  border-radius: 8px;
-}
-
 .app-dialog-actions {
   flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: 12px;
-  padding: 16px 24px;
+  padding: 16px 24px 20px;
   border-top: 1px solid #e0e0e0;
   background: #fff;
 }

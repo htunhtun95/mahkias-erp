@@ -78,7 +78,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
-  padding: 8px 24px;
+  padding: 16px 24px 20px;
   border-top: 1px solid #e0e0e0;
   background: #fff;
 }
@@ -131,6 +131,11 @@
   color: #202124;
   font-size: 13px;
   font-weight: 500;
+}
+
+.original-file.dragging {
+  border-color: #1a73e8;
+  background: #e8f0fe;
 }
 
 .original-file input[type='file'] {
