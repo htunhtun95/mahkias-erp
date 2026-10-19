@@ -10,10 +10,8 @@
 .import-overlay {
   position: absolute;
   z-index: 6;
-  inset: -28px -32px;
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.92);
   pointer-events: auto;
 }
 
@@ -43,26 +41,6 @@ p {
   margin: 6px 0 20px;
   color: #6b7280;
   font-size: 0.875rem;
-}
-
-.file {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 52px;
-  padding: 0 16px;
-  border: 1px dashed #d1d5db;
-  border-radius: 12px;
-  color: #374151;
-  cursor: pointer;
-}
-
-.file input {
-  display: none;
-}
-
-.file mat-icon {
-  color: #107c41;
 }
 
 .meta {

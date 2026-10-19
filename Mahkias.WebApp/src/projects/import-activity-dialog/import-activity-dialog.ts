@@ -4,6 +4,7 @@ import { FormBuilder, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { finalize } from 'rxjs';
 import { MaterialModule } from '../../app/material-module';
+import { DriveUploadCardComponent } from '../drive-upload-card/drive-upload-card';
 import { blockEnterSubmit } from '../../core/block-enter-submit';
 import { whileBusy } from '../../core/while-busy';
 import { ActivityImportIssue, ActivityType, ExcelColumn, ProjectApiService } from '../../core/services/project-api.service';
@@ -13,7 +14,7 @@ const requiredFieldWarning = 'Please select a Column Index or enter a Default Va
 @Component({
   selector: 'app-import-activity-dialog',
   standalone: true,
-  imports: [FormsModule, ReactiveFormsModule, MaterialModule],
+  imports: [FormsModule, ReactiveFormsModule, MaterialModule, DriveUploadCardComponent],
   templateUrl: './import-activity-dialog.html',
   styleUrl: './import-activity-dialog.css',
 })
@@ -100,9 +101,10 @@ export class ImportActivityDialog {
     this.dialogRef.close(false);
   }
 
-  onFile(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0] ?? null;
+  onFile(file: File | null) {
+    if (file === this.file) {
+      return;
+    }
     this.file = file;
     this.columns = [];
     this.rowCount = 0;

@@ -11,11 +11,15 @@
 <h2>Import activities</h2>
 <p>DSN No, Part No, and Type are required. For each one, choose a column letter or a default. A filled cell is used first; a blank cell uses the default.</p>
 
-<label class="file">
-  <mat-icon>upload_file</mat-icon>
-  <span>{{ file ? file.name : 'Choose .xlsx or .csv' }}</span>
-  <input type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" (change)="onFile($event)" [disabled]="reading || validating || isImporting" />
-</label>
+<app-drive-upload-card
+  title="Activities spreadsheet"
+  hint="Excel or CSV."
+  emptyLabel="Drag a spreadsheet here, or browse"
+  accept=".xlsx,.xls,.csv"
+  [disabled]="reading || validating || isImporting"
+  [file]="file"
+  (fileChange)="onFile($event)"
+></app-drive-upload-card>
 
 @if (reading) {
   <div class="loading"><mat-spinner diameter="28"></mat-spinner></div>

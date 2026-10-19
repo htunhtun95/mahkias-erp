@@ -45,6 +45,11 @@ html, body {
   --mdc-circular-progress-active-indicator-color: currentColor;
 }
 
+.busy-overlay,
+.import-overlay {
+  background: rgba(255, 255, 255, 0.46);
+}
+
 .busy-overlay {
   position: absolute;
   z-index: 30;
@@ -54,12 +59,12 @@ html, body {
   align-items: center;
   justify-content: center;
   gap: 14px;
-  background: rgba(255, 255, 255, 0.88);
   pointer-events: auto;
 }
 
-.busy-overlay.cover-pad {
-  inset: -28px -32px;
+.busy-overlay.cover-pad,
+.import-overlay {
+  inset: 0;
 }
 
 .busy-overlay.busy-overlay-top {
@@ -100,10 +105,31 @@ a.menu-text-left.active-menu .mat-icon {
   color: #1a73e8 !important;
 }
 
+.cdk-overlay-backdrop.cdk-overlay-dark-backdrop,
 .cdk-overlay-backdrop.add-project-dialog-backdrop {
-  background: rgba(0, 0, 0, 0.15);
+  background: rgba(32, 33, 36, 0.16);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+}
+
+.cdk-overlay-pane.mat-mdc-dialog-panel {
+  height: auto !important;
+  max-height: calc(100vh - 48px) !important;
+  overflow: hidden;
+}
+
+.cdk-overlay-pane.mat-mdc-dialog-panel > .mat-mdc-dialog-container,
+.cdk-overlay-pane.mat-mdc-dialog-panel .mat-mdc-dialog-inner-container {
+  height: auto;
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
+}
+
+.cdk-overlay-pane.mat-mdc-dialog-panel .mat-mdc-dialog-surface {
+  height: auto;
+  max-height: calc(100vh - 48px);
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .cdk-overlay-pane.add-project-dialog-panel,
