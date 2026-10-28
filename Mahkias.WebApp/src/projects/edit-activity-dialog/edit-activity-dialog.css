@@ -19,10 +19,6 @@ p {
   font-size: 0.875rem;
 }
 
-.lock-note {
-  margin: -6px 0 0;
-}
-
 form {
   display: flex;
   flex-direction: column;

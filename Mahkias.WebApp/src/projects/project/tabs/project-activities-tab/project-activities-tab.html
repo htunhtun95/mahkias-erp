@@ -28,7 +28,7 @@
         <p>Saving data...</p>
       </div>
     }
-    @if (batchEditing || selectedIds.size > 0) {
+    @if (batchEditing || selectedIds.size > 0 || selectedGroupIds.size > 0) {
       <div class="action-dock">
         @if (batchEditing) {
           <div class="batch-bar">
@@ -39,13 +39,21 @@
             </button>
           </div>
         }
-        @if (selectedIds.size > 0) {
+        @if (selectedIds.size > 0 || selectedGroupIds.size > 0) {
           <div class="selection-bar">
-            <span class="batch-note" [class.error]="!!selectionError">{{ selectionError || (selectedIds.size + ' selected') }}</span>
-            @if (selectingGrouped) {
-              <button class="batch-save" type="button" (click)="removeSelectedFromGroups()" [disabled]="isSaving">Remove from Group</button>
-            } @else {
-              <button class="batch-save" type="button" (click)="assignSelected()" [disabled]="isSaving">Assign to Group</button>
+            <span class="batch-note" [class.error]="!!selectionError">{{ selectionError || selectionNote }}</span>
+            @if (!labelSelectionMode && selectedIds.size > 0) {
+              @if (selectingGrouped) {
+                <button class="batch-save" type="button" (click)="removeSelectedFromGroups()" [disabled]="isSaving">Remove from Group</button>
+              } @else {
+                <button class="batch-save" type="button" (click)="assignSelected()" [disabled]="isSaving">Assign to Group</button>
+              }
+            }
+            @if (labelActions.assign) {
+              <button class="batch-save" type="button" (click)="assignSelectedLabels()" [disabled]="isSaving">Assign label</button>
+            }
+            @if (labelActions.remove) {
+              <button class="batch-save" type="button" (click)="removeSelectedFromLabels()" [disabled]="isSaving">Remove from label</button>
             }
             <button class="batch-cancel" type="button" (click)="clearSelection()">Clear</button>
           </div>
@@ -59,7 +67,21 @@
       <section class="activity-group" [class.is-editing]="isBatchEditing(group.typeId)">
         <div class="group-header">
           <h2>{{ group.typeName }}</h2>
-          <span class="count-badge">{{ group.activities.length }}</span>
+          <span class="count-badge">{{ group.shownCount }}</span>
+          @if (labelsFor(group.typeId).length) {
+            <div class="label-switch" role="tablist" [attr.aria-label]="group.typeName + ' labels'">
+              <button class="segment-btn" type="button" role="tab" [class.active]="isLabelSelected(group.typeId, null)" [attr.aria-selected]="isLabelSelected(group.typeId, null)" (click)="selectLabel(group.typeId, null)">
+                All
+                <span class="segment-count">{{ labelMatchCount(group.typeId, null) }}</span>
+              </button>
+              @for (label of labelsFor(group.typeId); track label.id) {
+                <button class="segment-btn" type="button" role="tab" [class.active]="isLabelSelected(group.typeId, label.id)" [attr.aria-selected]="isLabelSelected(group.typeId, label.id)" (click)="selectLabel(group.typeId, label.id)">
+                  {{ label.name }}
+                  <span class="segment-count">{{ labelMatchCount(group.typeId, label) }}</span>
+                </button>
+              }
+            </div>
+          }
           <button
             class="batch-toggle"
             type="button"
@@ -72,6 +94,9 @@
           </button>
         </div>
         <div class="activity-table">
+          @if (!group.activities.length && !group.groups.length) {
+            <p class="filter-empty">No activities with this label.</p>
+          }
           <div class="row heading">
             <span></span>
             <span></span>
@@ -85,10 +110,20 @@
           @for (block of group.groups; track block.group.id) {
             <div class="activity-block">
               <div class="row group-row">
-                <span></span>
                 <button class="expand" type="button" [matTooltip]="isGroupOpen(block.group.id) ? 'Collapse group' : 'Expand group'" [attr.aria-expanded]="isGroupOpen(block.group.id) || isBatchEditing(group.typeId)" [attr.aria-label]="isGroupOpen(block.group.id) ? 'Collapse group' : 'Expand group'" (click)="toggleGroup(block.group.id)">
                   <mat-icon>{{ isGroupOpen(block.group.id) || isBatchEditing(group.typeId) ? 'expand_more' : 'chevron_right' }}</mat-icon>
                 </button>
+                <label class="pick">
+                  <input
+                    type="checkbox"
+                    [checked]="isGroupChecked(block.group)"
+                    [indeterminate]="isGroupIndeterminate(block.group)"
+                    (change)="toggleGroupSelected(block.group, $any($event.target).checked)"
+                    [disabled]="isGroupSelectionDisabled(block.group)"
+                    [attr.aria-checked]="isGroupIndeterminate(block.group) ? 'mixed' : isGroupChecked(block.group)"
+                    [attr.aria-label]="'Select group ' + block.group.name"
+                  />
+                </label>
                 <span></span>
                 <span class="part-cell">
                   <span class="part-no">{{ block.group.name }}</span>
@@ -103,6 +138,11 @@
                   }
                 </span>
                 <span class="row-actions">
+                  @if (isLabelSelected(group.typeId, null) && groupLabelTargets(block.group).length) {
+                    <button class="icon-btn" type="button" matTooltip="Remove from Label" (click)="removeGroupFromLabel(block.group)" aria-label="Remove from Label" [disabled]="isSaving || deletingId != null">
+                      <mat-icon>label_off</mat-icon>
+                    </button>
+                  }
                   <button class="icon-btn" type="button" matTooltip="Edit group" (click)="editGroup(block.group)" aria-label="Edit group" [disabled]="isSaving || deletingId != null">
                     <mat-icon>edit</mat-icon>
                   </button>
@@ -161,7 +201,10 @@
                       }
                     </span>
                     <span class="row-actions">
-                      <button class="icon-btn" type="button" matTooltip="Ungroup activity" (click)="ungroupActivity(activity)" aria-label="Ungroup activity" [disabled]="isSaving || deletingId != null"><mat-icon>link_off</mat-icon></button>
+                      <button class="icon-btn" type="button" matTooltip="Remove from Group" (click)="ungroupActivity(activity)" aria-label="Remove from Group" [disabled]="isSaving || deletingId != null"><mat-icon>link_off</mat-icon></button>
+                      @if (isLabelSelected(group.typeId, null) && labelTargets(activity).length) {
+                        <button class="icon-btn" type="button" matTooltip="Remove from Label" (click)="removeFromLabel(activity)" aria-label="Remove from Label" [disabled]="isSaving || deletingId != null"><mat-icon>label_off</mat-icon></button>
+                      }
                       <button class="icon-btn" type="button" matTooltip="Edit activity" (click)="openEditActivity(activity)" aria-label="Edit activity" [disabled]="isSaving || deletingId != null"><mat-icon>edit</mat-icon></button>
                       <button class="icon-btn danger" type="button" matTooltip="Delete activity" (click)="deleteActivity(activity)" aria-label="Delete activity" [disabled]="isSaving || deletingId != null">
                         @if (deletingId === activity.id) { <mat-spinner diameter="18"></mat-spinner> } @else { <mat-icon>delete</mat-icon> }
@@ -241,6 +284,12 @@
                 }
               </span>
               <span class="row-actions">
+                @if (activity.activityGroupId) {
+                  <button class="icon-btn" type="button" matTooltip="Remove from Group" (click)="ungroupActivity(activity)" aria-label="Remove from Group" [disabled]="isSaving || deletingId != null"><mat-icon>link_off</mat-icon></button>
+                }
+                @if (isLabelSelected(group.typeId, null) && labelTargets(activity).length) {
+                  <button class="icon-btn" type="button" matTooltip="Remove from Label" (click)="removeFromLabel(activity)" aria-label="Remove from Label" [disabled]="isSaving || deletingId != null"><mat-icon>label_off</mat-icon></button>
+                }
                 <button class="icon-btn" type="button" matTooltip="Edit activity" (click)="openEditActivity(activity)" aria-label="Edit activity" [disabled]="isSaving || deletingId != null">
                   <mat-icon>edit</mat-icon>
                 </button>

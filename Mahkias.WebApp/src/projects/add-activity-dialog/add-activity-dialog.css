@@ -61,7 +61,7 @@
 
 .sheet {
   width: 100%;
-  min-width: 980px;
+  min-width: 1120px;
   border-collapse: collapse;
   table-layout: fixed;
   background: #fff;
@@ -80,6 +80,10 @@
 }
 
 .col-type {
+  width: 140px;
+}
+
+.col-label {
   width: 140px;
 }
 

@@ -12,7 +12,7 @@
   <form class="dialog-form" [formGroup]="form" (ngSubmit)="save()" (keydown.enter)="onFieldEnter($event)">
     <header class="dialog-header">
       <h2>Import activities</h2>
-      <p>DSN No, Part No, and Type are required. For each one, choose a column letter or a default. A filled cell is used first; a blank cell uses the default.</p>
+      <p>DSN No, Part No, and Type are required. For each one, choose a column letter or a default. A filled cell is used first; a blank cell uses the default. Label is optional and matched by name, ignoring case.</p>
     </header>
     <div class="dialog-body">
       <app-drive-upload-card
@@ -117,8 +117,19 @@
             </select>
             <span class="default-note">Optional</span>
           </div>
+
+          <div class="map-row" [class.flagged]="fieldFlagged('Label')">
+            <span>Label</span>
+            <select formControlName="label">
+              <option value="">No column</option>
+              @for (column of columns; track column.letter) {
+                <option [value]="column.letter">{{ columnLabel(column) }}</option>
+              }
+            </select>
+            <span class="default-note">Blank stays unlabeled</span>
+          </div>
         </div>
-        <p class="hint">Quantity becomes 1 when both the cell and the default are empty. Description and budget can be left unmapped.</p>
+        <p class="hint">Quantity becomes 1 when both the cell and the default are empty. Description, budget, and label can be left unmapped. OH, Oh, and oh use the same label.</p>
 
         <div class="status" [class.checking]="validation === 'checking'" [class.passed]="validation === 'passed'" [class.failed]="validation === 'failed'">
           @if (validation === 'checking') {

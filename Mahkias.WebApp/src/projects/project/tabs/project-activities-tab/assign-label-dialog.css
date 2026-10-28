@@ -1,0 +1,191 @@
+:host {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0;
+  color: #202124;
+  font-family: Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.app-dialog-header p {
+  margin: 0;
+  color: #5f6368;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 48px;
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 12px;
+  color: #202124;
+  font-size: 15px;
+  line-height: 20px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.choice:hover {
+  background: #f8f9fa;
+}
+
+.choice:has(input:checked) {
+  background: #e8f0fe;
+}
+
+.choice:has(input:checked):hover {
+  background: #d3e3fd;
+}
+
+.choice input {
+  appearance: none;
+  -webkit-appearance: none;
+  display: grid;
+  place-items: center;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  border: 2px solid #5f6368;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.choice input:checked {
+  border-color: #1a73e8;
+  background: #1a73e8 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' d='M5 13l4.5 4.5L19 7'/%3E%3C/svg%3E") center / 14px 14px no-repeat;
+}
+
+.choice input:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.24);
+}
+
+.choice span {
+  line-height: 20px;
+}
+
+.choices + .field {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e8eaed;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.field span {
+  margin: 0;
+  color: #5f6368;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.field input {
+  width: 100%;
+  height: 44px;
+  box-sizing: border-box;
+  margin: 0;
+  border: 1px solid #dadce0;
+  border-radius: 12px;
+  padding: 0 14px;
+  background: #fff;
+  color: #202124;
+  font: inherit;
+  font-size: 15px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.field input:hover {
+  border-color: #bdc1c6;
+}
+
+.field input:focus {
+  outline: none;
+  border-color: #1a73e8;
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.16);
+}
+
+.field.invalid input {
+  border-color: #d93025;
+}
+
+.field.invalid input:focus {
+  box-shadow: 0 0 0 3px rgba(217, 48, 37, 0.16);
+}
+
+.error {
+  margin: 8px 0 0;
+  color: #d93025;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.app-dialog-actions {
+  gap: 8px;
+  padding: 16px 20px 20px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 88px;
+  min-height: 40px;
+  border: 0;
+  border-radius: 20px;
+  padding: 0 20px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.24);
+}
+
+.ghost {
+  background: transparent;
+  color: #5f6368;
+}
+
+.ghost:hover {
+  background: #f1f3f4;
+}
+
+.primary {
+  background: #1a73e8;
+  color: #fff;
+}
+
+.primary:hover {
+  background: #1765cc;
+}

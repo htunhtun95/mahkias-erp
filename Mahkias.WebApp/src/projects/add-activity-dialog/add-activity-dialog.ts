@@ -16,6 +16,7 @@ interface ActivityRowValue {
   quantity: number | string | null;
   budget: number | string | null;
   description: string | null;
+  label: string | null;
 }
 
 @Component({
@@ -97,6 +98,7 @@ export class AddActivityDialog implements AfterViewInit, OnDestroy {
         quantity: 1,
         budget: null,
         description: '',
+        label: '',
       });
       this.suppressLastRowWatch = false;
       return;
@@ -166,6 +168,11 @@ export class AddActivityDialog implements AfterViewInit, OnDestroy {
       return;
     }
 
+    if (filled.some((row) => String(row.label ?? '').trim().length > 200)) {
+      this.error = 'Label names must be 200 characters or fewer.';
+      return;
+    }
+
     const activities = filled.map((row) => ({
       partNo: String(row.partNo ?? ''),
       budget: row.budget === null || row.budget === '' ? null : Number(row.budget),
@@ -173,6 +180,7 @@ export class AddActivityDialog implements AfterViewInit, OnDestroy {
       dsnNo: String(row.dsnNo ?? '').trim(),
       quantity: row.quantity === null || row.quantity === '' ? 1 : Math.round(Number(row.quantity)),
       typeId: Number(row.typeId),
+      label: String(row.label ?? '').trim() || null,
     }));
 
     this.dialogRef.disableClose = true;
@@ -224,6 +232,7 @@ export class AddActivityDialog implements AfterViewInit, OnDestroy {
       !row.typeId &&
       (row.budget === null || row.budget === '') &&
       !String(row.description ?? '').trim() &&
+      !String(row.label ?? '').trim() &&
       !quantityTouched
     );
   }
@@ -252,6 +261,7 @@ export class AddActivityDialog implements AfterViewInit, OnDestroy {
       quantity: [1],
       budget: [null as number | null],
       description: [''],
+      label: [''],
     });
   }
 

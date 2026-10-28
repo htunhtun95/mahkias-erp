@@ -9,6 +9,7 @@ namespace Mahkias.Core.Modules.Projects.Data.Args
         public string DSNNo { get; set; }
         public int? Quantity { get; set; }
         public int? TypeId { get; set; }
+        public string Label { get; set; }
     }
 
     public class ActivityBatchUpdate

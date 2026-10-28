@@ -29,11 +29,18 @@ namespace Mahkias.Api.Modules.Projects
         public string DSNNo { get; set; }
         public int? Quantity { get; set; }
         public int? TypeId { get; set; }
+        public string Label { get; set; }
     }
 
     public class UpdateActivityRequest : CreateActivityRequest
     {
         public int ProjectId { get; set; }
+
+        public bool ClearGroup { get; set; }
+
+        public bool ClearLabel { get; set; }
+
+        public int? LabelId { get; set; }
     }
 
     public class BatchActivityUpdate : UpdateActivityRequest
@@ -60,6 +67,7 @@ namespace Mahkias.Api.Modules.Projects
         public string TypeColumn { get; set; }
         public string QuantityColumn { get; set; }
         public string BudgetColumn { get; set; }
+        public string LabelColumn { get; set; }
         public string DefaultDsnNo { get; set; }
         public string DefaultPartNo { get; set; }
         public string DefaultTypeId { get; set; }

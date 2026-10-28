@@ -55,6 +55,7 @@ export class ImportActivityDialog {
     defaultQuantity: [1 as number | null],
     budget: [''],
     defaultBudget: [null as number | null],
+    label: [''],
   });
 
   constructor() {
@@ -134,6 +135,7 @@ export class ImportActivityDialog {
           type: mapping.suggested?.type ?? '',
           quantity: mapping.suggested?.quantity ?? '',
           budget: mapping.suggested?.budget ?? '',
+          label: mapping.suggested?.label ?? '',
           defaultQuantity: 1,
         });
         if (!this.columns.length) {
@@ -241,6 +243,7 @@ export class ImportActivityDialog {
       typeColumn: value.type ?? '',
       quantityColumn: value.quantity ?? '',
       budgetColumn: value.budget ?? '',
+      labelColumn: value.label ?? '',
       defaultDsnNo: String(value.defaultDsn ?? '').trim(),
       defaultPartNo: String(value.defaultPart ?? '').trim(),
       defaultTypeId: value.defaultTypeId,

@@ -157,6 +157,11 @@ namespace Mahkias.Data.Modules.Projects.Repositories
                         ? $"'{row.Quantity.Value}' is not a valid number."
                         : "Quantity must be a numeric integer."));
                 }
+
+                if (!string.IsNullOrWhiteSpace(row.Label) && row.Label.Trim().Length > 200)
+                {
+                    issues.Add(Issue(row.RowNumber, "Label", "Label name must be 200 characters or fewer."));
+                }
             }
 
             return issues;
@@ -173,7 +178,8 @@ namespace Mahkias.Data.Modules.Projects.Repositories
                 Description = activity.Description,
                 Budget = activity.Budget,
                 Quantity = activity.Quantity,
-                TypeId = activity.TypeId
+                TypeId = activity.TypeId,
+                Label = activity.Label
             }));
             if (issues.Count > 0)
             {
@@ -189,7 +195,8 @@ namespace Mahkias.Data.Modules.Projects.Repositories
                     TextValue3 = string.IsNullOrWhiteSpace(activity.DSNNo) ? null : activity.DSNNo,
                     DecimalValue1 = activity.Budget,
                     NumericValue1 = activity.Quantity,
-                    NumericValue2 = activity.TypeId.HasValue && activity.TypeId.Value > 0 ? activity.TypeId : null
+                    NumericValue2 = activity.TypeId.HasValue && activity.TypeId.Value > 0 ? activity.TypeId : null,
+                    TextValue4 = string.IsNullOrWhiteSpace(activity.Label) ? null : activity.Label.Trim()
                 })
                 .ToList();
 

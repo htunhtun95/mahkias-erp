@@ -38,6 +38,7 @@ namespace Mahkias.Api.Helpers
                 var typeRaw = Cell(row.Cells, form?.TypeColumn);
                 var quantityRaw = Cell(row.Cells, form?.QuantityColumn);
                 var budgetRaw = Cell(row.Cells, form?.BudgetColumn);
+                var label = NormalizeLabel(Cell(row.Cells, form?.LabelColumn));
                 var rowErrors = new List<ActivityImportIssue>();
 
                 var dsnNo = TextOrDefault(dsnRaw, form?.DefaultDsnNo);
@@ -86,6 +87,11 @@ namespace Mahkias.Api.Helpers
                     rowErrors.Add(Issue(row.RowNumber, "Budget", $"'{budgetRaw}' is not a valid number."));
                 }
 
+                if (label != null && label.Length > 200)
+                {
+                    rowErrors.Add(Issue(row.RowNumber, "Label", "Label name must be 200 characters or fewer."));
+                }
+
                 plan.Errors.AddRange(rowErrors);
                 if (rowErrors.Count > 0)
                 {
@@ -100,7 +106,8 @@ namespace Mahkias.Api.Helpers
                     Description = Cell(row.Cells, form?.DescriptionColumn),
                     Budget = budget,
                     Quantity = quantity,
-                    TypeId = typeId
+                    TypeId = typeId,
+                    Label = label != null && label.Length <= 200 ? label : null
                 });
             }
 
@@ -127,6 +134,11 @@ namespace Mahkias.Api.Helpers
             return row.TryGetValue(columnLetter.Trim(), out var value) && !string.IsNullOrWhiteSpace(value)
                 ? value.Trim()
                 : null;
+        }
+
+        private static string NormalizeLabel(string raw)
+        {
+            return string.IsNullOrWhiteSpace(raw) ? null : raw.Trim();
         }
 
         private static string TextOrDefault(string raw, string fallback)

@@ -1,0 +1,29 @@
+<div class="app-dialog-container">
+  <header class="app-dialog-header">
+    <h2>Labels</h2>
+    <p>A label stays with one activity type and can cover several activities or groups of that type.</p>
+  </header>
+  <div class="app-dialog-body">
+    @if (data.labels.length) {
+      <div class="choices">
+        @for (label of data.labels; track label.id) {
+          <label class="choice">
+            <input type="checkbox" [checked]="selected.has(label.id)" (change)="toggle(label.id, $any($event.target).checked)" />
+            <span>{{ label.name }}</span>
+          </label>
+        }
+      </div>
+    }
+    <label class="field" [class.invalid]="submitted && !selected.size && !name.trim()">
+      <span>New label</span>
+      <input [(ngModel)]="name" name="labelName" maxlength="200" autocomplete="off" />
+    </label>
+    @if (submitted && !selected.size && !name.trim()) {
+      <p class="error">Choose a label or enter a new name.</p>
+    }
+  </div>
+  <div class="app-dialog-actions">
+    <button type="button" class="btn ghost" (click)="cancel()">Cancel</button>
+    <button type="button" class="btn primary" (click)="save()">Save</button>
+  </div>
+</div>

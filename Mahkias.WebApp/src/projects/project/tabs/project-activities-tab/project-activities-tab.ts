@@ -8,17 +8,41 @@ import { MaterialModule } from '../../../../app/material-module';
 import { AutoGrowDirective } from '../../../../core/auto-grow';
 import { blockEnterSubmit } from '../../../../core/block-enter-submit';
 import { whileBusy } from '../../../../core/while-busy';
-import { Activity, ActivityGroup, ActivityQuotationLink, ActivityType, Project, ProjectApiService } from '../../../../core/services/project-api.service';
+import { Activity, ActivityGroup, ActivityLabel, ActivityQuotationLink, ActivityType, Project, ProjectApiService } from '../../../../core/services/project-api.service';
 import { QuotationDataDialog, QuotationDataRow, QuotationDataState } from './quotation-data-dialog';
 import { formatMoney } from '../../../money-format';
 import { QuotationSync } from '../../../quotation-sync';
 import { ActivityGroupDialog } from './activity-group-dialog';
 import { AssignGroupDialog } from './assign-group-dialog';
+import { AssignLabelDialog } from './assign-label-dialog';
 import { GroupDetailDialog } from './group-detail-dialog';
 import { AddActivityDialog } from '../../../add-activity-dialog/add-activity-dialog';
 import { ConfirmDialog } from '../../../confirm-dialog/confirm-dialog';
 import { EditActivityDialog } from '../../../edit-activity-dialog/edit-activity-dialog';
 import { ImportActivityDialog } from '../../../import-activity-dialog/import-activity-dialog';
+import {
+  activityHasLabel,
+  activitySharesType,
+  applyLabelFilter as filterActivitiesByLabel,
+  directLabels as labelsOnActivity,
+  GroupBlock,
+  groupFullySelected,
+  groupPartlySelected,
+  activityLabelIds,
+  groupLabelIds,
+  labelHasMembers,
+  labelSelectionMode as selectionUsesLabels,
+  labelToolbarActions,
+  labelsForType,
+  LabelRemovalPlan,
+  planLabelRemoval as buildLabelRemoval,
+  planOpenLabelRemoval as buildOpenLabelRemoval,
+  scopedLabels,
+  selectionNote as describeSelection,
+  selectionType as sharedSelectionType,
+  syncGroupSelection,
+  TypeSection,
+} from './activity-structure';
 
 @Component({
   selector: 'app-project-activities-tab',
@@ -50,9 +74,12 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
   isSaving = false;
   deletingId: number | null = null;
   groups: ActivityGroup[] = [];
+  labels: ActivityLabel[] = [];
+  private labelSelection = new Map<number, number | null>();
   expandedGroupIds = new Set<number>();
   quotationLinks = new Map<number, ActivityQuotationLink[]>();
   selectedIds = new Set<number>();
+  selectedGroupIds = new Set<number>();
   selectionError = '';
   batchSubmitted = false;
   batchError = '';
@@ -201,18 +228,20 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       if (!items.length && !blocks.length) {
         continue;
       }
+      const filtered = this.applyLabelFilter(typeId, items, blocks);
       const type = this.types.find((item) => item.id === typeId);
       sections.push({
         typeId,
         typeName: type?.name || items[0]?.type || blocks[0]?.activities[0]?.type || 'Activities',
-        activities: items,
-        groups: blocks,
+        activities: filtered.activities,
+        groups: filtered.groups,
+        shownCount: filtered.activities.length + filtered.groups.reduce((total, block) => total + block.activities.length, 0),
       });
     }
 
     const untyped = ungrouped.filter((activity) => !activity.typeId);
     if (untyped.length) {
-      sections.push({ typeId: null, typeName: 'Untyped', activities: untyped, groups: [] });
+      sections.push({ typeId: null, typeName: 'Untyped', activities: untyped, groups: [], shownCount: untyped.length });
     }
 
     return sections;
@@ -365,7 +394,7 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     const projectId = this.project.id;
     const ref = this.dialog.open(AddActivityDialog, {
       disableClose: true,
-      width: '1080px',
+      width: '1200px',
       maxWidth: 'calc(100vw - 32px)',
       maxHeight: '85vh',
       panelClass: 'activity-dialog-panel',
@@ -387,7 +416,10 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       maxWidth: 'calc(100vw - 32px)',
       panelClass: 'add-project-dialog-panel',
       backdropClass: 'add-project-dialog-backdrop',
-      data: { activity, types: this.types },
+      data: {
+        activity,
+        types: this.types,
+      },
     });
 
     ref.afterClosed().subscribe((updated: Activity | false | undefined) => {
@@ -468,9 +500,28 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
 
   ungroupActivity(activity: Activity) {
     this.confirmUngroup(
-      'Ungroup Activity',
-      'Ungroup this activity? It will return to the activity list. An empty group is deleted.',
+      'Remove from Group',
+      'Remove this activity from its group? It will return to the general list. An empty group is deleted.',
       () => this.unassignActivities([activity.id]),
+      'Remove from Group',
+    );
+  }
+
+  directLabels(activity: Activity): ActivityLabel[] {
+    return labelsOnActivity(this.labels, activity);
+  }
+
+  removeFromLabel(activity: Activity) {
+    const labels = this.labelTargets(activity);
+    if (!labels.length) {
+      return;
+    }
+    const names = labels.map((label) => label.name).join(', ');
+    this.confirmUngroup(
+      'Remove from Label',
+      `Remove this activity from ${names}? It stays on the project and returns to the full list for this type.`,
+      () => this.clearLabels(activity, labels),
+      'Remove from Label',
     );
   }
 
@@ -508,22 +559,63 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     return this.selectedActivities().some((activity) => !!activity.activityGroupId);
   }
 
+  get labelSelectionMode(): boolean {
+    return selectionUsesLabels(this.selectedGroupIds.size, this.selectedActivities());
+  }
+
+  get selectionNote(): string {
+    return describeSelection(this.selectedIds.size, this.selectedGroupIds.size);
+  }
+
   isSelectionDisabled(activity: Activity): boolean {
     if (this.isSaving || this.deletingId != null) {
       return true;
     }
-    if (this.isSelected(activity) || this.selectedIds.size === 0) {
+    const locked = this.selectionType();
+    if (locked === undefined || this.isSelected(activity)) {
       return false;
     }
-    const grouped = !!activity.activityGroupId;
-    if (this.selectingGrouped) {
-      return !grouped;
-    }
-    if (grouped) {
+    return (activity.typeId ?? null) !== locked;
+  }
+
+  isGroupSelected(group: ActivityGroup): boolean {
+    return this.selectedGroupIds.has(group.id);
+  }
+
+  isGroupChecked(group: ActivityGroup): boolean {
+    return groupFullySelected(this.members(group.id), this.selectedIds);
+  }
+
+  isGroupIndeterminate(group: ActivityGroup): boolean {
+    return groupPartlySelected(this.members(group.id), this.selectedIds);
+  }
+
+  isGroupSelectionDisabled(group: ActivityGroup): boolean {
+    if (this.isSaving || this.deletingId != null || group.typeId == null) {
       return true;
     }
-    const locked = this.selectedActivities()[0]?.typeId ?? null;
-    return (activity.typeId ?? null) !== locked;
+    const locked = this.selectionType();
+    if (locked === undefined || this.isGroupChecked(group) || this.isGroupIndeterminate(group)) {
+      return false;
+    }
+    return group.typeId !== locked;
+  }
+
+  toggleGroupSelected(group: ActivityGroup, checked: boolean) {
+    if (checked && this.isGroupSelectionDisabled(group)) {
+      return;
+    }
+    for (const activity of this.members(group.id)) {
+      if (checked) {
+        if (!this.isSelectionDisabled(activity)) {
+          this.selectedIds.add(activity.id);
+        }
+      } else {
+        this.selectedIds.delete(activity.id);
+      }
+    }
+    this.syncParentGroup(group.id);
+    this.syncSelectionError();
   }
 
   toggleSelected(activity: Activity, checked: boolean) {
@@ -535,11 +627,19 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     } else {
       this.selectedIds.delete(activity.id);
     }
+    if (activity.activityGroupId != null) {
+      this.syncParentGroup(activity.activityGroupId);
+    }
     this.syncSelectionError();
+  }
+
+  private syncParentGroup(groupId: number) {
+    syncGroupSelection(groupId, this.members(groupId), this.selectedIds, this.selectedGroupIds);
   }
 
   clearSelection() {
     this.selectedIds.clear();
+    this.selectedGroupIds.clear();
     this.syncSelectionError();
   }
 
@@ -558,7 +658,7 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       return;
     }
     const selected = this.selectedActivities();
-    if (!this.sameType(selected)) {
+    if (!activitySharesType(selected)) {
       this.selectionError = 'Activities in a group must share the same type.';
       this.failed.emit(this.selectionError);
       return;
@@ -632,7 +732,7 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
   }
 
   assignToGroup(activity: Activity) {
-    if (!this.sameType([activity])) {
+    if (!activitySharesType([activity])) {
       this.failed.emit('Activities in a group must share the same type.');
       return;
     }
@@ -674,12 +774,281 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     });
   }
 
+  labelsFor(typeId: number | null): ActivityLabel[] {
+    return labelsForType(this.labels, typeId);
+  }
+
+  isLabelSelected(typeId: number | null, labelId: number | null): boolean {
+    if (typeId == null) {
+      return labelId == null;
+    }
+    return (this.labelSelection.get(typeId) ?? null) === labelId;
+  }
+
+  selectLabel(typeId: number | null, labelId: number | null) {
+    if (typeId == null) {
+      return;
+    }
+    if (labelId == null) {
+      this.labelSelection.delete(typeId);
+      return;
+    }
+    this.labelSelection.set(typeId, labelId);
+  }
+
+  labelMatchCount(typeId: number | null, label: ActivityLabel | null): number {
+    if (typeId == null) {
+      return 0;
+    }
+    return this.visibleProjectActivities().filter((activity) => {
+      if (activity.typeId !== typeId) {
+        return false;
+      }
+      return label == null || activityHasLabel(activity, label);
+    }).length;
+  }
+
+  get labelActions(): { assign: boolean; remove: boolean } {
+    const typeId = this.selectionType();
+    const activeLabelId = typeof typeId === 'number' ? (this.labelSelection.get(typeId) ?? null) : null;
+    const memberships = [
+      ...this.selectedActivities().map((activity) => activityLabelIds(this.labels, activity)),
+      ...this.selectedGroups().map((group) => groupLabelIds(this.labels, group)),
+    ];
+    return labelToolbarActions(activeLabelId, memberships);
+  }
+
+  assignSelectedLabels() {
+    const typeId = this.selectionType();
+    if (typeId == null) {
+      this.selectionError = 'A label can only be attached within one activity type.';
+      this.failed.emit(this.selectionError);
+      return;
+    }
+    this.syncSelectionError();
+    this.openLabelDialog(typeId, [...this.selectedIds], [...this.selectedGroupIds]);
+  }
+
+  removeSelectedFromLabels() {
+    const label = this.activeFilterLabel();
+    const plan = label ? this.planLabelRemoval(label) : this.planOpenLabelRemoval();
+    if (!plan.activityIds.length && !plan.groupIds.length) {
+      return;
+    }
+    const target = label ? label.name : 'their labels';
+    this.confirmUngroup(
+      'Remove from Label',
+      `Remove the selection from ${target}? Activities stay in their group or on the type list.`,
+      () => this.applyLabelRemoval(label, plan),
+      'Remove from Label',
+    );
+  }
+
+  private activeFilterLabel(): ActivityLabel | null {
+    const typeId = this.selectionType();
+    if (typeof typeId !== 'number') {
+      return null;
+    }
+    const labelId = this.labelSelection.get(typeId) ?? null;
+    if (labelId == null) {
+      return null;
+    }
+    return this.labels.find((label) => label.id === labelId && label.typeId === typeId) ?? null;
+  }
+
+  private planOpenLabelRemoval(): LabelRemovalPlan {
+    return buildOpenLabelRemoval(
+      this.selectedActivities(),
+      this.selectedGroups(),
+      (activity) => this.directLabels(activity),
+      (group) => this.groupLabelTargets(group),
+    );
+  }
+
+  private planLabelRemoval(label: ActivityLabel): LabelRemovalPlan {
+    return buildLabelRemoval(
+      label,
+      this.selectedActivities(),
+      this.selectedGroups(),
+      this.selectedIds,
+      this.selectedGroupIds,
+      (groupId) => this.members(groupId),
+    );
+  }
+
+  private applyLabelRemoval(label: ActivityLabel | null, plan: LabelRemovalPlan) {
+    const remove = () => {
+      this.api.removeLabelMembers(this.project.id, plan.activityIds, plan.groupIds, label?.id ?? null).subscribe({
+        next: () => {
+          this.clearSelection();
+          this.loadLabels();
+        },
+        error: () => this.failed.emit('The selection could not be removed from the label.'),
+      });
+    };
+    this.keepLabelOn(label, plan.keepers, remove);
+  }
+
+  private keepLabelOn(label: ActivityLabel | null, keepers: Activity[], done: () => void) {
+    if (!label || keepers.length === 0) {
+      done();
+      return;
+    }
+    const batches = new Map<string, { ids: number[]; labelIds: number[] }>();
+    for (const activity of keepers) {
+      const labelIds = [...new Set([...this.directLabels(activity).map((item) => item.id), label.id])].sort((left, right) => left - right);
+      const key = labelIds.join(',');
+      const batch = batches.get(key) ?? { ids: [], labelIds };
+      batch.ids.push(activity.id);
+      batches.set(key, batch);
+    }
+    const queue = [...batches.values()];
+    const next = () => {
+      const batch = queue.shift();
+      if (!batch) {
+        done();
+        return;
+      }
+      this.api.setActivityLabels(this.project.id, batch.ids, batch.labelIds).subscribe({
+        next: () => next(),
+        error: () => this.failed.emit('The selection could not be removed from the label.'),
+      });
+    };
+    next();
+  }
+
+  groupLabelTargets(group: ActivityGroup): ActivityLabel[] {
+    const labels = this.labels
+      .filter((label) => label.typeId === group.typeId && (label.activityGroupIds ?? []).includes(group.id))
+      .sort((left, right) => left.name.localeCompare(right.name));
+    const activeId = group.typeId == null ? null : (this.labelSelection.get(group.typeId) ?? null);
+    return scopedLabels(labels, activeId);
+  }
+
+  removeGroupFromLabel(group: ActivityGroup) {
+    const labels = this.groupLabelTargets(group);
+    if (!labels.length) {
+      return;
+    }
+    const names = labels.map((label) => label.name).join(', ');
+    const labelId = labels.length === 1 ? labels[0].id : null;
+    this.confirmUngroup(
+      'Remove from Label',
+      `Remove ${group.name} from ${names}? The group stays under its activity type.`,
+      () => {
+        this.api.removeLabelMembers(this.project.id, [], [group.id], labels.length === 1 ? labelId : null).subscribe({
+          next: () => this.loadLabels(),
+          error: () => this.failed.emit('The group could not be removed from the label.'),
+        });
+      },
+      'Remove from Label',
+    );
+  }
+
+  private openLabelDialog(typeId: number | null | undefined, activityIds: number[], groupIds: number[]) {
+    if (typeId == null) {
+      this.failed.emit('A label can only be attached within one activity type.');
+      return;
+    }
+    const ref = this.dialog.open(AssignLabelDialog, {
+      disableClose: true,
+      width: '90vw',
+      maxWidth: '520px',
+      minWidth: 'min(440px, 96vw)',
+      maxHeight: '90vh',
+      panelClass: ['add-project-dialog-panel', 'app-dialog-pane'],
+      backdropClass: 'add-project-dialog-backdrop',
+      data: { labels: this.labelsFor(typeId), activityIds, groupIds },
+    });
+    ref.afterClosed().subscribe((result: { labelIds: number[]; name: string } | false) => {
+      if (!result) {
+        return;
+      }
+      const apply = (labelIds: number[]) => {
+        this.saveLabelMembers(activityIds, groupIds, labelIds);
+      };
+      const name = result.name?.trim();
+      if (!name) {
+        apply(result.labelIds);
+        return;
+      }
+      this.api.createActivityLabel(this.project.id, name, typeId).subscribe({
+        next: (label) => apply([...result.labelIds, label.id]),
+        error: (error: HttpErrorResponse) => this.failed.emit(error.error?.message || 'The label could not be created.'),
+      });
+    });
+  }
+
+  private saveLabelMembers(activityIds: number[], groupIds: number[], labelIds: number[]) {
+    const finish = () => {
+      this.clearSelection();
+      this.loadLabels();
+    };
+    const saveGroups = () => {
+      if (!groupIds.length) {
+        finish();
+        return;
+      }
+      this.api.setGroupLabels(this.project.id, groupIds, labelIds).subscribe({
+        next: finish,
+        error: (error: HttpErrorResponse) => this.failed.emit(error.error?.message || 'The labels could not be saved.'),
+      });
+    };
+    if (!activityIds.length) {
+      saveGroups();
+      return;
+    }
+    this.api.setActivityLabels(this.project.id, activityIds, labelIds).subscribe({
+      next: saveGroups,
+      error: (error: HttpErrorResponse) => this.failed.emit(error.error?.message || 'The labels could not be saved.'),
+    });
+  }
+
+  private selectedGroups(): ActivityGroup[] {
+    return this.groups.filter((group) => this.selectedGroupIds.has(group.id));
+  }
+
+  private selectionType(): number | null | undefined {
+    return sharedSelectionType(this.selectedActivities(), this.selectedGroups());
+  }
+
   private loadGroups() {
     this.api.activityGroups(this.project.id).subscribe({
       next: (groups) => {
         this.groups = groups;
+        const live = new Set(groups.map((group) => group.id));
+        for (const id of [...this.selectedGroupIds]) {
+          if (!live.has(id)) {
+            this.selectedGroupIds.delete(id);
+          }
+        }
+        for (const group of groups) {
+          this.syncParentGroup(group.id);
+        }
+        this.loadLabels();
       },
+      error: () => this.loadLabels(),
     });
+  }
+
+  private loadLabels() {
+    this.api.activityLabels(this.project.id).subscribe({
+      next: (labels) => {
+        this.labels = (labels ?? []).filter((label) => labelHasMembers(label));
+        for (const [typeId, labelId] of [...this.labelSelection]) {
+          if (labelId != null && !this.labels.some((label) => label.id === labelId && label.typeId === typeId)) {
+            this.labelSelection.delete(typeId);
+          }
+        }
+      },
+      error: () => this.failed.emit('Labels could not be loaded.'),
+    });
+  }
+
+  private applyLabelFilter(typeId: number, activities: Activity[], groups: GroupBlock[]): { activities: Activity[]; groups: GroupBlock[] } {
+    const labelId = this.labelSelection.get(typeId) ?? null;
+    const label = labelId == null ? null : this.labels.find((item) => item.id === labelId && item.typeId === typeId) ?? null;
+    return filterActivitiesByLabel(label ?? null, activities, groups);
   }
 
   private loadQuotationLinks() {
@@ -785,6 +1154,9 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
         removed = true;
       }
     }
+    for (const group of this.groups) {
+      this.syncParentGroup(group.id);
+    }
     if (removed) {
       this.syncSelectionError();
     }
@@ -795,7 +1167,22 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     this.failed.emit('');
   }
 
-  private confirmUngroup(title: string, message: string, onConfirm: () => void) {
+  labelTargets(activity: Activity): ActivityLabel[] {
+    const activeId = activity.typeId == null ? null : (this.labelSelection.get(activity.typeId) ?? null);
+    return scopedLabels(this.directLabels(activity), activeId);
+  }
+
+  private clearLabels(activity: Activity, labels: ActivityLabel[]) {
+    const request = labels.length === 1
+      ? this.api.removeActivityLabel(this.project.id, activity.id, labels[0].id)
+      : this.api.removeActivityLabels(this.project.id, activity.id);
+    request.subscribe({
+      next: () => this.loadLabels(),
+      error: () => this.failed.emit('The activity could not be removed from the label.'),
+    });
+  }
+
+  private confirmUngroup(title: string, message: string, onConfirm: () => void, confirmLabel = 'Ungroup') {
     const ref = this.dialog.open(ConfirmDialog, {
       disableClose: true,
       width: '440px',
@@ -805,7 +1192,7 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       data: {
         title,
         message,
-        confirmLabel: 'Ungroup',
+        confirmLabel,
       },
     });
     ref.afterClosed().subscribe((confirmed) => {
@@ -828,11 +1215,6 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
 
   private selectedActivities(): Activity[] {
     return (this.project.activities ?? []).filter((activity) => this.selectedIds.has(activity.id));
-  }
-
-  private sameType(activities: Activity[]): boolean {
-    const typeIds = new Set(activities.map((activity) => activity.typeId));
-    return activities.length > 0 && typeIds.size === 1 && activities.every((activity) => !!activity.typeId);
   }
 
   private compatibleGroups(typeId: number | null | undefined): ActivityGroup[] {
@@ -957,18 +1339,6 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     return fields.some((value) => (value ?? '').toLowerCase().includes(query));
   }
 
-}
-
-export interface GroupBlock {
-  group: ActivityGroup;
-  activities: Activity[];
-}
-
-export interface TypeSection {
-  typeId: number | null;
-  typeName: string;
-  activities: Activity[];
-  groups: GroupBlock[];
 }
 
 interface ActivityDraft {

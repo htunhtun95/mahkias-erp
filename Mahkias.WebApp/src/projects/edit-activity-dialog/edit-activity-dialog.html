@@ -35,10 +35,6 @@
       <mat-error>Type is required.</mat-error>
     }
   </mat-form-field>
-  @if (typeLocked) {
-    <p class="lock-note">Type is locked while this activity belongs to a group.</p>
-  }
-
   <mat-form-field appearance="outline" subscriptSizing="dynamic">
     <mat-label>Description</mat-label>
     <textarea matInput appAutoGrow data-min-height="24" formControlName="description" rows="1"></textarea>

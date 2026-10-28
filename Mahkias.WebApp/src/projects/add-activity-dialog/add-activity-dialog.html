@@ -7,7 +7,7 @@
   }
   <header class="dialog-header">
     <h2>Add activities</h2>
-    <p>Empty rows are ignored. If you fill any field, DSN no, part number, and type are required. Tip: Use 'or' or '/' for alternative parts (e.g., P001/P002/P003).</p>
+    <p>Empty rows are ignored. If you fill any field, DSN no, part number, and type are required. Label is optional and matched by name, ignoring case. Tip: Use 'or' or '/' for alternative parts (e.g., P001/P002/P003).</p>
   </header>
 
   <form class="dialog-form" [formGroup]="form" (ngSubmit)="save()" (keydown.enter)="onFieldEnter($event)">
@@ -25,6 +25,7 @@
           <col class="col-budget" />
           <col class="col-qty" />
           <col class="col-description" />
+          <col class="col-label" />
           <col class="col-action" />
         </colgroup>
         <thead>
@@ -36,6 +37,7 @@
             <th class="col-text" scope="col">Budget</th>
             <th class="col-text" scope="col">Qty</th>
             <th scope="col">Description</th>
+            <th class="col-text" scope="col">Label</th>
             <th class="action-head" scope="col" aria-label="Action">
               <mat-icon>delete</mat-icon>
             </th>
@@ -80,6 +82,9 @@
                   formControlName="description"
                   rows="1"
                 ></textarea>
+              </td>
+              <td class="cell col-text">
+                <input formControlName="label" title="Matched by name, ignoring case. Leave blank for no label." />
               </td>
               <td class="action-cell">
                 <button type="button" class="icon" matTooltip="Remove row" (click)="removeRow($index)" aria-label="Remove row">

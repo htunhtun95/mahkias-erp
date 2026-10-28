@@ -62,6 +62,7 @@ namespace Mahkias.Api.Controllers
                 }
             }
 
+            errors.AddRange(await GroupedTypeChangesAsync(activities));
             if (errors.Count > 0)
             {
                 return BadRequest(new { message = "Activity updates failed validation.", errors });
@@ -85,6 +86,11 @@ namespace Mahkias.Api.Controllers
             if (updated <= 0)
             {
                 return BadRequest(new { message = "The activities could not be updated." });
+            }
+
+            foreach (var projectId in activities.Select(activity => activity.ProjectId).Distinct())
+            {
+                await _uow.ActivityLabels.ClearMismatchedAsync(projectId);
             }
 
             return Ok(new { updated });
@@ -136,6 +142,25 @@ namespace Mahkias.Api.Controllers
                 return NotFound();
             }
 
+            await _uow.ActivityLabels.ClearMismatchedAsync(request.ProjectId);
+            if (request.ClearGroup)
+            {
+                var cleared = await _uow.ActivityGroups.AssignAsync(request.ProjectId, id, null);
+                if (!string.IsNullOrEmpty(cleared?.Error))
+                {
+                    return BadRequest(new { message = cleared.Error });
+                }
+            }
+
+            if (request.ClearLabel)
+            {
+                var removed = await _uow.ActivityLabels.RemoveActivityAsync(request.ProjectId, id, request.LabelId);
+                if (removed.Missing)
+                {
+                    return NotFound();
+                }
+            }
+
             var activity = (await _uow.Activities.GetByProjectAsync(request.ProjectId))
                 .FirstOrDefault(item => item.Id == id);
             if (activity == null)
@@ -174,7 +199,32 @@ namespace Mahkias.Api.Controllers
                 return NotFound();
             }
 
+            await _uow.ActivityLabels.DeleteEmptyForActivityAsync(id);
             return NoContent();
+        }
+
+        private async Task<List<object>> GroupedTypeChangesAsync(List<BatchActivityUpdate> activities)
+        {
+            var errors = new List<object>();
+            foreach (var projectId in activities.Select(activity => activity.ProjectId).Where(id => id > 0).Distinct())
+            {
+                var current = await _uow.Activities.GetByProjectAsync(projectId);
+                var byId = current.ToDictionary(activity => activity.Id);
+                foreach (var update in activities.Where(activity => activity.ProjectId == projectId && activity.Id > 0))
+                {
+                    if (!byId.TryGetValue(update.Id, out var existing) || existing.ActivityGroupId == null)
+                    {
+                        continue;
+                    }
+
+                    if (existing.TypeId != update.TypeId)
+                    {
+                        errors.Add(new { id = update.Id, field = "Type", message = "Type cannot be changed while the activity belongs to a group." });
+                    }
+                }
+            }
+
+            return errors;
         }
     }
 }

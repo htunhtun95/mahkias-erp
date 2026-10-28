@@ -61,6 +61,16 @@ export interface ActivityGroup {
   createdAt?: string | null;
 }
 
+export interface ActivityLabel {
+  id: number;
+  projectId: number;
+  name: string;
+  typeId: number;
+  createdAt?: string | null;
+  activityIds: number[];
+  activityGroupIds: number[];
+}
+
 export interface ActivityType {
   id: number;
   name: string;
@@ -80,6 +90,7 @@ export interface CreateActivityRequest {
   dsnNo: string;
   quantity: number | null;
   typeId: number | null;
+  label?: string | null;
 }
 
 export interface ExcelColumn {
@@ -97,6 +108,7 @@ export interface ActivityExcelMapping {
     type?: string;
     quantity?: string;
     budget?: string;
+    label?: string;
   };
 }
 
@@ -274,6 +286,7 @@ export interface ActivityExcelUpload {
   typeColumn: string;
   quantityColumn: string;
   budgetColumn: string;
+  labelColumn: string;
   defaultDsnNo: string;
   defaultPartNo: string;
   defaultTypeId: number | null;
@@ -384,6 +397,48 @@ export class ProjectApiService {
     });
   }
 
+  activityLabels(projectId: number) {
+    return this.http.get<ActivityLabel[]>(`${this.baseUrl}/projects/${projectId}/activity-labels`);
+  }
+
+  createActivityLabel(projectId: number, name: string, typeId: number) {
+    return this.http.post<ActivityLabel>(`${this.baseUrl}/projects/${projectId}/activity-labels`, { name, typeId });
+  }
+
+  deleteActivityLabel(projectId: number, id: number) {
+    return this.http.delete<void>(`${this.baseUrl}/projects/${projectId}/activity-labels/${id}`);
+  }
+
+  setActivityLabels(projectId: number, activityIds: number[], labelIds: number[]) {
+    return this.http.put<{ updated: number }>(`${this.baseUrl}/projects/${projectId}/activity-labels/activities`, {
+      activityIds,
+      labelIds,
+    });
+  }
+
+  setGroupLabels(projectId: number, activityGroupIds: number[], labelIds: number[]) {
+    return this.http.put<{ updated: number }>(`${this.baseUrl}/projects/${projectId}/activity-labels/groups`, {
+      activityGroupIds,
+      labelIds,
+    });
+  }
+
+  removeActivityLabel(projectId: number, activityId: number, labelId: number) {
+    return this.http.delete<{ updated: number }>(`${this.baseUrl}/projects/${projectId}/activities/${activityId}/labels/${labelId}`);
+  }
+
+  removeActivityLabels(projectId: number, activityId: number) {
+    return this.http.delete<{ updated: number }>(`${this.baseUrl}/projects/${projectId}/activities/${activityId}/labels`);
+  }
+
+  removeLabelMembers(projectId: number, activityIds: number[], activityGroupIds: number[], labelId: number | null) {
+    return this.http.put<{ updated: number }>(`${this.baseUrl}/projects/${projectId}/activity-labels/remove`, {
+      activityIds,
+      activityGroupIds,
+      labelId,
+    });
+  }
+
   addActivity(projectId: number, body: CreateActivityRequest) {
     return this.http.post<Activity>(`${this.baseUrl}/projects/${projectId}/activities`, body);
   }
@@ -423,6 +478,7 @@ export class ProjectApiService {
     body.append('typeColumn', mapping.typeColumn ?? '');
     body.append('quantityColumn', mapping.quantityColumn ?? '');
     body.append('budgetColumn', mapping.budgetColumn ?? '');
+    body.append('labelColumn', mapping.labelColumn ?? '');
     body.append('defaultDsnNo', mapping.defaultDsnNo ?? '');
     body.append('defaultPartNo', mapping.defaultPartNo ?? '');
     if (mapping.defaultTypeId) {

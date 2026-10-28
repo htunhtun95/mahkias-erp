@@ -9,5 +9,6 @@ namespace Mahkias.Core.Modules.Projects.Data.Args
         public decimal? Budget { get; set; }
         public int? Quantity { get; set; }
         public int? TypeId { get; set; }
+        public string Label { get; set; }
     }
 }

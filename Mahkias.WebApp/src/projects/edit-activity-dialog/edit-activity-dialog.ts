@@ -37,10 +37,6 @@ export class EditActivityDialog {
     description: [this.data.activity.description ?? ''],
   });
 
-  get typeLocked(): boolean {
-    return !!this.data.activity.activityGroupId;
-  }
-
   get typeInvalid() {
     return this.showError(this.form.controls.typeId);
   }
@@ -94,6 +90,7 @@ export class EditActivityDialog {
       .subscribe({
         next: (activity) => this.dialogRef.close(activity),
         error: (err: HttpErrorResponse) => {
+          this.dialogRef.disableClose = false;
           const message = typeof err.error === 'string' ? err.error : err.error?.message;
           this.error = message || 'The activity could not be updated.';
         },

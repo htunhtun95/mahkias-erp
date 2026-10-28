@@ -189,10 +189,25 @@ namespace Mahkias.Api.Controllers
                 return BadRequest("Part no is required.");
             }
 
+            if (request.TypeId == null || request.TypeId <= 0)
+            {
+                return BadRequest(new { message = "Type is required." });
+            }
+
             var createdId = await _uow.Activities.CreateAsync(ToArgs(id, request));
             if (createdId <= 0)
             {
                 return BadRequest("Part no is required.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Label))
+            {
+                var assigned = await _uow.ActivityLabels.AssignActivityAsync(id, createdId, request.TypeId.Value, request.Label);
+                if (!string.IsNullOrEmpty(assigned.Error) || assigned.Missing || assigned.Updated <= 0)
+                {
+                    await _uow.Activities.DeleteAsync(createdId);
+                    return BadRequest(new { message = string.IsNullOrEmpty(assigned.Error) ? "The label could not be assigned." : assigned.Error });
+                }
             }
 
             var created = (await _uow.Activities.GetByProjectAsync(id)).FirstOrDefault(activity => activity.Id == createdId);
@@ -237,7 +252,8 @@ namespace Mahkias.Api.Controllers
                     description = Suggest(sheet.Columns, "description", "desc"),
                     type = Suggest(sheet.Columns, "type", "activitytype"),
                     quantity = Suggest(sheet.Columns, "quantity", "qty"),
-                    budget = Suggest(sheet.Columns, "budget", "price", "cost")
+                    budget = Suggest(sheet.Columns, "budget", "price", "cost"),
+                    label = Suggest(sheet.Columns, "label", "labels", "activitylabel")
                 }
             });
         }
@@ -343,7 +359,8 @@ namespace Mahkias.Api.Controllers
                 Description = row.Description,
                 DSNNo = row.DSNNo,
                 Quantity = row.Quantity,
-                TypeId = row.TypeId
+                TypeId = row.TypeId,
+                Label = row.Label
             }));
             return Ok(new { inserted });
         }
@@ -363,7 +380,8 @@ namespace Mahkias.Api.Controllers
                 Description = request?.Description,
                 DSNNo = request?.DSNNo,
                 Quantity = request?.Quantity,
-                TypeId = request?.TypeId > 0 ? request.TypeId : null
+                TypeId = request?.TypeId > 0 ? request.TypeId : null,
+                Label = string.IsNullOrWhiteSpace(request?.Label) ? null : request.Label.Trim()
             };
         }
 
