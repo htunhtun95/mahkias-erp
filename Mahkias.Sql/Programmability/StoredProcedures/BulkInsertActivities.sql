@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[BulkInsertActivities]
+CREATE PROCEDURE [dbo].[BulkInsertActivities]
 (
     @ProjectId INT,
     -- TextValue1 = PartNo, TextValue2 = Description, TextValue3 = DSNNo, TextValue4 = Label

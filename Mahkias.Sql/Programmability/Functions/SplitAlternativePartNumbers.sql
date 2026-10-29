@@ -1,4 +1,4 @@
-CREATE OR ALTER FUNCTION [dbo].[SplitAlternativePartNumbers]
+CREATE FUNCTION [dbo].[SplitAlternativePartNumbers]
 (
     @PartNo NVARCHAR(MAX)
 )

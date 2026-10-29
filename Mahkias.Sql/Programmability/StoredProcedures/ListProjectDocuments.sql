@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[ListProjectDocuments]
+CREATE PROCEDURE [dbo].[ListProjectDocuments]
 (
     @ProjectId INT
 )

@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[CreateProjectDocument]
+CREATE PROCEDURE [dbo].[CreateProjectDocument]
 (
     @ProjectId INT,
     @FileName NVARCHAR(260),

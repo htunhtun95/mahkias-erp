@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[GetActivitiesByProject]
+CREATE PROCEDURE [dbo].[GetActivitiesByProject]
 (
     @ProjectId INT,
     @SortBy NVARCHAR(50) = N'createdAt',

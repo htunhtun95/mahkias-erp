@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[UpdateProject]
+CREATE PROCEDURE [dbo].[UpdateProject]
 (
     @Id INT,
     @Name NVARCHAR(250),

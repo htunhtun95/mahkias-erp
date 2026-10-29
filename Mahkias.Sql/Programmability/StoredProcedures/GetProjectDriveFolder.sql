@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[GetProjectDriveFolder]
+CREATE PROCEDURE [dbo].[GetProjectDriveFolder]
 (
     @ProjectId INT
 )

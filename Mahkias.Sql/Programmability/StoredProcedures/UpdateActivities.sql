@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[UpdateActivities]
+CREATE PROCEDURE [dbo].[UpdateActivities]
 (
     -- NumericValue1 = Id, NumericValue2 = ProjectId, NumericValue3 = Quantity, NumericValue4 = TypeId
     -- TextValue1 = PartNo, TextValue2 = Description, TextValue3 = DSNNo, DecimalValue1 = Budget

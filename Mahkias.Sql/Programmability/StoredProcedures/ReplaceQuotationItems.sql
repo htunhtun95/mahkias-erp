@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[ReplaceQuotationItems]
+CREATE PROCEDURE [dbo].[ReplaceQuotationItems]
 (
     @Id INT,
     @SupplierId INT,

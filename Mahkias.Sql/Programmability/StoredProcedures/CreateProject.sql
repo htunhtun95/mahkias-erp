@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[CreateProject]
+CREATE PROCEDURE [dbo].[CreateProject]
 (
     @Name NVARCHAR(250),
     @Reference NVARCHAR(100),

@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[SetProjectProcurementFolder]
+CREATE PROCEDURE [dbo].[SetProjectProcurementFolder]
 (
     @ProjectId INT,
     @ProcurementFolderId NVARCHAR(128)

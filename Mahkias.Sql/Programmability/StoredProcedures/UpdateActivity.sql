@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[UpdateActivity]
+CREATE PROCEDURE [dbo].[UpdateActivity]
 (
     @Id INT,
     @ProjectId INT = NULL,

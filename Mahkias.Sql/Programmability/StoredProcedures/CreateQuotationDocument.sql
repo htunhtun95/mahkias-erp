@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[CreateQuotationDocument]
+CREATE PROCEDURE [dbo].[CreateQuotationDocument]
 (
     @ProjectId INT,
     @QuotationId INT,

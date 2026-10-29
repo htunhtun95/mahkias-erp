@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[CreateQuotation]
+CREATE PROCEDURE [dbo].[CreateQuotation]
 (
     @SupplierId INT,
     @SupplierReference NVARCHAR(100) = NULL,

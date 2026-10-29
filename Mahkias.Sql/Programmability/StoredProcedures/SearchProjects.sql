@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[SearchProjects]
+CREATE PROCEDURE [dbo].[SearchProjects]
 (
     @SearchTerm NVARCHAR(200) = NULL,
     @PageNumber INT = 1,

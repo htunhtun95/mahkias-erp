@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[DeleteProject]
+CREATE PROCEDURE [dbo].[DeleteProject]
 (
     @Id INT,
     @DeletedBy NVARCHAR(100) = NULL,
