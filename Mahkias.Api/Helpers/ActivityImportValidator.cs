@@ -3,6 +3,7 @@ using Mahkias.Core.Modules.Projects.Data;
 using Mahkias.Core.Modules.Projects.Data.Args;
 using Mahkias.Core.Modules.Projects.Data.Result;
 using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace Mahkias.Api.Helpers
 {
@@ -263,21 +264,38 @@ namespace Mahkias.Api.Helpers
             return false;
         }
 
+        private static readonly Regex BudgetUnitToken = new Regex(@"\b(EA|PCS|PC|QTY|UNITS|UNIT)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
         private static bool TryParseDecimal(string raw, out decimal value)
         {
             value = 0;
-            var text = raw?.Trim();
-            if (string.IsNullOrEmpty(text))
+            var text = SanitizeBudget(raw);
+            if (string.IsNullOrWhiteSpace(text) || text.Any(character => char.IsLetter(character)))
             {
                 return false;
             }
 
-            if (text.StartsWith("$", StringComparison.Ordinal))
+            if (!decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out value)
+                && !decimal.TryParse(text, NumberStyles.Number, CultureInfo.CurrentCulture, out value))
             {
-                text = text.Substring(1).Trim();
+                return false;
             }
 
-            return decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out value);
+            return value >= 0;
+        }
+
+        private static string SanitizeBudget(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            var text = value.Trim();
+            text = text.Replace("$", string.Empty).Replace("€", string.Empty).Replace("£", string.Empty).Replace("¥", string.Empty);
+            text = text.Replace(",", string.Empty);
+            text = BudgetUnitToken.Replace(text, " ");
+            return Regex.Replace(text, @"\s+", " ").Trim();
         }
     }
 }
