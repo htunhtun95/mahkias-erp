@@ -34,6 +34,18 @@ namespace Mahkias.Api.Services
             return folderId;
         }
 
+        public async Task<string> EnsureManagedFoldersAsync(int projectId, CancellationToken cancellationToken = default)
+        {
+            var projectFolderId = await EnsureProjectFolderAsync(projectId, cancellationToken);
+            if (string.IsNullOrWhiteSpace(projectFolderId))
+            {
+                return null;
+            }
+
+            await EnsureProcurementFolderAsync(projectId, cancellationToken);
+            return projectFolderId;
+        }
+
         public async Task RenameProjectFolderAsync(int projectId, CancellationToken cancellationToken = default)
         {
             var project = await _uow.ProjectDocuments.GetDriveFolderAsync(projectId);
@@ -54,14 +66,14 @@ namespace Mahkias.Api.Services
             }
 
             var project = await _uow.ProjectDocuments.GetDriveFolderAsync(projectId);
-            var folderId = await _drive.CreateFolderAsync("Procurement", projectFolderId, cancellationToken);
+            var folderId = await EnsureChildFolderAsync(projectFolderId, cancellationToken, "Procurement");
             if (!string.Equals(folderId, project.ProcurementFolderId, StringComparison.Ordinal))
             {
                 folderId = await _uow.ProjectDocuments.SetProcurementFolderAsync(projectId, folderId);
             }
 
-            await _drive.CreateFolderAsync("Quotations", folderId, cancellationToken);
-            await _drive.CreateFolderAsync("Purchases", folderId, cancellationToken);
+            await EnsureChildFolderAsync(folderId, cancellationToken, "Quotations", "Quotation");
+            await EnsureChildFolderAsync(folderId, cancellationToken, "Purchase", "Purchases");
             return folderId;
         }
 
@@ -73,7 +85,7 @@ namespace Mahkias.Api.Services
                 return null;
             }
 
-            return await _drive.CreateFolderAsync("Quotations", procurementFolderId, cancellationToken);
+            return await EnsureChildFolderAsync(procurementFolderId, cancellationToken, "Quotations", "Quotation");
         }
 
         public async Task<string> EnsurePurchasesFolderAsync(int projectId, CancellationToken cancellationToken = default)
@@ -84,7 +96,21 @@ namespace Mahkias.Api.Services
                 return null;
             }
 
-            return await _drive.CreateFolderAsync("Purchases", procurementFolderId, cancellationToken);
+            return await EnsureChildFolderAsync(procurementFolderId, cancellationToken, "Purchase", "Purchases");
+        }
+
+        private async Task<string> EnsureChildFolderAsync(string parentFolderId, CancellationToken cancellationToken, string canonicalName, params string[] alternateNames)
+        {
+            foreach (var name in new[] { canonicalName }.Concat(alternateNames ?? Array.Empty<string>()))
+            {
+                var existingId = await _drive.FindFolderAsync(name, parentFolderId, cancellationToken);
+                if (!string.IsNullOrWhiteSpace(existingId))
+                {
+                    return existingId;
+                }
+            }
+
+            return await _drive.CreateFolderAsync(canonicalName, parentFolderId, cancellationToken);
         }
 
         public static string ProjectFolderName(string reference, string name)

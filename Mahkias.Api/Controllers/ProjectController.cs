@@ -80,7 +80,7 @@ namespace Mahkias.Api.Controllers
 
             try
             {
-                await _folders.EnsureProjectFolderAsync(id);
+                await _folders.EnsureManagedFoldersAsync(id);
             }
             catch (InvalidOperationException ex)
             {
@@ -132,6 +132,15 @@ namespace Mahkias.Api.Controllers
                 {
                     _logger.LogWarning(ex, "Google Drive folder was not renamed for project {ProjectId}.", id);
                 }
+            }
+
+            try
+            {
+                await _folders.EnsureManagedFoldersAsync(id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Google Drive folders were not linked for project {ProjectId}.", id);
             }
 
             return Ok(await ProjectResponseAsync(id));

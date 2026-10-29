@@ -68,7 +68,7 @@ namespace Mahkias.Api.Controllers
         {
             try
             {
-                var folderId = await _folders.EnsureProjectFolderAsync(projectId, cancellationToken);
+                var folderId = await _folders.EnsureManagedFoldersAsync(projectId, cancellationToken);
                 if (string.IsNullOrWhiteSpace(folderId))
                 {
                     return NotFound(new { message = "Project was not found." });

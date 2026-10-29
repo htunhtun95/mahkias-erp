@@ -54,7 +54,7 @@ namespace Mahkias.Api.Services
         {
             var folderName = FolderName(name);
             var parent = string.IsNullOrWhiteSpace(parentFolderId) ? RootFolderId() : parentFolderId.Trim();
-            var existingId = await FindFolderIdAsync(folderName, parent, cancellationToken);
+            var existingId = await FindFolderIdAsync(folderName, parent, ignoreCase: false, cancellationToken);
             if (!string.IsNullOrWhiteSpace(existingId))
             {
                 return existingId;
@@ -89,6 +89,13 @@ namespace Mahkias.Api.Services
 
                 throw new InvalidOperationException(ex.Error?.Message ?? "Google Drive could not create the project folder.", ex);
             }
+        }
+
+        public Task<string> FindFolderAsync(string name, string parentFolderId, CancellationToken cancellationToken = default)
+        {
+            var folderName = FolderName(name);
+            var parent = string.IsNullOrWhiteSpace(parentFolderId) ? RootFolderId() : parentFolderId.Trim();
+            return FindFolderIdAsync(folderName, parent, ignoreCase: true, cancellationToken);
         }
 
         public async Task RenameFolderAsync(string folderId, string name, CancellationToken cancellationToken = default)
@@ -184,14 +191,14 @@ namespace Mahkias.Api.Services
             };
         }
 
-        private async Task<string> FindFolderIdAsync(string folderName, string parentFolderId, CancellationToken cancellationToken)
+        private async Task<string> FindFolderIdAsync(string folderName, string parentFolderId, bool ignoreCase, CancellationToken cancellationToken)
         {
             var driveId = SharedDriveId(parentFolderId);
             if (driveId != null)
             {
                 try
                 {
-                    var scoped = await FindFolderPageAsync(folderName, parentFolderId, driveId, cancellationToken);
+                    var scoped = await FindFolderPageAsync(folderName, parentFolderId, driveId, ignoreCase, cancellationToken);
                     if (!string.IsNullOrWhiteSpace(scoped))
                     {
                         return scoped;
@@ -203,7 +210,7 @@ namespace Mahkias.Api.Services
 
                 if (string.Equals(parentFolderId, driveId, StringComparison.Ordinal))
                 {
-                    var named = await FindSharedDriveFolderAsync(folderName, driveId, cancellationToken);
+                    var named = await FindSharedDriveFolderAsync(folderName, driveId, ignoreCase, cancellationToken);
                     if (!string.IsNullOrWhiteSpace(named))
                     {
                         return named;
@@ -213,7 +220,7 @@ namespace Mahkias.Api.Services
 
             try
             {
-                return await FindFolderPageAsync(folderName, parentFolderId, null, cancellationToken);
+                return await FindFolderPageAsync(folderName, parentFolderId, null, ignoreCase, cancellationToken);
             }
             catch (Google.GoogleApiException ex)
             {
@@ -221,31 +228,31 @@ namespace Mahkias.Api.Services
             }
         }
 
-        private async Task<string> FindFolderPageAsync(string folderName, string parentFolderId, string driveId, CancellationToken cancellationToken)
+        private async Task<string> FindFolderPageAsync(string folderName, string parentFolderId, string driveId, bool ignoreCase, CancellationToken cancellationToken)
         {
             var parent = EscapeQuery(parentFolderId);
             var exact = $"mimeType = 'application/vnd.google-apps.folder' and name = '{EscapeQuery(folderName)}' and '{parent}' in parents and trashed = false";
-            var exactId = await FindMatchingFolderAsync(exact, driveId, file => FolderMatches(file, folderName, parentFolderId, driveId, ignoreSpacing: false), cancellationToken);
+            var exactId = await FindMatchingFolderAsync(exact, driveId, file => FolderMatches(file, folderName, parentFolderId, driveId, ignoreSpacing: false, ignoreCase), cancellationToken);
             if (!string.IsNullOrWhiteSpace(exactId))
             {
                 return exactId;
             }
 
             var siblings = $"mimeType = 'application/vnd.google-apps.folder' and '{parent}' in parents and trashed = false";
-            return await FindMatchingFolderAsync(siblings, driveId, file => FolderMatches(file, folderName, parentFolderId, driveId, ignoreSpacing: true), cancellationToken);
+            return await FindMatchingFolderAsync(siblings, driveId, file => FolderMatches(file, folderName, parentFolderId, driveId, ignoreSpacing: true, ignoreCase), cancellationToken);
         }
 
-        private async Task<string> FindSharedDriveFolderAsync(string folderName, string driveId, CancellationToken cancellationToken)
+        private async Task<string> FindSharedDriveFolderAsync(string folderName, string driveId, bool ignoreCase, CancellationToken cancellationToken)
         {
             var exact = $"mimeType = 'application/vnd.google-apps.folder' and name = '{EscapeQuery(folderName)}' and trashed = false";
-            var exactId = await FindMatchingFolderAsync(exact, null, file => SharedDriveFolderMatches(file, folderName, driveId, ignoreSpacing: false), cancellationToken);
+            var exactId = await FindMatchingFolderAsync(exact, null, file => SharedDriveFolderMatches(file, folderName, driveId, ignoreSpacing: false, ignoreCase), cancellationToken);
             if (!string.IsNullOrWhiteSpace(exactId))
             {
                 return exactId;
             }
 
             var folders = "mimeType = 'application/vnd.google-apps.folder' and trashed = false";
-            return await FindMatchingFolderAsync(folders, null, file => SharedDriveFolderMatches(file, folderName, driveId, ignoreSpacing: true), cancellationToken);
+            return await FindMatchingFolderAsync(folders, null, file => SharedDriveFolderMatches(file, folderName, driveId, ignoreSpacing: true, ignoreCase), cancellationToken);
         }
 
         private async Task<string> FindMatchingFolderAsync(string query, string driveId, Func<Google.Apis.Drive.v3.Data.File, bool> match, CancellationToken cancellationToken)
@@ -273,9 +280,9 @@ namespace Mahkias.Api.Services
             return null;
         }
 
-        private static bool FolderMatches(Google.Apis.Drive.v3.Data.File file, string folderName, string parentFolderId, string driveId, bool ignoreSpacing)
+        private static bool FolderMatches(Google.Apis.Drive.v3.Data.File file, string folderName, string parentFolderId, string driveId, bool ignoreSpacing, bool ignoreCase)
         {
-            if (!NamesMatch(file?.Name, folderName, ignoreSpacing))
+            if (!NamesMatch(file?.Name, folderName, ignoreSpacing, ignoreCase))
             {
                 return false;
             }
@@ -288,23 +295,24 @@ namespace Mahkias.Api.Services
             return file.Parents == null || file.Parents.Count == 0 || file.Parents.Contains(parentFolderId);
         }
 
-        private static bool SharedDriveFolderMatches(Google.Apis.Drive.v3.Data.File file, string folderName, string driveId, bool ignoreSpacing)
+        private static bool SharedDriveFolderMatches(Google.Apis.Drive.v3.Data.File file, string folderName, string driveId, bool ignoreSpacing, bool ignoreCase)
         {
-            return NamesMatch(file?.Name, folderName, ignoreSpacing)
+            return NamesMatch(file?.Name, folderName, ignoreSpacing, ignoreCase)
                 && string.Equals(file.DriveId, driveId, StringComparison.Ordinal)
                 && (file.Parents == null || file.Parents.Count == 0 || file.Parents.Contains(driveId));
         }
 
-        private static bool NamesMatch(string existingName, string folderName, bool ignoreSpacing)
+        private static bool NamesMatch(string existingName, string folderName, bool ignoreSpacing, bool ignoreCase)
         {
+            var comparison = ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
             if (ignoreSpacing)
             {
                 var existing = ProjectDriveFolders.NormalizeFolderName(existingName);
                 var wanted = ProjectDriveFolders.NormalizeFolderName(folderName);
-                return existing.Length > 0 && string.Equals(existing, wanted, StringComparison.Ordinal);
+                return existing.Length > 0 && string.Equals(existing, wanted, comparison);
             }
 
-            return string.Equals(existingName, folderName, StringComparison.Ordinal);
+            return string.Equals(existingName, folderName, comparison);
         }
 
         private static string FolderName(string name)
