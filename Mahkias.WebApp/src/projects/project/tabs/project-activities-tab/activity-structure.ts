@@ -29,7 +29,21 @@ export function labelsForType(labels: ActivityLabel[], typeId: number | null): A
   }
   return labels
     .filter((label) => label.typeId === typeId && labelHasMembers(label))
-    .sort((left, right) => left.name.localeCompare(right.name));
+    .sort(byCreatedAt);
+}
+
+function byCreatedAt(left: ActivityLabel, right: ActivityLabel): number {
+  const leftTime = labelCreatedAt(left);
+  const rightTime = labelCreatedAt(right);
+  if (leftTime !== rightTime) {
+    return leftTime - rightTime;
+  }
+  return left.id - right.id;
+}
+
+function labelCreatedAt(label: ActivityLabel): number {
+  const parsed = Date.parse(label.createdAt ?? '');
+  return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
 }
 
 export function directLabels(labels: ActivityLabel[], activity: Activity): ActivityLabel[] {
