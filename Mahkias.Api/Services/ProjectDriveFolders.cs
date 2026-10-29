@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Mahkias.Core.Data;
 using Mahkias.Core.Modules.Projects;
 
@@ -88,8 +89,8 @@ namespace Mahkias.Api.Services
 
         public static string ProjectFolderName(string reference, string name)
         {
-            var referenceText = (reference ?? string.Empty).Trim();
-            var nameText = (name ?? string.Empty).Trim();
+            var referenceText = NormalizeFolderName(reference);
+            var nameText = NormalizeFolderName(name);
             var label = string.IsNullOrEmpty(referenceText)
                 ? nameText
                 : string.IsNullOrEmpty(nameText) ? referenceText : referenceText + " " + nameText;
@@ -103,13 +104,24 @@ namespace Mahkias.Api.Services
                 label = label.Replace(character, ' ');
             }
 
-            label = string.Join(" ", label.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries));
+            label = NormalizeFolderName(label);
             if (label.Length > 180)
             {
                 label = label.Substring(0, 180).Trim();
             }
 
             return label;
+        }
+
+        public static string NormalizeFolderName(string value)
+        {
+            var text = (value ?? string.Empty).Trim();
+            if (text.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            return Regex.Replace(text, @"\s+", " ");
         }
     }
 }

@@ -52,7 +52,7 @@ namespace Mahkias.Api.Services
 
         public async Task<string> CreateFolderAsync(string name, string parentFolderId, CancellationToken cancellationToken = default)
         {
-            var folderName = string.IsNullOrWhiteSpace(name) ? "Project" : name.Trim();
+            var folderName = FolderName(name);
             var parent = string.IsNullOrWhiteSpace(parentFolderId) ? RootFolderId() : parentFolderId.Trim();
             var existingId = await FindFolderIdAsync(folderName, parent, cancellationToken);
             if (!string.IsNullOrWhiteSpace(existingId))
@@ -98,7 +98,7 @@ namespace Mahkias.Api.Services
                 throw new InvalidOperationException("A Google Drive folder id is required.");
             }
 
-            var folderName = string.IsNullOrWhiteSpace(name) ? "Project" : name.Trim();
+            var folderName = FolderName(name);
             var metadata = new Google.Apis.Drive.v3.Data.File
             {
                 Name = folderName,
@@ -223,51 +223,47 @@ namespace Mahkias.Api.Services
 
         private async Task<string> FindFolderPageAsync(string folderName, string parentFolderId, string driveId, CancellationToken cancellationToken)
         {
-            string pageToken = null;
-            var name = EscapeQuery(folderName);
             var parent = EscapeQuery(parentFolderId);
-            do
+            var exact = $"mimeType = 'application/vnd.google-apps.folder' and name = '{EscapeQuery(folderName)}' and '{parent}' in parents and trashed = false";
+            var exactId = await FindMatchingFolderAsync(exact, driveId, file => FolderMatches(file, folderName, parentFolderId, driveId, ignoreSpacing: false), cancellationToken);
+            if (!string.IsNullOrWhiteSpace(exactId))
             {
-                var list = Drive().Files.List();
-                list.Q = $"mimeType = 'application/vnd.google-apps.folder' and name = '{name}' and '{parent}' in parents and trashed = false";
-                list.Fields = "nextPageToken, files(id, name, parents, driveId)";
-                list.PageSize = 10;
-                list.PageToken = pageToken;
-                ApplySharedDrive(list, driveId);
-                var page = await list.ExecuteAsync(cancellationToken);
-                var match = page.Files?.FirstOrDefault(file => FolderMatches(file, folderName, parentFolderId, driveId));
-                if (!string.IsNullOrWhiteSpace(match?.Id))
-                {
-                    return match.Id;
-                }
-
-                pageToken = page.NextPageToken;
+                return exactId;
             }
-            while (!string.IsNullOrEmpty(pageToken));
 
-            return null;
+            var siblings = $"mimeType = 'application/vnd.google-apps.folder' and '{parent}' in parents and trashed = false";
+            return await FindMatchingFolderAsync(siblings, driveId, file => FolderMatches(file, folderName, parentFolderId, driveId, ignoreSpacing: true), cancellationToken);
         }
 
         private async Task<string> FindSharedDriveFolderAsync(string folderName, string driveId, CancellationToken cancellationToken)
         {
+            var exact = $"mimeType = 'application/vnd.google-apps.folder' and name = '{EscapeQuery(folderName)}' and trashed = false";
+            var exactId = await FindMatchingFolderAsync(exact, null, file => SharedDriveFolderMatches(file, folderName, driveId, ignoreSpacing: false), cancellationToken);
+            if (!string.IsNullOrWhiteSpace(exactId))
+            {
+                return exactId;
+            }
+
+            var folders = "mimeType = 'application/vnd.google-apps.folder' and trashed = false";
+            return await FindMatchingFolderAsync(folders, null, file => SharedDriveFolderMatches(file, folderName, driveId, ignoreSpacing: true), cancellationToken);
+        }
+
+        private async Task<string> FindMatchingFolderAsync(string query, string driveId, Func<Google.Apis.Drive.v3.Data.File, bool> match, CancellationToken cancellationToken)
+        {
             string pageToken = null;
-            var name = EscapeQuery(folderName);
             do
             {
                 var list = Drive().Files.List();
-                list.Q = $"mimeType = 'application/vnd.google-apps.folder' and name = '{name}' and trashed = false";
+                list.Q = query;
                 list.Fields = "nextPageToken, files(id, name, parents, driveId)";
-                list.PageSize = 10;
+                list.PageSize = 100;
                 list.PageToken = pageToken;
-                ApplySharedDrive(list, null);
+                ApplySharedDrive(list, driveId);
                 var page = await list.ExecuteAsync(cancellationToken);
-                var match = page.Files?.FirstOrDefault(file =>
-                    string.Equals(file.Name, folderName, StringComparison.Ordinal)
-                    && string.Equals(file.DriveId, driveId, StringComparison.Ordinal)
-                    && (file.Parents == null || file.Parents.Count == 0 || file.Parents.Contains(driveId)));
-                if (!string.IsNullOrWhiteSpace(match?.Id))
+                var found = page.Files?.FirstOrDefault(match);
+                if (!string.IsNullOrWhiteSpace(found?.Id))
                 {
-                    return match.Id;
+                    return found.Id;
                 }
 
                 pageToken = page.NextPageToken;
@@ -277,9 +273,9 @@ namespace Mahkias.Api.Services
             return null;
         }
 
-        private static bool FolderMatches(Google.Apis.Drive.v3.Data.File file, string folderName, string parentFolderId, string driveId)
+        private static bool FolderMatches(Google.Apis.Drive.v3.Data.File file, string folderName, string parentFolderId, string driveId, bool ignoreSpacing)
         {
-            if (file == null || !string.Equals(file.Name, folderName, StringComparison.Ordinal))
+            if (!NamesMatch(file?.Name, folderName, ignoreSpacing))
             {
                 return false;
             }
@@ -290,6 +286,31 @@ namespace Mahkias.Api.Services
             }
 
             return file.Parents == null || file.Parents.Count == 0 || file.Parents.Contains(parentFolderId);
+        }
+
+        private static bool SharedDriveFolderMatches(Google.Apis.Drive.v3.Data.File file, string folderName, string driveId, bool ignoreSpacing)
+        {
+            return NamesMatch(file?.Name, folderName, ignoreSpacing)
+                && string.Equals(file.DriveId, driveId, StringComparison.Ordinal)
+                && (file.Parents == null || file.Parents.Count == 0 || file.Parents.Contains(driveId));
+        }
+
+        private static bool NamesMatch(string existingName, string folderName, bool ignoreSpacing)
+        {
+            if (ignoreSpacing)
+            {
+                var existing = ProjectDriveFolders.NormalizeFolderName(existingName);
+                var wanted = ProjectDriveFolders.NormalizeFolderName(folderName);
+                return existing.Length > 0 && string.Equals(existing, wanted, StringComparison.Ordinal);
+            }
+
+            return string.Equals(existingName, folderName, StringComparison.Ordinal);
+        }
+
+        private static string FolderName(string name)
+        {
+            var folderName = ProjectDriveFolders.NormalizeFolderName(name);
+            return string.IsNullOrEmpty(folderName) ? "Project" : folderName;
         }
 
         private static void ApplySharedDrive(Google.Apis.Drive.v3.FilesResource.CreateRequest request)
