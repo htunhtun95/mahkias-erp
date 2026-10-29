@@ -621,6 +621,8 @@ label.invalid input {
 
 .col-dsn { width: 90px; }
 .col-part { width: 180px; }
+.col-condition { width: 110px; }
+.col-lead { width: 120px; }
 .col-currency { width: 110px; }
 .col-qty { width: 90px; }
 .col-price { width: 148px; }

@@ -78,6 +78,8 @@
                   <span>DSN No</span>
                   <span>Part No</span>
                   <span>Description</span>
+                  <span>Condition</span>
+                  <span>Lead Time</span>
                   <span>Currency</span>
                   <span>Unit Price</span>
                   <span>Quantity</span>
@@ -88,6 +90,8 @@
                     <span>{{ line.dsnNo || '—' }}</span>
                     <span>{{ line.partNo || '—' }}</span>
                     <span>{{ line.description || '—' }}</span>
+                    <span>{{ line.condition || '—' }}</span>
+                    <span>{{ line.leadTime || '—' }}</span>
                     <span>{{ line.currencyCode || 'USD' }}</span>
                     <span>{{ money(line.unitPrice, line.currencySymbol, line.currencyCode) }}</span>
                     <span>{{ line.quantity }}</span>

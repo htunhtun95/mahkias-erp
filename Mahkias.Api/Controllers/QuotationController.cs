@@ -336,6 +336,8 @@ namespace Mahkias.Api.Controllers
                     dsnNo = Suggest(sheet.Columns, "dsnno", "dsn", "dsnnumber"),
                     partNo = Suggest(sheet.Columns, "partno", "partnumber", "part"),
                     description = Suggest(sheet.Columns, "description", "desc"),
+                    condition = Suggest(sheet.Columns, "condition", "itemcondition", "cond"),
+                    leadTime = Suggest(sheet.Columns, "leadtime", "lead", "deliveryleadtime"),
                     unitPrice = Suggest(sheet.Columns, "unitprice", "price", "unitcost"),
                     quantity = Suggest(sheet.Columns, "quantity", "qty"),
                     totalPrice = Suggest(sheet.Columns, "totalprice", "total", "linetotal"),
@@ -399,6 +401,8 @@ namespace Mahkias.Api.Controllers
                         dsnNo = row.DsnNo,
                         partNo = row.PartNo,
                         description = row.Description,
+                        condition = row.Condition,
+                        leadTime = row.LeadTime,
                         unitPrice = unit,
                         quantity,
                         totalPrice = total,
@@ -478,7 +482,19 @@ namespace Mahkias.Api.Controllers
                     errors.Add(new ActivityImportIssue { Row = entry.row, Field = "Part No", Message = "Part number is required." });
                 }
 
-                if (string.IsNullOrWhiteSpace(entry.item.DsnNo) || string.IsNullOrWhiteSpace(entry.item.PartNo))
+                if (!string.IsNullOrWhiteSpace(entry.item.Condition) && entry.item.Condition.Trim().Length > 100)
+                {
+                    errors.Add(new ActivityImportIssue { Row = entry.row, Field = "Condition", Message = "Condition must be 100 characters or fewer." });
+                }
+
+                if (!string.IsNullOrWhiteSpace(entry.item.LeadTime) && entry.item.LeadTime.Trim().Length > 100)
+                {
+                    errors.Add(new ActivityImportIssue { Row = entry.row, Field = "Lead Time", Message = "Lead time must be 100 characters or fewer." });
+                }
+
+                if (string.IsNullOrWhiteSpace(entry.item.DsnNo) || string.IsNullOrWhiteSpace(entry.item.PartNo)
+                    || (!string.IsNullOrWhiteSpace(entry.item.Condition) && entry.item.Condition.Trim().Length > 100)
+                    || (!string.IsNullOrWhiteSpace(entry.item.LeadTime) && entry.item.LeadTime.Trim().Length > 100))
                 {
                     continue;
                 }
@@ -605,6 +621,8 @@ namespace Mahkias.Api.Controllers
                 DsnNo = string.IsNullOrWhiteSpace(dsnNo) ? item.DsnNo?.Trim() : dsnNo.Trim(),
                 PartNo = item.PartNo.Trim(),
                 PartDescription = item.Description?.Trim(),
+                Condition = TrimOptional(item.Condition),
+                LeadTime = TrimOptional(item.LeadTime),
                 UnitPrice = unit,
                 Quantity = quantity,
                 TotalPrice = total,
@@ -681,6 +699,8 @@ namespace Mahkias.Api.Controllers
                         DsnNo = first.DsnNo,
                         PartNo = first.PartNo,
                         PartDescription = first.PartDescription,
+                        Condition = first.Condition,
+                        LeadTime = first.LeadTime,
                         UnitPrice = unit,
                         Quantity = quantity,
                         TotalPrice = total,
@@ -693,6 +713,12 @@ namespace Mahkias.Api.Controllers
         private async Task<bool> ProjectExists(int projectId)
         {
             return await _context.Projects.AsNoTracking().AnyAsync(project => project.Id == projectId);
+        }
+
+        private static string TrimOptional(string value)
+        {
+            var text = value?.Trim();
+            return string.IsNullOrEmpty(text) ? null : text;
         }
 
         private static bool IsBlank(QuotationItemRequest item)

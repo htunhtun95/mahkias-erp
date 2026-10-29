@@ -180,6 +180,8 @@ export interface QuotationLine {
   dsnNo?: string | null;
   partNo?: string | null;
   description?: string | null;
+  condition?: string | null;
+  leadTime?: string | null;
   unitPrice?: number | null;
   quantity: number;
   totalPrice?: number | null;
@@ -206,6 +208,8 @@ export interface ActivityQuotationLink {
   supplierQuotationRef?: string | null;
   partNo?: string | null;
   description?: string | null;
+  condition?: string | null;
+  leadTime?: string | null;
   quantity?: number | null;
   alternativePart?: boolean;
   unitPrice?: number | null;
@@ -222,6 +226,8 @@ export interface QuotationItemInput {
   dsnNo: string;
   partNo: string;
   description: string;
+  condition?: string | null;
+  leadTime?: string | null;
   unitPrice: number | null;
   quantity: number;
   totalPrice: number | null;
@@ -259,6 +265,8 @@ export interface QuotationExcelMapping {
     dsnNo?: string;
     partNo?: string;
     description?: string;
+    condition?: string;
+    leadTime?: string;
     unitPrice?: string;
     quantity?: string;
     totalPrice?: string;
@@ -631,12 +639,16 @@ export class ProjectApiService {
       dsnNoColumn: string;
       partNoColumn: string;
       descriptionColumn: string;
+      conditionColumn?: string;
+      leadTimeColumn?: string;
       unitPriceColumn: string;
       quantityColumn: string;
       totalPriceColumn: string;
       defaultDsnNo: string;
       defaultPartNo: string;
       defaultDescription: string;
+      defaultCondition?: string;
+      defaultLeadTime?: string;
       defaultUnitPrice: string;
       defaultQuantity: string;
       defaultTotalPrice: string;
@@ -650,6 +662,8 @@ export class ProjectApiService {
     body.append('dsnNoColumn', mapping.dsnNoColumn ?? '');
     body.append('partNoColumn', mapping.partNoColumn ?? '');
     body.append('descriptionColumn', mapping.descriptionColumn ?? '');
+    body.append('conditionColumn', mapping.conditionColumn ?? '');
+    body.append('leadTimeColumn', mapping.leadTimeColumn ?? '');
     body.append('unitPriceColumn', mapping.unitPriceColumn ?? '');
     body.append('quantityColumn', mapping.quantityColumn ?? '');
     body.append('totalPriceColumn', mapping.totalPriceColumn ?? '');
@@ -657,6 +671,8 @@ export class ProjectApiService {
     body.append('defaultDsnNo', mapping.defaultDsnNo ?? '');
     body.append('defaultPartNo', mapping.defaultPartNo ?? '');
     body.append('defaultDescription', mapping.defaultDescription ?? '');
+    body.append('defaultCondition', mapping.defaultCondition ?? '');
+    body.append('defaultLeadTime', mapping.defaultLeadTime ?? '');
     body.append('defaultUnitPrice', mapping.defaultUnitPrice ?? '');
     body.append('defaultQuantity', mapping.defaultQuantity ?? '');
     body.append('defaultTotalPrice', mapping.defaultTotalPrice ?? '');

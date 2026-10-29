@@ -18,6 +18,10 @@ namespace Mahkias.Api.Modules.Projects
 
         public string Description { get; set; }
 
+        public string Condition { get; set; }
+
+        public string LeadTime { get; set; }
+
         public decimal? UnitPrice { get; set; }
 
         public int? Quantity { get; set; }
@@ -75,6 +79,10 @@ namespace Mahkias.Api.Modules.Projects
 
         public string DescriptionColumn { get; set; }
 
+        public string ConditionColumn { get; set; }
+
+        public string LeadTimeColumn { get; set; }
+
         public string UnitPriceColumn { get; set; }
 
         public string QuantityColumn { get; set; }
@@ -88,6 +96,10 @@ namespace Mahkias.Api.Modules.Projects
         public string DefaultPartNo { get; set; }
 
         public string DefaultDescription { get; set; }
+
+        public string DefaultCondition { get; set; }
+
+        public string DefaultLeadTime { get; set; }
 
         public string DefaultUnitPrice { get; set; }
 

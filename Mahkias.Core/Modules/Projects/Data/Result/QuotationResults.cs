@@ -136,6 +136,10 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
 
         public string Description { get; set; }
 
+        public string Condition { get; set; }
+
+        public string LeadTime { get; set; }
+
         public decimal? UnitPrice { get; set; }
 
         public int Quantity { get; set; }
@@ -181,6 +185,10 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
         public string PartNo { get; set; }
 
         public string Description { get; set; }
+
+        public string Condition { get; set; }
+
+        public string LeadTime { get; set; }
 
         public int Quantity { get; set; }
 

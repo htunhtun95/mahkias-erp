@@ -268,6 +268,7 @@ WHERE Q.Id = @Id
   AND Q.IsDeleted = 0;
 
 SELECT I.Id, COALESCE(NULLIF(LTRIM(RTRIM(I.DsnNo)), N''), A.DSNNo) AS DsnNo, I.PartNo, I.PartDescription,
+       I.Condition, I.LeadTime,
        I.UnitPrice, I.Quantity, I.TotalPrice, I.CurrencyId, C.Code AS CurrencyCode, C.Symbol AS CurrencySymbol,
        I.ExchangeRate, I.BaseUnitPrice, I.BaseTotalPrice, I.ActivityId, A.DSNNo AS ActivityDsn, A.PartNo AS ActivityPart
 FROM projects.QuotationItems I
@@ -312,6 +313,8 @@ ORDER BY I.Id;", _connection);
                             DsnNo = reader.ReadStringValue("DsnNo"),
                             PartNo = reader.ReadStringValue("PartNo"),
                             Description = reader.ReadStringValue("PartDescription"),
+                            Condition = reader.ReadStringValue("Condition"),
+                            LeadTime = reader.ReadStringValue("LeadTime"),
                             UnitPrice = reader.ReadNullableDecimalValue("UnitPrice"),
                             Quantity = reader.ReadIntValue("Quantity"),
                             TotalPrice = reader.ReadNullableDecimalValue("TotalPrice"),
@@ -345,6 +348,7 @@ ORDER BY I.Id;", _connection);
 WITH Matched AS (
     SELECT A.Id AS ActivityId, Q.Id AS QuotationId, I.Id AS ItemId, Q.Code AS QuotationRef, S.Name AS SupplierName,
            Q.SupplierReference AS SupplierQuotationRef, I.PartNo, I.PartDescription AS Description,
+           I.Condition, I.LeadTime,
            I.Quantity,
            I.UnitPrice,
            I.TotalPrice,
@@ -421,7 +425,7 @@ Ranked AS (
            ROW_NUMBER() OVER (PARTITION BY ActivityId ORDER BY BaseUnitPrice ASC, QuotationId ASC, ItemId ASC) AS QuoteRank
     FROM Matched
 )
-SELECT ActivityId, ItemId, QuotationId, QuotationRef, SupplierName, SupplierQuotationRef, PartNo, Description, Quantity, AlternativePart,
+SELECT ActivityId, ItemId, QuotationId, QuotationRef, SupplierName, SupplierQuotationRef, PartNo, Description, Condition, LeadTime, Quantity, AlternativePart,
        UnitPrice, TotalPrice, CurrencyCode, CurrencySymbol, BaseUnitPrice, BaseTotalPrice, RecordedAt,
        CASE WHEN QuoteRank = 1 THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS Lowest
 FROM Ranked
@@ -443,6 +447,8 @@ ORDER BY ActivityId, QuoteRank, QuotationId", _connection);
                         SupplierQuotationRef = reader.ReadStringValue("SupplierQuotationRef"),
                         PartNo = reader.ReadStringValue("PartNo"),
                         Description = reader.ReadStringValue("Description"),
+                        Condition = reader.ReadStringValue("Condition"),
+                        LeadTime = reader.ReadStringValue("LeadTime"),
                         Quantity = reader.ReadIntValue("Quantity"),
                         AlternativePart = reader.ReadBooleanValue("AlternativePart"),
                         UnitPrice = reader.ReadNullableDecimalValue("UnitPrice"),
@@ -700,6 +706,8 @@ END", _connection);
                     TextValue1 = item.DsnNo,
                     TextValue2 = item.PartNo,
                     TextValue3 = item.PartDescription,
+                    TextValue4 = item.Condition,
+                    TextValue5 = item.LeadTime,
                     NumericValue5 = item.CurrencyId,
                     DecimalValue1 = item.UnitPrice,
                     DecimalValue2 = item.TotalPrice

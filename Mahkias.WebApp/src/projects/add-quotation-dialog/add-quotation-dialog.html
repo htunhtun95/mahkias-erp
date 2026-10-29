@@ -94,8 +94,10 @@
         <colgroup>
           <col class="col-dsn" />
           <col class="col-part" />
-          <col class="col-description" />
-          <col class="col-currency" />
+            <col class="col-description" />
+            <col class="col-condition" />
+            <col class="col-lead" />
+            <col class="col-currency" />
           <col class="col-price" />
           <col class="col-qty" />
           <col class="col-price" />
@@ -105,6 +107,8 @@
             <th class="dsn">DSN No</th>
             <th class="part">Part No</th>
             <th class="description">Description</th>
+            <th>Condition</th>
+            <th>Lead Time</th>
             <th class="currency">Currency</th>
             <th class="price">Unit Price</th>
             <th class="qty">Quantity</th>
@@ -126,6 +130,8 @@
                   [name]="'desc' + row.key"
                 ></textarea>
               </td>
+              <td><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.condition" [name]="'condition' + row.key" maxlength="100" /></td>
+              <td><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.leadTime" [name]="'lead' + row.key" maxlength="100" /></td>
               <td class="cell currency">
                 <select [disabled]="isSaving" [(ngModel)]="row.currencyId" (ngModelChange)="onRowCurrency(row)" [name]="'currency' + row.key">
                   @for (currency of currencies; track currency.id) {
@@ -149,7 +155,7 @@
             </tr>
           } @empty {
             <tr>
-              <td class="filter-empty" colspan="7">No activities match this search.</td>
+                <td class="filter-empty" colspan="9">No activities match this search.</td>
             </tr>
           }
         </tbody>

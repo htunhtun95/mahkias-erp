@@ -97,11 +97,13 @@
 .lines {
   padding: 0 16px 12px 52px;
   background: #fafafa;
+  overflow-x: auto;
 }
 
 .line-row {
   display: grid;
-  grid-template-columns: 80px minmax(0, 1.2fr) minmax(0, 1.6fr) 72px 110px 80px 110px;
+  grid-template-columns: 80px minmax(120px, 1.1fr) minmax(160px, 1.5fr) 100px 110px 72px 110px 80px 110px;
+  min-width: 1040px;
   gap: 8px;
   align-items: center;
   min-height: 48px;

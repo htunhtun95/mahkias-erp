@@ -12,6 +12,7 @@ export interface QuotationDataRow {
   link: ActivityQuotationLink | null;
 }
 
+
 export interface QuotationDataState {
   kind: QuotationViewKind;
   activityId?: number;

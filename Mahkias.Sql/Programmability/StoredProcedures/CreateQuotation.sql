@@ -7,7 +7,7 @@ CREATE PROCEDURE [dbo].[CreateQuotation]
     @ProjectIds [dbo].[NumberTableType] READONLY,
     -- NumericValue1 = ActivityId, NumericValue2 = ActivityGroupId, NumericValue3 = AlternativePartId, NumericValue4 = Quantity, NumericValue5 = CurrencyId
     -- BitValue1 = IsAlternativePart
-    -- TextValue1 = DsnNo, TextValue2 = PartNo, TextValue3 = PartDescription
+    -- TextValue1 = DsnNo, TextValue2 = PartNo, TextValue3 = PartDescription, TextValue4 = Condition, TextValue5 = LeadTime
     -- DecimalValue1 = UnitPrice, DecimalValue2 = TotalPrice
     @Items [dbo].[DefaultGenericTableType] READONLY
 )
@@ -101,7 +101,9 @@ BEGIN
             Quantity,
             TotalPrice,
             BaseTotalPrice,
-            AwardedQuantity
+            AwardedQuantity,
+            Condition,
+            LeadTime
         )
         SELECT
             @Id,
@@ -119,7 +121,9 @@ BEGIN
             ISNULL(I.NumericValue4, 1),
             CAST(I.DecimalValue2 AS DECIMAL(18, 2)),
             CAST(ROUND(I.DecimalValue2 * Resolved.Rate, 2) AS DECIMAL(18, 2)),
-            0
+            0,
+            LEFT(NULLIF(LTRIM(RTRIM(I.TextValue4)), N''), 100),
+            LEFT(NULLIF(LTRIM(RTRIM(I.TextValue5)), N''), 100)
         FROM @Items AS I
         CROSS APPLY (
             SELECT

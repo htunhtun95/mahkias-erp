@@ -151,7 +151,7 @@
           @if (requiredMissing) {
             <p class="hint-error">Please select a Column Index or enter a Default Value for this required field.</p>
           }
-          <p class="hint">DSN No and Part No are required. A row with no unit price and no total price is skipped.</p>
+          <p class="hint">DSN No and Part No are required. Condition and lead time are optional. A row with no unit price and no total price is skipped.</p>
           @if (checkState === 'failed' && importErrors.length) {
             <p class="hint-error">⚠ Validation Failed ({{ importErrors.length }} Errors Found)</p>
             <ul class="errors">
@@ -179,6 +179,8 @@
             <colgroup>
               <col class="col-dsn" />
               <col class="col-part" />
+              <col class="col-condition" />
+              <col class="col-lead" />
               <col class="col-currency" />
               <col class="col-qty" />
               <col class="col-price" />
@@ -188,6 +190,8 @@
               <tr>
                 <th class="dsn">DSN No</th>
                 <th class="part">Part No</th>
+                <th>Condition</th>
+                <th>Lead Time</th>
                 <th>Currency</th>
                 <th class="qty">Quantity</th>
                 <th class="price">Unit Price</th>
@@ -204,6 +208,8 @@
                       <span class="map-badge warning" title="Unit × quantity does not match total">Price</span>
                     }
                   </td>
+                  <td><input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.condition" [name]="'condition' + line.row" maxlength="100" /></td>
+                  <td><input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.leadTime" [name]="'lead' + line.row" maxlength="100" /></td>
                   <td>
                     <select [disabled]="busy" [(ngModel)]="line.currencyId" (ngModelChange)="onLineCurrency(line)" [name]="'currency' + line.row">
                       @for (currency of currencies; track currency.id) {
@@ -228,7 +234,7 @@
               }
               @if (!filteredLines.length) {
                 <tr>
-                  <td class="filter-empty" colspan="6">No preview rows match this search.</td>
+                  <td class="filter-empty" colspan="8">No preview rows match this search.</td>
                 </tr>
               }
             </tbody>

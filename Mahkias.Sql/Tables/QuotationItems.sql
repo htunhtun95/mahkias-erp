@@ -19,6 +19,8 @@ CREATE TABLE [projects].[QuotationItems]
     [AwardedQuantity] INT CONSTRAINT [DF_QuotationItems_AwardedQuantity] DEFAULT (0) NOT NULL,
     [CreatedAt] DATETIME CONSTRAINT [DF_QuotationItems_CreatedAt] DEFAULT (GETDATE()) NOT NULL,
     [ModifiedAt] DATETIME NULL,
+    [Condition] NVARCHAR(100) NULL,
+    [LeadTime] NVARCHAR(100) NULL,
     CONSTRAINT [PK_QuotationItems] PRIMARY KEY CLUSTERED ([Id] ASC),
     CONSTRAINT [FK_QuotationItems_Quotations] FOREIGN KEY ([QuotationId]) REFERENCES [projects].[Quotations] ([Id]) ON DELETE CASCADE,
     CONSTRAINT [FK_QuotationItems_Activities] FOREIGN KEY ([ActivityId]) REFERENCES [projects].[Activities] ([Id]) ON DELETE SET NULL,

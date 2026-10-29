@@ -27,6 +27,8 @@ interface QuoteRow {
   dsnNo: string;
   partNo: string;
   description: string;
+  condition: string;
+  leadTime: string;
   unitPrice: string;
   quantity: string;
   totalPrice: string;
@@ -279,6 +281,8 @@ export class CreateQuotationDialogComponent {
       dsnNo: row.dsnNo.trim(),
       partNo: row.partNo.trim(),
       description: row.description.trim(),
+      condition: row.condition.trim(),
+      leadTime: row.leadTime.trim(),
       unitPrice: this.money(row.unitPrice),
       quantity: this.quantity(row),
       totalPrice: this.money(row.totalPrice),
@@ -465,6 +469,8 @@ export class CreateQuotationDialogComponent {
       dsnNo: item?.dsnNo?.trim() || (activity.dsnNo ?? '').trim(),
       partNo: item?.partNo?.trim() || (activity.mainPartNo || activity.partNo || '').trim(),
       description: item?.description?.trim() || (activity.description ?? '').trim(),
+      condition: item?.condition?.trim() || '',
+      leadTime: item?.leadTime?.trim() || '',
       quantity: item ? String(item.quantity || 1) : this.activityQuantity(activity),
       unitPrice: item?.unitPrice == null ? '' : String(item.unitPrice),
       totalPrice: item?.totalPrice == null ? '' : String(item.totalPrice),
@@ -481,6 +487,8 @@ export class CreateQuotationDialogComponent {
       dsnNo: item.dsnNo ?? '',
       partNo: item.partNo ?? '',
       description: item.description ?? '',
+      condition: item.condition ?? '',
+      leadTime: item.leadTime ?? '',
       quantity: String(item.quantity || 1),
       unitPrice: item.unitPrice == null ? '' : String(item.unitPrice),
       totalPrice: item.totalPrice == null ? '' : String(item.totalPrice),

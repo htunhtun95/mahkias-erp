@@ -23,6 +23,10 @@ namespace Mahkias.Core.Modules.Projects.Data.Args
 
         public string PartDescription { get; set; }
 
+        public string Condition { get; set; }
+
+        public string LeadTime { get; set; }
+
         public decimal? UnitPrice { get; set; }
 
         public int Quantity { get; set; }

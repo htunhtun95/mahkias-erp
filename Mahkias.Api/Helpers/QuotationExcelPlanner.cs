@@ -15,6 +15,10 @@ namespace Mahkias.Api.Helpers
 
         public string Description { get; set; }
 
+        public string Condition { get; set; }
+
+        public string LeadTime { get; set; }
+
         public decimal? UnitPrice { get; set; }
 
         public decimal? TotalPrice { get; set; }
@@ -43,6 +47,8 @@ namespace Mahkias.Api.Helpers
                 var dsn = CellOrDefault(source, form.DsnNoColumn, form.DefaultDsnNo);
                 var part = CellOrDefault(source, form.PartNoColumn, form.DefaultPartNo);
                 var description = CellOrDefault(source, form.DescriptionColumn, form.DefaultDescription);
+                var condition = CellOrDefault(source, form.ConditionColumn, form.DefaultCondition);
+                var leadTime = CellOrDefault(source, form.LeadTimeColumn, form.DefaultLeadTime);
                 var quantityText = Cell(source, form.QuantityColumn);
                 var unitText = Cell(source, form.UnitPriceColumn);
                 var totalText = Cell(source, form.TotalPriceColumn);
@@ -77,6 +83,16 @@ namespace Mahkias.Api.Helpers
                 if (string.IsNullOrWhiteSpace(part))
                 {
                     errors.Add(Issue(source.RowNumber, "Part No", "Field is missing."));
+                }
+
+                if (!string.IsNullOrWhiteSpace(condition) && condition.Trim().Length > 100)
+                {
+                    errors.Add(Issue(source.RowNumber, "Condition", "Condition must be 100 characters or fewer."));
+                }
+
+                if (!string.IsNullOrWhiteSpace(leadTime) && leadTime.Trim().Length > 100)
+                {
+                    errors.Add(Issue(source.RowNumber, "Lead Time", "Lead time must be 100 characters or fewer."));
                 }
 
                 int quantity;
@@ -149,6 +165,8 @@ namespace Mahkias.Api.Helpers
                     DsnNo = dsn,
                     PartNo = part,
                     Description = description,
+                    Condition = TrimTo(condition, 100),
+                    LeadTime = TrimTo(leadTime, 100),
                     UnitPrice = unit,
                     TotalPrice = total,
                     Quantity = quantity < 0 ? 0 : quantity,
@@ -165,6 +183,17 @@ namespace Mahkias.Api.Helpers
         private static ActivityImportIssue Issue(int row, string field, string message)
         {
             return new ActivityImportIssue { Row = row, Field = field, Message = message };
+        }
+
+        private static string TrimTo(string value, int maxLength)
+        {
+            var text = value?.Trim();
+            if (string.IsNullOrEmpty(text) || text.Length > maxLength)
+            {
+                return null;
+            }
+
+            return text;
         }
 
         private static string CellOrDefault(ActivityDataRow row, string column, string fallback)

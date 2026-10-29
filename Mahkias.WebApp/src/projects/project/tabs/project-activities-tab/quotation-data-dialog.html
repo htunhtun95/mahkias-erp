@@ -25,6 +25,8 @@
             @if (!isGroup) {
               <span>Quoted part no</span>
             }
+            <span>Condition</span>
+            <span>Lead time</span>
             <span>Unit price</span>
             <span>Quantity</span>
             <span>Total price</span>
@@ -51,6 +53,8 @@
                   }
                 </span>
               }
+              <span>{{ row.link?.condition || '—' }}</span>
+              <span>{{ row.link?.leadTime || '—' }}</span>
               <span class="price">
                 {{ row.link ? quotedUnit(row.link) : '—' }}
                 @if (!isGroup && row.link?.lowest) {

@@ -15,6 +15,8 @@ interface ImportLine {
   dsnNo: string;
   partNo: string;
   description: string;
+  condition: string;
+  leadTime: string;
   unitPrice: string;
   quantity: string;
   totalPrice: string;
@@ -31,6 +33,8 @@ interface QuoteMapping {
   dsnNoColumn: string;
   partNoColumn: string;
   descriptionColumn: string;
+  conditionColumn: string;
+  leadTimeColumn: string;
   unitPriceColumn: string;
   quantityColumn: string;
   totalPriceColumn: string;
@@ -38,6 +42,8 @@ interface QuoteMapping {
   defaultDsnNo: string;
   defaultPartNo: string;
   defaultDescription: string;
+  defaultCondition: string;
+  defaultLeadTime: string;
   defaultUnitPrice: string;
   defaultQuantity: string;
   defaultTotalPrice: string;
@@ -93,6 +99,8 @@ export class ImportQuotationDialogComponent {
     { key: 'dsnNoColumn', def: 'defaultDsnNo', label: 'DSN No' },
     { key: 'partNoColumn', def: 'defaultPartNo', label: 'Part No' },
     { key: 'descriptionColumn', def: 'defaultDescription', label: 'Description' },
+    { key: 'conditionColumn', def: 'defaultCondition', label: 'Condition' },
+    { key: 'leadTimeColumn', def: 'defaultLeadTime', label: 'Lead Time' },
     { key: 'unitPriceColumn', def: 'defaultUnitPrice', label: 'Unit Price' },
     { key: 'quantityColumn', def: 'defaultQuantity', label: 'Quantity' },
     { key: 'totalPriceColumn', def: 'defaultTotalPrice', label: 'Total Price' },
@@ -322,6 +330,8 @@ export class ImportQuotationDialogComponent {
           dsnNoColumn: mapping.suggested.dsnNo ?? '',
           partNoColumn: mapping.suggested.partNo ?? '',
           descriptionColumn: mapping.suggested.description ?? '',
+          conditionColumn: mapping.suggested.condition ?? '',
+          leadTimeColumn: mapping.suggested.leadTime ?? '',
           unitPriceColumn: mapping.suggested.unitPrice ?? '',
           quantityColumn: mapping.suggested.quantity ?? '',
           totalPriceColumn: mapping.suggested.totalPrice ?? '',
@@ -594,7 +604,7 @@ export class ImportQuotationDialogComponent {
 
   private lineSearchText(line: ImportLine): string {
     const currency = this.currencies.find((item) => item.id === line.currencyId);
-    return [line.dsnNo, line.partNo, line.description, line.quantity, line.unitPrice, line.totalPrice, currency?.code, currency?.symbol]
+    return [line.dsnNo, line.partNo, line.description, line.condition, line.leadTime, line.quantity, line.unitPrice, line.totalPrice, currency?.code, currency?.symbol]
       .filter((value) => !!value)
       .join(' ')
       .toLowerCase();
@@ -605,6 +615,8 @@ export class ImportQuotationDialogComponent {
     dsnNo?: string | null;
     partNo?: string | null;
     description?: string | null;
+    condition?: string | null;
+    leadTime?: string | null;
     unitPrice?: number | null;
     quantity?: number | null;
     totalPrice?: number | null;
@@ -622,6 +634,8 @@ export class ImportQuotationDialogComponent {
       dsnNo: source.dsnNo ?? '',
       partNo: source.partNo ?? '',
       description: source.description ?? '',
+      condition: source.condition ?? '',
+      leadTime: source.leadTime ?? '',
       unitPrice: unitText,
       quantity: String(source.quantity ?? 1),
       totalPrice: totalText,
@@ -666,6 +680,8 @@ export class ImportQuotationDialogComponent {
         dsnNo: line.dsnNo.trim(),
         partNo: line.partNo.trim(),
         description: line.description.trim(),
+        condition: line.condition.trim(),
+        leadTime: line.leadTime.trim(),
         unitPrice: this.money(line.unitPrice),
         quantity: this.quantity(line),
         totalPrice: this.money(line.totalPrice),
@@ -711,6 +727,8 @@ export class ImportQuotationDialogComponent {
       dsnNoColumn: '',
       partNoColumn: '',
       descriptionColumn: '',
+      conditionColumn: '',
+      leadTimeColumn: '',
       unitPriceColumn: '',
       quantityColumn: '',
       totalPriceColumn: '',
@@ -718,6 +736,8 @@ export class ImportQuotationDialogComponent {
       defaultDsnNo: '',
       defaultPartNo: '',
       defaultDescription: '',
+      defaultCondition: '',
+      defaultLeadTime: '',
       defaultUnitPrice: '',
       defaultQuantity: '',
       defaultTotalPrice: '',

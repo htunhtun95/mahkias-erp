@@ -176,7 +176,7 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     const ref = this.dialog.open(QuotationDataDialog, {
       disableClose: true,
       width: '95vw',
-      maxWidth: '1200px',
+      maxWidth: '1400px',
       maxHeight: '90vh',
       panelClass: ['add-project-dialog-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
