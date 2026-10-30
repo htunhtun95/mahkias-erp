@@ -87,10 +87,26 @@
   </header>
 
   <div class="app-dialog-body quotation-dialog-body">
+    <div class="sheet-filters">
     <label class="row-search">
       <span>Search</span>
       <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="rowFilter" name="rowFilter" placeholder="Filter by DSN No or Part No" autocomplete="off" />
     </label>
+    @if (quoteLabels.length) {
+      <div class="label-switch" role="tablist" aria-label="Activity labels">
+        <button class="segment-btn" type="button" role="tab" [class.active]="labelId == null" [attr.aria-selected]="labelId == null" [disabled]="isSaving" (click)="selectLabel(null)">
+          All
+          <span class="segment-count">{{ labelCount(null) }}</span>
+        </button>
+        @for (label of quoteLabels; track label.id) {
+          <button class="segment-btn" type="button" role="tab" [class.active]="labelId === label.id" [attr.aria-selected]="labelId === label.id" [disabled]="isSaving" (click)="selectLabel(label.id)">
+            {{ label.name }}
+            <span class="segment-count">{{ labelCount(label) }}</span>
+          </button>
+        }
+      </div>
+    }
+    </div>
     <div class="sheet-wrap">
       <table class="sheet app-grid-table">
         <colgroup>
@@ -164,7 +180,7 @@
             </tr>
           } @empty {
             <tr>
-                <td class="filter-empty" colspan="10">No activities match this search.</td>
+                <td class="filter-empty" colspan="10">No activities match this filter.</td>
             </tr>
           }
         </tbody>

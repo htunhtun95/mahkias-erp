@@ -11,6 +11,7 @@ import { whileBusy } from '../../core/while-busy';
 import {
   Activity,
   ActivityImportIssue,
+  ActivityLabel,
   Currency,
   ProjectApiService,
   QuotationDetail,
@@ -20,6 +21,7 @@ import {
   Supplier,
 } from '../../core/services/project-api.service';
 import { directActivityId } from '../quotation-map';
+import { activityHasLabel } from '../project/tabs/project-activities-tab/activity-structure';
 import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-date-field';
 import { dateInputValue } from '../quotation-terms';
 
@@ -61,6 +63,8 @@ export class CreateQuotationDialogComponent {
   readonly documentAccept = '.pdf,.doc,.docx,.xls,.xlsx,.xlsm,.csv,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tif,.tiff';
   quotationCode = this.data.quotation?.code ?? '';
   rowFilter = '';
+  labelId: number | null = null;
+  private labels: ActivityLabel[] = [];
   currencies: Currency[] = [];
   currencyId: number | null = this.data.quotation?.currencyId ?? null;
 
@@ -97,6 +101,14 @@ export class CreateQuotationDialogComponent {
         }
       },
     });
+    this.api.activityLabels(this.data.projectId).subscribe({
+      next: (labels) => {
+        this.labels = labels ?? [];
+        if (this.labelId != null && !this.quoteLabels.some((label) => label.id === this.labelId)) {
+          this.labelId = null;
+        }
+      },
+    });
     if (this.quotationId) {
       this.loadSavedDocuments();
     }
@@ -106,12 +118,34 @@ export class CreateQuotationDialogComponent {
     return this.data.activities ?? [];
   }
 
+  get quoteLabels(): ActivityLabel[] {
+    return this.labels
+      .filter((label) => this.activities.some((activity) => activityHasLabel(activity, label)))
+      .sort((left, right) => {
+        const leftTime = labelTime(left);
+        const rightTime = labelTime(right);
+        if (leftTime !== rightTime) {
+          return leftTime - rightTime;
+        }
+        return left.id - right.id;
+      });
+  }
+
+  selectLabel(id: number | null) {
+    this.labelId = id;
+  }
+
+  labelCount(label: ActivityLabel | null): number {
+    return this.rows.filter((row) => this.matchesLabel(row, label)).length;
+  }
+
   get visibleRows(): QuoteRow[] {
     const query = this.rowFilter.trim().toLowerCase();
-    if (!query) {
-      return this.rows;
-    }
-    return this.rows.filter((row) => row.dsnNo.toLowerCase().includes(query) || row.partNo.toLowerCase().includes(query));
+    const label = this.labels.find((item) => item.id === this.labelId) ?? null;
+    return this.rows.filter((row) => {
+      const matchesQuery = !query || row.dsnNo.toLowerCase().includes(query) || row.partNo.toLowerCase().includes(query);
+      return matchesQuery && this.matchesLabel(row, label);
+    });
   }
 
   onDsn(row: QuoteRow) {
@@ -537,6 +571,14 @@ export class CreateQuotationDialogComponent {
     return Math.abs(unit * this.effectiveQuantity(row) - total) <= 0.01;
   }
 
+  private matchesLabel(row: QuoteRow, label: ActivityLabel | null): boolean {
+    if (!label) {
+      return true;
+    }
+    const activity = this.activities.find((item) => item.id === row.activityId);
+    return !!activity && activityHasLabel(activity, label);
+  }
+
   private linkRow(row: QuoteRow) {
     row.activityId = directActivityId(row.dsnNo, row.partNo, this.activities);
   }
@@ -630,4 +672,9 @@ export class CreateQuotationDialogComponent {
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
   }
 
+}
+
+function labelTime(label: ActivityLabel): number {
+  const parsed = Date.parse(label.createdAt ?? '');
+  return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
 }

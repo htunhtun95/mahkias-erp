@@ -269,11 +269,17 @@ label.invalid input {
   overflow: auto;
 }
 
+.sheet-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .row-search {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-bottom: 12px;
+  margin-bottom: 0;
   color: #5f6368;
   font-size: 12px;
   font-weight: 500;
@@ -294,6 +300,69 @@ label.invalid input {
   outline: none;
   border-color: #1a73e8;
   box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.16);
+}
+
+.label-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.label-switch .segment-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid #dadce0;
+  border-radius: 999px;
+  background: #fff;
+  color: #5f6368;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.label-switch .segment-btn:hover:not(.active):not(:disabled) {
+  background: #f8f9fa;
+  border-color: #bdc1c6;
+  color: #202124;
+}
+
+.label-switch .segment-btn.active {
+  border-color: #1a73e8;
+  background: #1a73e8;
+  color: #fff;
+  font-weight: 600;
+}
+
+.label-switch .segment-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.label-switch .segment-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #f1f3f4;
+  color: #5f6368;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.label-switch .segment-btn.active .segment-count {
+  background: rgba(255, 255, 255, 0.24);
+  color: #fff;
 }
 
 .sheet {
