@@ -51,8 +51,8 @@
   z-index: 2;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 24px 8px;
+  gap: 16px;
+  padding: 24px 32px 16px;
 }
 
 .quotation-dialog-body {
@@ -61,8 +61,8 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 4px 24px 12px;
+  gap: 16px;
+  padding: 8px 32px 20px;
 }
 
 .upload-row {
@@ -78,7 +78,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
-  padding: 16px 24px 20px;
+  padding: 18px 32px 24px;
   border-top: 1px solid #e0e0e0;
   background: #fff;
 }
@@ -201,11 +201,17 @@ h2 {
 .header-fields {
   display: grid;
   grid-template-columns: minmax(160px, 0.9fr) minmax(180px, 1fr) minmax(220px, 1.4fr);
-  gap: 12px;
+  gap: 16px;
 }
 
 .header-fields.creating-supplier {
   grid-template-columns: minmax(150px, 0.8fr) minmax(160px, 0.9fr) minmax(280px, 1.8fr);
+}
+
+.header-dates {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(180px, 240px);
+  gap: 16px;
 }
 
 .header-fields input[readonly]::placeholder {
@@ -222,7 +228,7 @@ h2 {
 label {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
   color: #5f6368;
   font-size: 12px;
@@ -395,13 +401,13 @@ label.invalid input {
   overflow: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .map-grid {
   display: grid;
   grid-template-columns: 110px minmax(0, 1fr) minmax(140px, 0.55fr);
-  gap: 6px 8px;
+  gap: 10px 12px;
   align-items: center;
   flex: 0 0 auto;
   animation: section-in 180ms ease;
@@ -614,7 +620,7 @@ label.invalid input {
 
 .sheet {
   width: 100%;
-  min-width: 860px;
+  min-width: 980px;
   border-collapse: collapse;
   table-layout: fixed;
 }
@@ -625,6 +631,7 @@ label.invalid input {
 .col-lead { width: 120px; }
 .col-currency { width: 110px; }
 .col-qty { width: 90px; }
+.col-moq { width: 90px; }
 .col-price { width: 148px; }
 
 .sheet td.invalid {
@@ -670,19 +677,6 @@ label.invalid input {
   padding: 0 8px;
 }
 
-.qty-stack {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 0;
-}
-
-.qty-stack input {
-  width: 100%;
-  text-align: center;
-}
-
 .part-text {
   margin-right: 8px;
 }
@@ -700,6 +694,7 @@ label.invalid input {
 @media (max-width: 800px) {
   .header-fields,
   .header-fields.creating-supplier,
+  .header-dates,
   .new-supplier {
     grid-template-columns: 1fr;
   }

@@ -9,6 +9,7 @@ using Mahkias.Core.Modules.Projects.Data.Result;
 using Mahkias.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 using System.Text.Json;
 
 namespace Mahkias.Api.Controllers
@@ -146,14 +147,21 @@ namespace Mahkias.Api.Controllers
                 return BadRequest(new { message = "Quotation items could not be read." });
             }
 
-            var prepared = await PrepareAsync(new CreateQuotationRequest
+            var request = new CreateQuotationRequest
             {
                 SupplierId = form.SupplierId,
                 SupplierReference = form.SupplierReference,
                 CurrencyId = form.CurrencyId,
                 ProjectIds = new List<int> { projectId },
                 Items = items,
-            });
+            };
+            var dateError = ApplyFormDates(form, request);
+            if (dateError != null)
+            {
+                return dateError;
+            }
+
+            var prepared = await PrepareAsync(request);
             if (prepared.Error != null)
             {
                 return prepared.Error;
@@ -231,14 +239,21 @@ namespace Mahkias.Api.Controllers
                 return BadRequest(new { message = "Quotation items could not be read." });
             }
 
-            var prepared = await PrepareAsync(new CreateQuotationRequest
+            var request = new CreateQuotationRequest
             {
                 SupplierId = form.SupplierId,
                 SupplierReference = form.SupplierReference,
                 CurrencyId = form.CurrencyId,
                 ProjectIds = new List<int> { projectId },
                 Items = items,
-            });
+            };
+            var dateError = ApplyFormDates(form, request);
+            if (dateError != null)
+            {
+                return dateError;
+            }
+
+            var prepared = await PrepareAsync(request);
             if (prepared.Error != null)
             {
                 return prepared.Error;
@@ -338,6 +353,9 @@ namespace Mahkias.Api.Controllers
                     description = Suggest(sheet.Columns, "description", "desc"),
                     condition = Suggest(sheet.Columns, "condition", "itemcondition", "cond"),
                     leadTime = Suggest(sheet.Columns, "leadtime", "lead", "deliveryleadtime"),
+                    minimumQty = Suggest(sheet.Columns, "minimumqty", "moq", "minqty", "minimumorderqty", "minimumquantity"),
+                    quotedDate = Suggest(sheet.Columns, "quoteddate", "quotedate", "quotationdate", "quotedon"),
+                    validUntil = Suggest(sheet.Columns, "validuntil", "validto", "expirydate", "expiry", "validthru"),
                     unitPrice = Suggest(sheet.Columns, "unitprice", "price", "unitcost"),
                     quantity = Suggest(sheet.Columns, "quantity", "qty"),
                     totalPrice = Suggest(sheet.Columns, "totalprice", "total", "linetotal"),
@@ -388,10 +406,22 @@ namespace Mahkias.Api.Controllers
             var errors = plan.Errors.ToList();
             var items = new List<object>();
             var choices = new List<object>();
+            DateTime? quotedDate = null;
+            DateTime? validUntil = null;
             if (errors.Count == 0)
             {
                 foreach (var row in plan.Rows)
                 {
+                    if (!SameDate(ref quotedDate, row.QuotedDate))
+                    {
+                        errors.Add(new ActivityImportIssue { Row = row.Row, Field = "Quoted Date", Message = "Quoted date does not match the other rows." });
+                    }
+
+                    if (!SameDate(ref validUntil, row.ValidUntil))
+                    {
+                        errors.Add(new ActivityImportIssue { Row = row.Row, Field = "Valid Until", Message = "Valid until does not match the other rows." });
+                    }
+
                     var quantity = row.Quantity < 1 ? 1 : row.Quantity;
                     TryPrice(row.UnitPrice, row.TotalPrice, quantity, out var unit, out var total);
                     var match = QuotationAllocator.Direct(row.DsnNo, row.PartNo, activities);
@@ -403,6 +433,7 @@ namespace Mahkias.Api.Controllers
                         description = row.Description,
                         condition = row.Condition,
                         leadTime = row.LeadTime,
+                        minimumQty = row.MinimumQty,
                         unitPrice = unit,
                         quantity,
                         totalPrice = total,
@@ -418,6 +449,11 @@ namespace Mahkias.Api.Controllers
                 }
             }
 
+            if (errors.Count == 0 && quotedDate.HasValue && validUntil.HasValue && validUntil.Value.Date < quotedDate.Value.Date)
+            {
+                errors.Add(new ActivityImportIssue { Row = 0, Field = "Valid Until", Message = "Valid until cannot be earlier than the quoted date." });
+            }
+
             return Ok(new
             {
                 valid = errors.Count == 0,
@@ -425,8 +461,10 @@ namespace Mahkias.Api.Controllers
                 rowCount = sheet.Rows.Count,
                 errorCount = errors.Count,
                 errors,
-                items,
-                choices,
+                items = errors.Count == 0 ? items : new List<object>(),
+                choices = errors.Count == 0 ? choices : new List<object>(),
+                quotedDate = errors.Count == 0 ? quotedDate : null,
+                validUntil = errors.Count == 0 ? validUntil : null,
             });
         }
 
@@ -440,6 +478,11 @@ namespace Mahkias.Api.Controllers
             if (request.SupplierId <= 0)
             {
                 return (BadRequest(new { message = "Supplier is required." }), null);
+            }
+
+            if (request.QuotedDate.HasValue && request.ValidUntil.HasValue && request.ValidUntil.Value.Date < request.QuotedDate.Value.Date)
+            {
+                return (BadRequest(new { message = "Valid until cannot be earlier than the quoted date." }), null);
             }
 
             var projectIds = (request.ProjectIds ?? new List<int>()).Where(id => id > 0).Distinct().ToList();
@@ -492,9 +535,15 @@ namespace Mahkias.Api.Controllers
                     errors.Add(new ActivityImportIssue { Row = entry.row, Field = "Lead Time", Message = "Lead time must be 100 characters or fewer." });
                 }
 
+                if (entry.item.MinimumQty is < 1)
+                {
+                    errors.Add(new ActivityImportIssue { Row = entry.row, Field = "MOQ", Message = "Minimum quantity must be a positive number." });
+                }
+
                 if (string.IsNullOrWhiteSpace(entry.item.DsnNo) || string.IsNullOrWhiteSpace(entry.item.PartNo)
                     || (!string.IsNullOrWhiteSpace(entry.item.Condition) && entry.item.Condition.Trim().Length > 100)
-                    || (!string.IsNullOrWhiteSpace(entry.item.LeadTime) && entry.item.LeadTime.Trim().Length > 100))
+                    || (!string.IsNullOrWhiteSpace(entry.item.LeadTime) && entry.item.LeadTime.Trim().Length > 100)
+                    || entry.item.MinimumQty is < 1)
                 {
                     continue;
                 }
@@ -541,6 +590,8 @@ namespace Mahkias.Api.Controllers
                 SupplierReference = TrimTo(request.SupplierReference, 100),
                 DriveFileLink = request.DriveFileLink?.Trim(),
                 CurrencyId = currencyId,
+                QuotedDate = request.QuotedDate?.Date,
+                ValidUntil = request.ValidUntil?.Date,
                 ProjectIds = projectIds,
                 Items = writes,
             });
@@ -623,6 +674,7 @@ namespace Mahkias.Api.Controllers
                 PartDescription = item.Description?.Trim(),
                 Condition = TrimOptional(item.Condition),
                 LeadTime = TrimOptional(item.LeadTime),
+                MinimumQty = item.MinimumQty is > 0 ? item.MinimumQty : null,
                 UnitPrice = unit,
                 Quantity = quantity,
                 TotalPrice = total,
@@ -701,6 +753,7 @@ namespace Mahkias.Api.Controllers
                         PartDescription = first.PartDescription,
                         Condition = first.Condition,
                         LeadTime = first.LeadTime,
+                        MinimumQty = first.MinimumQty,
                         UnitPrice = unit,
                         Quantity = quantity,
                         TotalPrice = total,
@@ -713,6 +766,59 @@ namespace Mahkias.Api.Controllers
         private async Task<bool> ProjectExists(int projectId)
         {
             return await _context.Projects.AsNoTracking().AnyAsync(project => project.Id == projectId);
+        }
+
+        private static bool SameDate(ref DateTime? current, DateTime? next)
+        {
+            if (!next.HasValue)
+            {
+                return true;
+            }
+
+            if (!current.HasValue)
+            {
+                current = next.Value.Date;
+                return true;
+            }
+
+            return current.Value.Date == next.Value.Date;
+        }
+
+        private IActionResult ApplyFormDates(QuotationImportForm form, CreateQuotationRequest request)
+        {
+            if (!TryFormDate(form?.QuotedDate, out var quotedDate, out var quotedError))
+            {
+                return BadRequest(new { message = "Quoted date " + quotedError });
+            }
+
+            if (!TryFormDate(form?.ValidUntil, out var validUntil, out var validError))
+            {
+                return BadRequest(new { message = "Valid until " + validError });
+            }
+
+            request.QuotedDate = quotedDate;
+            request.ValidUntil = validUntil;
+            return null;
+        }
+
+        private static bool TryFormDate(string value, out DateTime? date, out string error)
+        {
+            date = null;
+            error = null;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return true;
+            }
+
+            if (DateTime.TryParse(value.Trim(), CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out var parsed)
+                || DateTime.TryParse(value.Trim(), CultureInfo.CurrentCulture, DateTimeStyles.AllowWhiteSpaces, out parsed))
+            {
+                date = parsed.Date;
+                return true;
+            }
+
+            error = "'" + value.Trim() + "' is not a valid date.";
+            return false;
         }
 
         private static string TrimOptional(string value)

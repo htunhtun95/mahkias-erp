@@ -143,6 +143,8 @@ export interface SupplierQuotation {
   projectId?: number | null;
   itemCount: number;
   createdAt?: string | null;
+  quotedDate?: string | null;
+  validUntil?: string | null;
 }
 
 export interface SupplierDetail extends Supplier {
@@ -166,6 +168,8 @@ export interface QuotationListItem {
   supplierReference?: string | null;
   createdAt?: string | null;
   modifiedAt?: string | null;
+  quotedDate?: string | null;
+  validUntil?: string | null;
   itemCount: number;
   totalPrice: number;
   currencyId?: number | null;
@@ -182,6 +186,7 @@ export interface QuotationLine {
   description?: string | null;
   condition?: string | null;
   leadTime?: string | null;
+  minimumQty?: number | null;
   unitPrice?: number | null;
   quantity: number;
   totalPrice?: number | null;
@@ -210,6 +215,9 @@ export interface ActivityQuotationLink {
   description?: string | null;
   condition?: string | null;
   leadTime?: string | null;
+  minimumQty?: number | null;
+  quotedDate?: string | null;
+  validUntil?: string | null;
   quantity?: number | null;
   alternativePart?: boolean;
   unitPrice?: number | null;
@@ -228,6 +236,7 @@ export interface QuotationItemInput {
   description: string;
   condition?: string | null;
   leadTime?: string | null;
+  minimumQty?: number | null;
   unitPrice: number | null;
   quantity: number;
   totalPrice: number | null;
@@ -267,6 +276,9 @@ export interface QuotationExcelMapping {
     description?: string;
     condition?: string;
     leadTime?: string;
+    minimumQty?: string;
+    quotedDate?: string;
+    validUntil?: string;
     unitPrice?: string;
     quantity?: string;
     totalPrice?: string;
@@ -285,6 +297,8 @@ export interface QuotationImportValidation {
   items: QuotationItemInput[];
   choices?: QuotationMapChoice[];
   supplierReference?: string | null;
+  quotedDate?: string | null;
+  validUntil?: string | null;
 }
 
 export interface ActivityExcelUpload {
@@ -550,6 +564,8 @@ export class ProjectApiService {
     supplierReference: string;
     projectIds: number[];
     currencyId?: number | null;
+    quotedDate?: string | null;
+    validUntil?: string | null;
     items: QuotationItemInput[];
   }) {
     return this.http.put<QuotationDetail>(`${this.baseUrl}/quotations/${id}`, body);
@@ -580,6 +596,8 @@ export class ProjectApiService {
       supplierId: number;
       supplierReference: string;
       currencyId?: number | null;
+      quotedDate?: string | null;
+      validUntil?: string | null;
       items: QuotationItemInput[];
     },
     file: File | null,
@@ -590,6 +608,8 @@ export class ProjectApiService {
     if (body.currencyId != null) {
       form.append('currencyId', String(body.currencyId));
     }
+    form.append('quotedDate', body.quotedDate ?? '');
+    form.append('validUntil', body.validUntil ?? '');
     form.append('items', JSON.stringify(body.items));
     if (file) {
       form.append('file', file, file.name);
@@ -604,6 +624,8 @@ export class ProjectApiService {
       supplierId: number;
       supplierReference: string;
       currencyId?: number | null;
+      quotedDate?: string | null;
+      validUntil?: string | null;
       items: QuotationItemInput[];
     },
     file: File,
@@ -615,6 +637,8 @@ export class ProjectApiService {
     if (body.currencyId != null) {
       form.append('currencyId', String(body.currencyId));
     }
+    form.append('quotedDate', body.quotedDate ?? '');
+    form.append('validUntil', body.validUntil ?? '');
     form.append('items', JSON.stringify(body.items));
     if (documentId) {
       form.append('documentId', String(documentId));
@@ -641,6 +665,9 @@ export class ProjectApiService {
       descriptionColumn: string;
       conditionColumn?: string;
       leadTimeColumn?: string;
+      minimumQtyColumn?: string;
+      quotedDateColumn?: string;
+      validUntilColumn?: string;
       unitPriceColumn: string;
       quantityColumn: string;
       totalPriceColumn: string;
@@ -649,6 +676,9 @@ export class ProjectApiService {
       defaultDescription: string;
       defaultCondition?: string;
       defaultLeadTime?: string;
+      defaultMinimumQty?: string;
+      defaultQuotedDate?: string;
+      defaultValidUntil?: string;
       defaultUnitPrice: string;
       defaultQuantity: string;
       defaultTotalPrice: string;
@@ -664,6 +694,9 @@ export class ProjectApiService {
     body.append('descriptionColumn', mapping.descriptionColumn ?? '');
     body.append('conditionColumn', mapping.conditionColumn ?? '');
     body.append('leadTimeColumn', mapping.leadTimeColumn ?? '');
+    body.append('minimumQtyColumn', mapping.minimumQtyColumn ?? '');
+    body.append('quotedDateColumn', mapping.quotedDateColumn ?? '');
+    body.append('validUntilColumn', mapping.validUntilColumn ?? '');
     body.append('unitPriceColumn', mapping.unitPriceColumn ?? '');
     body.append('quantityColumn', mapping.quantityColumn ?? '');
     body.append('totalPriceColumn', mapping.totalPriceColumn ?? '');
@@ -673,6 +706,9 @@ export class ProjectApiService {
     body.append('defaultDescription', mapping.defaultDescription ?? '');
     body.append('defaultCondition', mapping.defaultCondition ?? '');
     body.append('defaultLeadTime', mapping.defaultLeadTime ?? '');
+    body.append('defaultMinimumQty', mapping.defaultMinimumQty ?? '');
+    body.append('defaultQuotedDate', mapping.defaultQuotedDate ?? '');
+    body.append('defaultValidUntil', mapping.defaultValidUntil ?? '');
     body.append('defaultUnitPrice', mapping.defaultUnitPrice ?? '');
     body.append('defaultQuantity', mapping.defaultQuantity ?? '');
     body.append('defaultTotalPrice', mapping.defaultTotalPrice ?? '');

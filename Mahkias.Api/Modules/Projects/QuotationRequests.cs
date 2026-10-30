@@ -22,6 +22,8 @@ namespace Mahkias.Api.Modules.Projects
 
         public string LeadTime { get; set; }
 
+        public int? MinimumQty { get; set; }
+
         public decimal? UnitPrice { get; set; }
 
         public int? Quantity { get; set; }
@@ -49,6 +51,10 @@ namespace Mahkias.Api.Modules.Projects
 
         public int? CurrencyId { get; set; }
 
+        public DateTime? QuotedDate { get; set; }
+
+        public DateTime? ValidUntil { get; set; }
+
         public List<QuotationItemRequest> Items { get; set; } = new List<QuotationItemRequest>();
 
         public string DuplicateHandling { get; set; }
@@ -61,6 +67,10 @@ namespace Mahkias.Api.Modules.Projects
         public string SupplierReference { get; set; }
 
         public int? CurrencyId { get; set; }
+
+        public string QuotedDate { get; set; }
+
+        public string ValidUntil { get; set; }
 
         public string Items { get; set; }
 
@@ -83,6 +93,12 @@ namespace Mahkias.Api.Modules.Projects
 
         public string LeadTimeColumn { get; set; }
 
+        public string MinimumQtyColumn { get; set; }
+
+        public string QuotedDateColumn { get; set; }
+
+        public string ValidUntilColumn { get; set; }
+
         public string UnitPriceColumn { get; set; }
 
         public string QuantityColumn { get; set; }
@@ -100,6 +116,12 @@ namespace Mahkias.Api.Modules.Projects
         public string DefaultCondition { get; set; }
 
         public string DefaultLeadTime { get; set; }
+
+        public string DefaultMinimumQty { get; set; }
+
+        public string DefaultQuotedDate { get; set; }
+
+        public string DefaultValidUntil { get; set; }
 
         public string DefaultUnitPrice { get; set; }
 

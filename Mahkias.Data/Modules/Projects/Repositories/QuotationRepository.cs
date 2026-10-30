@@ -207,6 +207,7 @@ ORDER BY AP.ActivityId, AP.SortOrder, AP.Id;";
             var items = new List<QuotationListItem>();
             using var command = new SqlCommand(@"
 SELECT Q.Id, Q.SupplierId, S.Name AS SupplierName, Q.Code, Q.SupplierReference, Q.CreatedAt, Q.ModifiedAt,
+       Q.QuotedDate, Q.ValidUntil,
        Q.CurrencyId, C.Code AS CurrencyCode, C.Symbol AS CurrencySymbol, Q.ExchangeRate, Q.BaseTotalAmount,
        COUNT(I.Id) AS ItemCount, Q.BaseTotalAmount AS TotalPrice
 FROM projects.Quotations Q
@@ -218,6 +219,7 @@ WHERE QP.ProjectId = @ProjectId
   AND Q.IsDeleted = 0
   AND S.IsDeleted = 0
 GROUP BY Q.Id, Q.SupplierId, S.Name, Q.Code, Q.SupplierReference, Q.CreatedAt, Q.ModifiedAt,
+         Q.QuotedDate, Q.ValidUntil,
          Q.CurrencyId, C.Code, C.Symbol, Q.ExchangeRate, Q.BaseTotalAmount
 ORDER BY Q.CreatedAt DESC, Q.Id DESC");
             command.Parameters.AddInt("ProjectId", projectId);
@@ -237,6 +239,8 @@ ORDER BY Q.CreatedAt DESC, Q.Id DESC");
                         SupplierReference = reader.ReadStringValue("SupplierReference"),
                         CreatedAt = reader.ReadDateTimeValue("CreatedAt"),
                         ModifiedAt = reader.ReadNullableDateTimeValue("ModifiedAt"),
+                        QuotedDate = reader.ReadNullableDateTimeValue("QuotedDate"),
+                        ValidUntil = reader.ReadNullableDateTimeValue("ValidUntil"),
                         ItemCount = reader.ReadIntValue("ItemCount"),
                         TotalPrice = reader.GetDecimal(reader.GetOrdinal("TotalPrice")),
                         CurrencyId = reader.ReadIntValue("CurrencyId"),
@@ -260,6 +264,7 @@ ORDER BY Q.CreatedAt DESC, Q.Id DESC");
             QuotationDetailResult detail = null;
             using var command = new SqlCommand(@"
 SELECT Q.Id, Q.SupplierId, S.Name AS SupplierName, Q.Code, Q.SupplierReference, Q.CreatedAt, Q.ModifiedAt,
+       Q.QuotedDate, Q.ValidUntil,
        Q.CurrencyId, C.Code AS CurrencyCode, C.Symbol AS CurrencySymbol, Q.ExchangeRate, Q.BaseTotalAmount
 FROM projects.Quotations Q
 INNER JOIN projects.Suppliers S ON S.Id = Q.SupplierId
@@ -268,7 +273,7 @@ WHERE Q.Id = @Id
   AND Q.IsDeleted = 0;
 
 SELECT I.Id, COALESCE(NULLIF(LTRIM(RTRIM(I.DsnNo)), N''), A.DSNNo) AS DsnNo, I.PartNo, I.PartDescription,
-       I.Condition, I.LeadTime,
+       I.Condition, I.LeadTime, I.MinimumQty,
        I.UnitPrice, I.Quantity, I.TotalPrice, I.CurrencyId, C.Code AS CurrencyCode, C.Symbol AS CurrencySymbol,
        I.ExchangeRate, I.BaseUnitPrice, I.BaseTotalPrice, I.ActivityId, A.DSNNo AS ActivityDsn, A.PartNo AS ActivityPart
 FROM projects.QuotationItems I
@@ -292,6 +297,8 @@ ORDER BY I.Id;", _connection);
                         SupplierReference = reader.ReadStringValue("SupplierReference"),
                         CreatedAt = reader.ReadDateTimeValue("CreatedAt"),
                         ModifiedAt = reader.ReadNullableDateTimeValue("ModifiedAt"),
+                        QuotedDate = reader.ReadNullableDateTimeValue("QuotedDate"),
+                        ValidUntil = reader.ReadNullableDateTimeValue("ValidUntil"),
                         CurrencyId = reader.ReadIntValue("CurrencyId"),
                         CurrencyCode = reader.ReadStringValue("CurrencyCode"),
                         CurrencySymbol = reader.ReadStringValue("CurrencySymbol"),
@@ -315,6 +322,7 @@ ORDER BY I.Id;", _connection);
                             Description = reader.ReadStringValue("PartDescription"),
                             Condition = reader.ReadStringValue("Condition"),
                             LeadTime = reader.ReadStringValue("LeadTime"),
+                            MinimumQty = reader.ReadNullableIntValue("MinimumQty"),
                             UnitPrice = reader.ReadNullableDecimalValue("UnitPrice"),
                             Quantity = reader.ReadIntValue("Quantity"),
                             TotalPrice = reader.ReadNullableDecimalValue("TotalPrice"),
@@ -348,8 +356,9 @@ ORDER BY I.Id;", _connection);
 WITH Matched AS (
     SELECT A.Id AS ActivityId, Q.Id AS QuotationId, I.Id AS ItemId, Q.Code AS QuotationRef, S.Name AS SupplierName,
            Q.SupplierReference AS SupplierQuotationRef, I.PartNo, I.PartDescription AS Description,
-           I.Condition, I.LeadTime,
+           I.Condition, I.LeadTime, I.MinimumQty,
            I.Quantity,
+           Q.QuotedDate, Q.ValidUntil,
            I.UnitPrice,
            I.TotalPrice,
            COALESCE(I.BaseUnitPrice, I.UnitPrice) AS BaseUnitPrice,
@@ -425,7 +434,7 @@ Ranked AS (
            ROW_NUMBER() OVER (PARTITION BY ActivityId ORDER BY BaseUnitPrice ASC, QuotationId ASC, ItemId ASC) AS QuoteRank
     FROM Matched
 )
-SELECT ActivityId, ItemId, QuotationId, QuotationRef, SupplierName, SupplierQuotationRef, PartNo, Description, Condition, LeadTime, Quantity, AlternativePart,
+SELECT ActivityId, ItemId, QuotationId, QuotationRef, SupplierName, SupplierQuotationRef, PartNo, Description, Condition, LeadTime, MinimumQty, Quantity, QuotedDate, ValidUntil, AlternativePart,
        UnitPrice, TotalPrice, CurrencyCode, CurrencySymbol, BaseUnitPrice, BaseTotalPrice, RecordedAt,
        CASE WHEN QuoteRank = 1 THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS Lowest
 FROM Ranked
@@ -449,7 +458,10 @@ ORDER BY ActivityId, QuoteRank, QuotationId", _connection);
                         Description = reader.ReadStringValue("Description"),
                         Condition = reader.ReadStringValue("Condition"),
                         LeadTime = reader.ReadStringValue("LeadTime"),
+                        MinimumQty = reader.ReadNullableIntValue("MinimumQty"),
                         Quantity = reader.ReadIntValue("Quantity"),
+                        QuotedDate = reader.ReadNullableDateTimeValue("QuotedDate"),
+                        ValidUntil = reader.ReadNullableDateTimeValue("ValidUntil"),
                         AlternativePart = reader.ReadBooleanValue("AlternativePart"),
                         UnitPrice = reader.ReadNullableDecimalValue("UnitPrice"),
                         TotalPrice = reader.ReadNullableDecimalValue("TotalPrice"),
@@ -485,6 +497,8 @@ ORDER BY ActivityId, QuoteRank, QuotationId", _connection);
             command.Parameters.AddInt("SupplierId", args.SupplierId);
             command.Parameters.Add(OptionalText("SupplierReference", NullIfBlank(args.SupplierReference), 100));
             command.Parameters.AddNullableInt("CurrencyId", args.CurrencyId);
+            command.Parameters.AddNullableDateTime("QuotedDate", args.QuotedDate);
+            command.Parameters.AddNullableDateTime("ValidUntil", args.ValidUntil);
             command.Parameters.AddTable("Items", ItemTable(args.Items), "dbo.DefaultGenericTableType");
             _connection.Open();
             try
@@ -639,6 +653,8 @@ END", _connection);
             command.Parameters.AddInt("SupplierId", args.SupplierId);
             command.Parameters.Add(OptionalText("SupplierReference", NullIfBlank(args.SupplierReference), 100));
             command.Parameters.AddNullableInt("CurrencyId", args.CurrencyId);
+            command.Parameters.AddNullableDateTime("QuotedDate", args.QuotedDate);
+            command.Parameters.AddNullableDateTime("ValidUntil", args.ValidUntil);
             command.Parameters.AddTable("Items", ItemTable(args.Items), "dbo.DefaultGenericTableType");
             var updated = await command.ExecuteScalarAsync(cancellationToken);
             return updated != null && updated != DBNull.Value && Convert.ToInt32(updated) > 0;
@@ -667,6 +683,8 @@ END", _connection);
             command.Parameters.Add(OptionalText("SupplierReference", NullIfBlank(args.SupplierReference), 100));
             command.Parameters.Add(OptionalText("DriveFileLink", NullIfBlank(args.DriveFileLink), 1000));
             command.Parameters.AddNullableInt("CurrencyId", args.CurrencyId);
+            command.Parameters.AddNullableDateTime("QuotedDate", args.QuotedDate);
+            command.Parameters.AddNullableDateTime("ValidUntil", args.ValidUntil);
             command.Parameters.AddTable("ProjectIds", ProjectIdTable(args.ProjectIds), "dbo.NumberTableType");
             command.Parameters.AddTable("Items", ItemTable(args.Items), "dbo.DefaultGenericTableType");
         }
@@ -709,6 +727,7 @@ END", _connection);
                     TextValue4 = item.Condition,
                     TextValue5 = item.LeadTime,
                     NumericValue5 = item.CurrencyId,
+                    NumericValue6 = item.MinimumQty,
                     DecimalValue1 = item.UnitPrice,
                     DecimalValue2 = item.TotalPrice
                 })

@@ -84,6 +84,10 @@
       }
     </div>
     }
+    <div class="header-dates">
+      <app-quotation-date-field label="Quoted Date" [(ngModel)]="quotedDate" name="quotedDate" [disabled]="busy"></app-quotation-date-field>
+      <app-quotation-date-field label="Valid Until" [(ngModel)]="validUntil" name="validUntil" [disabled]="busy"></app-quotation-date-field>
+    </div>
   </header>
 
   <div class="app-dialog-body quotation-dialog-body">
@@ -151,7 +155,7 @@
           @if (requiredMissing) {
             <p class="hint-error">Please select a Column Index or enter a Default Value for this required field.</p>
           }
-          <p class="hint">DSN No and Part No are required. Condition and lead time are optional. A row with no unit price and no total price is skipped.</p>
+          <p class="hint">DSN No and Part No are required. Condition, lead time, and MOQ are optional. Quoted date and valid until belong to the quotation. A row with no unit price and no total price is skipped.</p>
           @if (checkState === 'failed' && importErrors.length) {
             <p class="hint-error">⚠ Validation Failed ({{ importErrors.length }} Errors Found)</p>
             <ul class="errors">
@@ -183,6 +187,7 @@
               <col class="col-lead" />
               <col class="col-currency" />
               <col class="col-qty" />
+              <col class="col-moq" />
               <col class="col-price" />
               <col class="col-price" />
             </colgroup>
@@ -194,6 +199,7 @@
                 <th>Lead Time</th>
                 <th>Currency</th>
                 <th class="qty">Quantity</th>
+                <th class="qty">MOQ</th>
                 <th class="price">Unit Price</th>
                 <th class="price">Total Price</th>
               </tr>
@@ -217,7 +223,12 @@
                       }
                     </select>
                   </td>
-                  <td class="qty" [class.invalid]="lineInvalid(line, 'qty')"><input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.quantity" (ngModelChange)="onQuantity(line)" (blur)="onQuantityBlur(line)" [name]="'qty' + line.row" /></td>
+                  <td class="qty" [class.invalid]="lineInvalid(line, 'qty')">
+                    <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.quantity" (ngModelChange)="onQuantity(line)" (blur)="onQuantityBlur(line)" [name]="'qty' + line.row" />
+                  </td>
+                  <td class="qty" [class.invalid]="lineInvalid(line, 'moq')">
+                    <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.minimumQty" [name]="'moq' + line.row" inputmode="numeric" />
+                  </td>
                   <td class="price" [class.invalid]="lineInvalid(line, 'price')">
                     <span class="price-field">
                       <span class="price-mark">{{ currencyMark(line.currencyId) }}</span>
@@ -234,7 +245,7 @@
               }
               @if (!filteredLines.length) {
                 <tr>
-                  <td class="filter-empty" colspan="8">No preview rows match this search.</td>
+                  <td class="filter-empty" colspan="9">No preview rows match this search.</td>
                 </tr>
               }
             </tbody>

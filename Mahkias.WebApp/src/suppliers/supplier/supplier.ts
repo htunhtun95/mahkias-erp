@@ -8,6 +8,7 @@ import { whileBusy } from '../../core/while-busy';
 import { ProjectApiService, SupplierDetail, SupplierQuotation } from '../../core/services/project-api.service';
 import { ConfirmDialog } from '../../projects/confirm-dialog/confirm-dialog';
 import { formatProjectListDate } from '../../projects/projects';
+import { quotationValidity } from '../../projects/quotation-terms';
 import { SupplierDialog } from '../supplier-dialog/supplier-dialog';
 
 @Component({
@@ -47,6 +48,10 @@ export class SupplierDetailsComponent implements OnInit {
         this.error = 'This supplier could not be loaded.';
       },
     });
+  }
+
+  validity(validUntil?: string | null) {
+    return quotationValidity(validUntil);
   }
 
   listDate(value?: string | null) {

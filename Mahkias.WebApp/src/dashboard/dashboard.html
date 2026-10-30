@@ -140,7 +140,12 @@
               <span class="project-name">{{ row.projectName }}</span>
             </span>
             <span class="items">{{ row.itemCount }}</span>
-            <span class="when">{{ when(row.updatedAt) }}</span>
+            <span class="when">
+              {{ when(row.updatedAt) }}
+              @if (validity(row.validUntil); as term) {
+                <span class="validity" [class.expired]="term.expired">{{ term.label }}</span>
+              }
+            </span>
             <span class="value">{{ money(row.baseTotalAmount) }}</span>
           </article>
         }

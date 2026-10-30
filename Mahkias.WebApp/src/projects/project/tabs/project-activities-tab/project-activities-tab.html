@@ -138,17 +138,25 @@
                   }
                 </span>
                 <span class="row-actions">
-                  @if (isLabelSelected(group.typeId, null) && groupLabelTargets(block.group).length) {
-                    <button class="icon-btn" type="button" matTooltip="Remove from Label" (click)="removeGroupFromLabel(block.group)" aria-label="Remove from Label" [disabled]="isSaving || deletingId != null">
-                      <mat-icon>label_off</mat-icon>
+                  <button class="icon-btn" type="button" [matMenuTriggerFor]="groupMenu" aria-label="Group actions" aria-haspopup="menu" [disabled]="isSaving || deletingId != null">
+                    <mat-icon>more_vert</mat-icon>
+                  </button>
+                  <mat-menu #groupMenu="matMenu" class="activity-row-menu">
+                    @if (isLabelSelected(group.typeId, null) && groupLabelTargets(block.group).length) {
+                      <button mat-menu-item type="button" (click)="removeGroupFromLabel(block.group)" [disabled]="isSaving || deletingId != null">
+                        <mat-icon>label_off</mat-icon>
+                        <span>Remove from Label</span>
+                      </button>
+                    }
+                    <button mat-menu-item type="button" (click)="editGroup(block.group)" [disabled]="isSaving || deletingId != null">
+                      <mat-icon>edit</mat-icon>
+                      <span>Edit group</span>
                     </button>
-                  }
-                  <button class="icon-btn" type="button" matTooltip="Edit group" (click)="editGroup(block.group)" aria-label="Edit group" [disabled]="isSaving || deletingId != null">
-                    <mat-icon>edit</mat-icon>
-                  </button>
-                  <button class="icon-btn" type="button" matTooltip="Ungroup" (click)="ungroup(block.group)" aria-label="Ungroup" [disabled]="isSaving || deletingId != null">
-                    <mat-icon>link_off</mat-icon>
-                  </button>
+                    <button mat-menu-item type="button" (click)="ungroup(block.group)" [disabled]="isSaving || deletingId != null">
+                      <mat-icon>link_off</mat-icon>
+                      <span>Ungroup</span>
+                    </button>
+                  </mat-menu>
                 </span>
               </div>
               @if (isGroupOpen(block.group.id) || isBatchEditing(group.typeId)) {
@@ -201,14 +209,29 @@
                       }
                     </span>
                     <span class="row-actions">
-                      <button class="icon-btn" type="button" matTooltip="Remove from Group" (click)="ungroupActivity(activity)" aria-label="Remove from Group" [disabled]="isSaving || deletingId != null"><mat-icon>link_off</mat-icon></button>
-                      @if (isLabelSelected(group.typeId, null) && labelTargets(activity).length) {
-                        <button class="icon-btn" type="button" matTooltip="Remove from Label" (click)="removeFromLabel(activity)" aria-label="Remove from Label" [disabled]="isSaving || deletingId != null"><mat-icon>label_off</mat-icon></button>
-                      }
-                      <button class="icon-btn" type="button" matTooltip="Edit activity" (click)="openEditActivity(activity)" aria-label="Edit activity" [disabled]="isSaving || deletingId != null"><mat-icon>edit</mat-icon></button>
-                      <button class="icon-btn danger" type="button" matTooltip="Delete activity" (click)="deleteActivity(activity)" aria-label="Delete activity" [disabled]="isSaving || deletingId != null">
-                        @if (deletingId === activity.id) { <mat-spinner diameter="18"></mat-spinner> } @else { <mat-icon>delete</mat-icon> }
+                      <button class="icon-btn" type="button" [matMenuTriggerFor]="activityMenu" aria-label="Activity actions" aria-haspopup="menu" [disabled]="isSaving || deletingId != null">
+                        @if (deletingId === activity.id) { <mat-spinner diameter="18"></mat-spinner> } @else { <mat-icon>more_vert</mat-icon> }
                       </button>
+                      <mat-menu #activityMenu="matMenu" class="activity-row-menu">
+                        <button mat-menu-item type="button" (click)="ungroupActivity(activity)" [disabled]="isSaving || deletingId != null">
+                          <mat-icon>link_off</mat-icon>
+                          <span>Remove from Group</span>
+                        </button>
+                        @if (isLabelSelected(group.typeId, null) && labelTargets(activity).length) {
+                          <button mat-menu-item type="button" (click)="removeFromLabel(activity)" [disabled]="isSaving || deletingId != null">
+                            <mat-icon>label_off</mat-icon>
+                            <span>Remove from Label</span>
+                          </button>
+                        }
+                        <button mat-menu-item type="button" (click)="openEditActivity(activity)" [disabled]="isSaving || deletingId != null">
+                          <mat-icon>edit</mat-icon>
+                          <span>Edit</span>
+                        </button>
+                        <button mat-menu-item type="button" class="danger" (click)="deleteActivity(activity)" [disabled]="isSaving || deletingId != null">
+                          <mat-icon>delete</mat-icon>
+                          <span>Delete</span>
+                        </button>
+                      </mat-menu>
                     </span>
                   </div>
                 }
@@ -284,22 +307,35 @@
                 }
               </span>
               <span class="row-actions">
-                @if (activity.activityGroupId) {
-                  <button class="icon-btn" type="button" matTooltip="Remove from Group" (click)="ungroupActivity(activity)" aria-label="Remove from Group" [disabled]="isSaving || deletingId != null"><mat-icon>link_off</mat-icon></button>
-                }
-                @if (isLabelSelected(group.typeId, null) && labelTargets(activity).length) {
-                  <button class="icon-btn" type="button" matTooltip="Remove from Label" (click)="removeFromLabel(activity)" aria-label="Remove from Label" [disabled]="isSaving || deletingId != null"><mat-icon>label_off</mat-icon></button>
-                }
-                <button class="icon-btn" type="button" matTooltip="Edit activity" (click)="openEditActivity(activity)" aria-label="Edit activity" [disabled]="isSaving || deletingId != null">
-                  <mat-icon>edit</mat-icon>
-                </button>
-                <button class="icon-btn danger" type="button" matTooltip="Delete activity" (click)="deleteActivity(activity)" aria-label="Delete activity" [disabled]="isSaving || deletingId != null">
+                <button class="icon-btn" type="button" [matMenuTriggerFor]="activityMenu" aria-label="Activity actions" aria-haspopup="menu" [disabled]="isSaving || deletingId != null">
                   @if (deletingId === activity.id) {
                     <mat-spinner diameter="18"></mat-spinner>
                   } @else {
-                    <mat-icon>delete</mat-icon>
+                    <mat-icon>more_vert</mat-icon>
                   }
                 </button>
+                <mat-menu #activityMenu="matMenu" class="activity-row-menu">
+                  @if (activity.activityGroupId) {
+                    <button mat-menu-item type="button" (click)="ungroupActivity(activity)" [disabled]="isSaving || deletingId != null">
+                      <mat-icon>link_off</mat-icon>
+                      <span>Remove from Group</span>
+                    </button>
+                  }
+                  @if (isLabelSelected(group.typeId, null) && labelTargets(activity).length) {
+                    <button mat-menu-item type="button" (click)="removeFromLabel(activity)" [disabled]="isSaving || deletingId != null">
+                      <mat-icon>label_off</mat-icon>
+                      <span>Remove from Label</span>
+                    </button>
+                  }
+                  <button mat-menu-item type="button" (click)="openEditActivity(activity)" [disabled]="isSaving || deletingId != null">
+                    <mat-icon>edit</mat-icon>
+                    <span>Edit</span>
+                  </button>
+                  <button mat-menu-item type="button" class="danger" (click)="deleteActivity(activity)" [disabled]="isSaving || deletingId != null">
+                    <mat-icon>delete</mat-icon>
+                    <span>Delete</span>
+                  </button>
+                </mat-menu>
               </span>
             </div>
             </div>

@@ -171,6 +171,108 @@ a.menu-text-left.active-menu .mat-icon {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
 }
 
+.mat-mdc-menu-panel.activity-row-menu {
+  min-width: 220px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+}
+
+.mat-mdc-menu-panel.activity-row-menu .mat-mdc-menu-item {
+  min-height: 40px;
+  color: #202124;
+  font-size: 14px;
+}
+
+.mat-mdc-menu-panel.activity-row-menu .mat-mdc-menu-item .mat-icon {
+  margin-right: 12px;
+  color: #5f6368;
+}
+
+.mat-mdc-menu-panel.activity-row-menu .mat-mdc-menu-item.danger,
+.mat-mdc-menu-panel.activity-row-menu .mat-mdc-menu-item.danger .mat-icon {
+  color: #c5221f;
+}
+
+.quoted-on,
+.validity,
+.moq-note {
+  display: block;
+  margin-top: 2px;
+  color: #5f6368;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.validity.expired {
+  color: #c5221f;
+}
+
+.moq-note.short {
+  color: #b06000;
+}
+
+.mat-datepicker-content:has(.quote-date-panel) {
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(32, 33, 36, 0.18), 0 0 1px rgba(32, 33, 36, 0.24);
+}
+
+.mat-calendar.quote-date-panel {
+  width: 328px;
+  border-radius: 16px;
+}
+
+.mat-calendar.quote-date-panel .mat-calendar-header {
+  padding: 8px 12px 0;
+}
+
+.mat-calendar.quote-date-panel .mat-calendar-controls {
+  margin: 4px 0 8px;
+}
+
+.mat-calendar.quote-date-panel .mat-calendar-period-button {
+  color: #202124;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.mat-calendar.quote-date-panel .mat-calendar-previous-button,
+.mat-calendar.quote-date-panel .mat-calendar-next-button {
+  color: #5f6368;
+}
+
+.mat-calendar.quote-date-panel .mat-calendar-table-header th,
+.mat-calendar.quote-date-panel .mat-calendar-body-label {
+  color: #80868b;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.mat-calendar.quote-date-panel .mat-calendar-body-cell-content {
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.mat-calendar.quote-date-panel .mat-calendar-body-cell:not(.mat-calendar-body-disabled):hover > .mat-calendar-body-cell-content:not(.mat-calendar-body-selected) {
+  background: #e8f0fe;
+}
+
+.mat-calendar.quote-date-panel .mat-calendar-body-selected {
+  background-color: #1a73e8;
+  color: #fff;
+}
+
+.mat-calendar.quote-date-panel .mat-calendar-body-today:not(.mat-calendar-body-selected) {
+  border-color: #1a73e8;
+}
+
+.mat-calendar.quote-date-panel .mat-calendar-body-selected.mat-calendar-body-today {
+  box-shadow: none;
+}
+
 .cdk-overlay-pane.activity-dialog-panel .mat-mdc-dialog-container,
 .cdk-overlay-pane.activity-dialog-panel .mat-mdc-dialog-inner-container,
 .cdk-overlay-pane.activity-dialog-panel .mat-mdc-dialog-surface,

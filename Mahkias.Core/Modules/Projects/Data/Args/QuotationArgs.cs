@@ -27,6 +27,8 @@ namespace Mahkias.Core.Modules.Projects.Data.Args
 
         public string LeadTime { get; set; }
 
+        public int? MinimumQty { get; set; }
+
         public decimal? UnitPrice { get; set; }
 
         public int Quantity { get; set; }
@@ -45,6 +47,10 @@ namespace Mahkias.Core.Modules.Projects.Data.Args
         public string DriveFileLink { get; set; }
 
         public int? CurrencyId { get; set; }
+
+        public DateTime? QuotedDate { get; set; }
+
+        public DateTime? ValidUntil { get; set; }
 
         public IReadOnlyList<int> ProjectIds { get; set; }
 

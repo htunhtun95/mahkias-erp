@@ -19,6 +19,12 @@ namespace Mahkias.Api.Helpers
 
         public string LeadTime { get; set; }
 
+        public int? MinimumQty { get; set; }
+
+        public DateTime? QuotedDate { get; set; }
+
+        public DateTime? ValidUntil { get; set; }
+
         public decimal? UnitPrice { get; set; }
 
         public decimal? TotalPrice { get; set; }
@@ -49,6 +55,9 @@ namespace Mahkias.Api.Helpers
                 var description = CellOrDefault(source, form.DescriptionColumn, form.DefaultDescription);
                 var condition = CellOrDefault(source, form.ConditionColumn, form.DefaultCondition);
                 var leadTime = CellOrDefault(source, form.LeadTimeColumn, form.DefaultLeadTime);
+                var minimumText = Cell(source, form.MinimumQtyColumn);
+                var quotedDateText = Cell(source, form.QuotedDateColumn);
+                var validUntilText = Cell(source, form.ValidUntilColumn);
                 var quantityText = Cell(source, form.QuantityColumn);
                 var unitText = Cell(source, form.UnitPriceColumn);
                 var totalText = Cell(source, form.TotalPriceColumn);
@@ -104,6 +113,30 @@ namespace Mahkias.Api.Helpers
                 {
                     errors.Add(Issue(source.RowNumber, "Qty", "'" + quantityText + "' is not a valid number."));
                     quantity = 0;
+                }
+
+                int? minimumQty = null;
+                var minimumSource = string.IsNullOrWhiteSpace(minimumText) ? form.DefaultMinimumQty : minimumText;
+                if (!string.IsNullOrWhiteSpace(minimumSource))
+                {
+                    if (!TryQuantity(minimumSource, out var parsedMinimum))
+                    {
+                        errors.Add(Issue(source.RowNumber, "MOQ", "'" + minimumSource + "' is not a valid number."));
+                    }
+                    else
+                    {
+                        minimumQty = parsedMinimum;
+                    }
+                }
+
+                if (!TryDate(string.IsNullOrWhiteSpace(quotedDateText) ? form.DefaultQuotedDate : quotedDateText, out var quotedDate))
+                {
+                    errors.Add(Issue(source.RowNumber, "Quoted Date", "'" + (string.IsNullOrWhiteSpace(quotedDateText) ? form.DefaultQuotedDate : quotedDateText) + "' is not a valid date."));
+                }
+
+                if (!TryDate(string.IsNullOrWhiteSpace(validUntilText) ? form.DefaultValidUntil : validUntilText, out var validUntil))
+                {
+                    errors.Add(Issue(source.RowNumber, "Valid Until", "'" + (string.IsNullOrWhiteSpace(validUntilText) ? form.DefaultValidUntil : validUntilText) + "' is not a valid date."));
                 }
 
                 decimal? unit = null;
@@ -167,6 +200,9 @@ namespace Mahkias.Api.Helpers
                     Description = description,
                     Condition = TrimTo(condition, 100),
                     LeadTime = TrimTo(leadTime, 100),
+                    MinimumQty = minimumQty,
+                    QuotedDate = quotedDate,
+                    ValidUntil = validUntil,
                     UnitPrice = unit,
                     TotalPrice = total,
                     Quantity = quantity < 0 ? 0 : quantity,
@@ -239,6 +275,33 @@ namespace Mahkias.Api.Helpers
 
             quantity = (int)parsed;
             return true;
+        }
+
+        private static bool TryDate(string value, out DateTime? date)
+        {
+            date = null;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return true;
+            }
+
+            var text = value.Trim();
+            if (double.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out var serial)
+                && serial > 20000
+                && serial < 80000)
+            {
+                date = DateTime.FromOADate(serial).Date;
+                return true;
+            }
+
+            if (DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out var parsed)
+                || DateTime.TryParse(text, CultureInfo.CurrentCulture, DateTimeStyles.AllowWhiteSpaces, out parsed))
+            {
+                date = parsed.Date;
+                return true;
+            }
+
+            return false;
         }
 
         private static readonly Regex UnitToken = new Regex(@"\b(EA|PCS|PC|QTY|UNITS|UNIT)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);

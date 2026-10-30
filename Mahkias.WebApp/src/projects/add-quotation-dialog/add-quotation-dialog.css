@@ -24,8 +24,8 @@
   z-index: 2;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 20px 24px 12px;
+  gap: 16px;
+  padding: 24px 32px 16px;
 }
 
 .quotation-dialog-body {
@@ -34,8 +34,8 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 8px 24px 12px;
+  gap: 16px;
+  padding: 8px 32px 20px;
 }
 
 .quotation-dialog-footer {
@@ -43,8 +43,8 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 8px;
-  padding: 16px 24px 20px;
+  gap: 10px;
+  padding: 18px 32px 24px;
   border-top: 1px solid #e0e0e0;
   background: #fff;
 }
@@ -74,7 +74,7 @@ h2 {
 .header-fields {
   display: grid;
   grid-template-columns: minmax(160px, 0.9fr) minmax(180px, 1fr) minmax(220px, 1.4fr);
-  gap: 12px;
+  gap: 16px;
 }
 
 .header-fields.creating-supplier {
@@ -95,7 +95,7 @@ h2 {
 label {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
   color: #5f6368;
   font-size: 12px;
@@ -298,7 +298,7 @@ label.invalid input {
 
 .sheet {
   width: 100%;
-  min-width: 1220px;
+  min-width: 1340px;
   border-collapse: collapse;
   table-layout: fixed;
 }
@@ -311,6 +311,7 @@ label.invalid input {
 .col-currency { width: 118px; }
 .col-price { width: 148px; }
 .col-qty { width: 90px; }
+.col-moq { width: 90px; }
 
 .price-field {
   display: flex;
@@ -409,18 +410,6 @@ label.invalid input {
 .sheet td.qty input,
 .sheet td.action {
   text-align: center;
-}
-
-.qty-stack {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 0;
-}
-
-.qty-stack input {
-  width: 100%;
 }
 
 .sheet td.invalid {

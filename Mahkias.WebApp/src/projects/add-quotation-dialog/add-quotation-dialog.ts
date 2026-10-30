@@ -20,6 +20,8 @@ import {
   Supplier,
 } from '../../core/services/project-api.service';
 import { directActivityId } from '../quotation-map';
+import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-date-field';
+import { dateInputValue } from '../quotation-terms';
 
 interface QuoteRow {
   key: string;
@@ -29,6 +31,7 @@ interface QuoteRow {
   description: string;
   condition: string;
   leadTime: string;
+  minimumQty: string;
   unitPrice: string;
   quantity: string;
   totalPrice: string;
@@ -41,7 +44,7 @@ interface QuoteRow {
 @Component({
   selector: 'app-create-quotation-dialog',
   standalone: true,
-  imports: [FormsModule, MaterialModule, TextFieldModule, DriveUploadCardComponent],
+  imports: [FormsModule, MaterialModule, TextFieldModule, DriveUploadCardComponent, QuotationDateFieldComponent],
   templateUrl: './add-quotation-dialog.html',
   styleUrl: './add-quotation-dialog.css',
 })
@@ -62,6 +65,8 @@ export class CreateQuotationDialogComponent {
   currencyId: number | null = this.data.quotation?.currencyId ?? null;
 
   supplierQuotationRef = this.data.quotation?.supplierReference ?? '';
+  quotedDate = dateInputValue(this.data.quotation?.quotedDate);
+  validUntil = dateInputValue(this.data.quotation?.validUntil);
   supplierQuery = this.data.quotation?.supplierName ?? '';
   supplierId: number | null = this.data.quotation?.supplierId ?? null;
   suppliers: Supplier[] = [];
@@ -272,8 +277,12 @@ export class CreateQuotationDialogComponent {
       this.error = 'Enter a unit price or total price for at least one activity.';
       return;
     }
-    if (filled.some((row) => !row.dsnNo.trim() || !row.partNo.trim() || !this.validQuantity(row.quantity) || this.invalid(row, 'price'))) {
+    if (filled.some((row) => !row.dsnNo.trim() || !row.partNo.trim() || !this.validQuantity(row.quantity) || !this.validOptionalQuantity(row.minimumQty) || this.invalid(row, 'price'))) {
       this.error = 'DSN number, part number, and quantity are required. Check the highlighted rows.';
+      return;
+    }
+    if (this.quotedDate && this.validUntil && this.validUntil < this.quotedDate) {
+      this.error = 'Valid until cannot be earlier than the quoted date.';
       return;
     }
 
@@ -283,6 +292,7 @@ export class CreateQuotationDialogComponent {
       description: row.description.trim(),
       condition: row.condition.trim(),
       leadTime: row.leadTime.trim(),
+      minimumQty: this.optionalQuantity(row.minimumQty),
       unitPrice: this.money(row.unitPrice),
       quantity: this.quantity(row),
       totalPrice: this.money(row.totalPrice),
@@ -304,6 +314,8 @@ export class CreateQuotationDialogComponent {
             supplierId: this.supplierId!,
             supplierReference: this.supplierQuotationRef.trim(),
             currencyId: this.currencyId,
+            quotedDate: this.quotedDate || null,
+            validUntil: this.validUntil || null,
             items,
           };
           if (!this.quotationId) {
@@ -471,6 +483,7 @@ export class CreateQuotationDialogComponent {
       description: item?.description?.trim() || (activity.description ?? '').trim(),
       condition: item?.condition?.trim() || '',
       leadTime: item?.leadTime?.trim() || '',
+      minimumQty: item?.minimumQty ? String(item.minimumQty) : '',
       quantity: item ? String(item.quantity || 1) : this.activityQuantity(activity),
       unitPrice: item?.unitPrice == null ? '' : String(item.unitPrice),
       totalPrice: item?.totalPrice == null ? '' : String(item.totalPrice),
@@ -489,6 +502,7 @@ export class CreateQuotationDialogComponent {
       description: item.description ?? '',
       condition: item.condition ?? '',
       leadTime: item.leadTime ?? '',
+      minimumQty: item.minimumQty ? String(item.minimumQty) : '',
       quantity: String(item.quantity || 1),
       unitPrice: item.unitPrice == null ? '' : String(item.unitPrice),
       totalPrice: item.totalPrice == null ? '' : String(item.totalPrice),
@@ -580,6 +594,14 @@ export class CreateQuotationDialogComponent {
     }
     const parsed = Number(value);
     return Number.isInteger(parsed) && parsed >= 1;
+  }
+
+  validOptionalQuantity(value: string): boolean {
+    return !value.trim() || this.validQuantity(value);
+  }
+
+  private optionalQuantity(value: string): number | null {
+    return value.trim() && this.validQuantity(value) ? Number(value) : null;
   }
 
   private formatMoney(value: number): string {

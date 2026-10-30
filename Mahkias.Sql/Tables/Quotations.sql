@@ -13,6 +13,8 @@ CREATE TABLE [projects].[Quotations]
     [IsDeleted] BIT CONSTRAINT [DF_Quotations_IsDeleted] DEFAULT (0) NOT NULL,
     [DeletedAt] DATETIME2 NULL,
     [DeletedBy] NVARCHAR(100) NULL,
+    [QuotedDate] DATETIME NULL,
+    [ValidUntil] DATETIME NULL,
     CONSTRAINT [PK_Quotations] PRIMARY KEY CLUSTERED ([Id] ASC),
     CONSTRAINT [FK_Quotations_Suppliers] FOREIGN KEY ([SupplierId]) REFERENCES [projects].[Suppliers] ([Id]),
     CONSTRAINT [FK_Quotations_Currencies] FOREIGN KEY ([CurrencyId]) REFERENCES [dbo].[Currencies] ([Id])

@@ -4,7 +4,9 @@ CREATE PROCEDURE [dbo].[ReplaceQuotationItems]
     @SupplierId INT,
     @SupplierReference NVARCHAR(100) = NULL,
     @CurrencyId INT = NULL,
-    -- NumericValue1 = ActivityId, NumericValue2 = ActivityGroupId, NumericValue3 = AlternativePartId, NumericValue4 = Quantity, NumericValue5 = CurrencyId
+    @QuotedDate DATETIME = NULL,
+    @ValidUntil DATETIME = NULL,
+    -- NumericValue1 = ActivityId, NumericValue2 = ActivityGroupId, NumericValue3 = AlternativePartId, NumericValue4 = Quantity, NumericValue5 = CurrencyId, NumericValue6 = MinimumQty
     -- BitValue1 = IsAlternativePart
     -- TextValue1 = DsnNo, TextValue2 = PartNo, TextValue3 = PartDescription, TextValue4 = Condition, TextValue5 = LeadTime
     -- DecimalValue1 = UnitPrice, DecimalValue2 = TotalPrice
@@ -26,6 +28,8 @@ BEGIN
         UPDATE projects.Quotations
         SET SupplierId = @SupplierId,
             SupplierReference = NULLIF(LTRIM(RTRIM(@SupplierReference)), N''),
+            QuotedDate = @QuotedDate,
+            ValidUntil = @ValidUntil,
             ModifiedAt = GETDATE()
         WHERE Id = @Id
           AND IsDeleted = 0;
@@ -96,7 +100,8 @@ BEGIN
             BaseTotalPrice,
             AwardedQuantity,
             Condition,
-            LeadTime
+            LeadTime,
+            MinimumQty
         )
         SELECT
             @Id,
@@ -116,7 +121,8 @@ BEGIN
             CAST(ROUND(I.DecimalValue2 * Resolved.Rate, 2) AS DECIMAL(18, 2)),
             0,
             LEFT(NULLIF(LTRIM(RTRIM(I.TextValue4)), N''), 100),
-            LEFT(NULLIF(LTRIM(RTRIM(I.TextValue5)), N''), 100)
+            LEFT(NULLIF(LTRIM(RTRIM(I.TextValue5)), N''), 100),
+            CASE WHEN I.NumericValue6 > 0 THEN I.NumericValue6 ELSE NULL END
         FROM @Items AS I
         CROSS APPLY (
             SELECT

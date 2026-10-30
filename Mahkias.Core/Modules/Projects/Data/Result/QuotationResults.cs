@@ -28,6 +28,10 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
         public int ItemCount { get; set; }
 
         public DateTime CreatedAt { get; set; }
+
+        public DateTime? QuotedDate { get; set; }
+
+        public DateTime? ValidUntil { get; set; }
     }
 
     public class SupplierDetailResult
@@ -111,6 +115,10 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
 
         public DateTime? ModifiedAt { get; set; }
 
+        public DateTime? QuotedDate { get; set; }
+
+        public DateTime? ValidUntil { get; set; }
+
         public int ItemCount { get; set; }
 
         public decimal TotalPrice { get; set; }
@@ -139,6 +147,8 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
         public string Condition { get; set; }
 
         public string LeadTime { get; set; }
+
+        public int? MinimumQty { get; set; }
 
         public decimal? UnitPrice { get; set; }
 
@@ -190,7 +200,13 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
 
         public string LeadTime { get; set; }
 
+        public int? MinimumQty { get; set; }
+
         public int Quantity { get; set; }
+
+        public DateTime? QuotedDate { get; set; }
+
+        public DateTime? ValidUntil { get; set; }
 
         public bool AlternativePart { get; set; }
 

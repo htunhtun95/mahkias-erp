@@ -9,6 +9,7 @@ import { blockEnterSubmit } from '../../core/block-enter-submit';
 import { whileBusy } from '../../core/while-busy';
 import { Activity, ActivityImportIssue, Currency, ProjectApiService, QuotationItemInput, Supplier } from '../../core/services/project-api.service';
 import { directActivityId } from '../quotation-map';
+import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-date-field';
 
 interface ImportLine {
   row: number;
@@ -17,6 +18,7 @@ interface ImportLine {
   description: string;
   condition: string;
   leadTime: string;
+  minimumQty: string;
   unitPrice: string;
   quantity: string;
   totalPrice: string;
@@ -35,6 +37,9 @@ interface QuoteMapping {
   descriptionColumn: string;
   conditionColumn: string;
   leadTimeColumn: string;
+  minimumQtyColumn: string;
+  quotedDateColumn: string;
+  validUntilColumn: string;
   unitPriceColumn: string;
   quantityColumn: string;
   totalPriceColumn: string;
@@ -44,6 +49,9 @@ interface QuoteMapping {
   defaultDescription: string;
   defaultCondition: string;
   defaultLeadTime: string;
+  defaultMinimumQty: string;
+  defaultQuotedDate: string;
+  defaultValidUntil: string;
   defaultUnitPrice: string;
   defaultQuantity: string;
   defaultTotalPrice: string;
@@ -54,7 +62,7 @@ type CheckState = 'idle' | 'checking' | 'passed' | 'failed';
 @Component({
   selector: 'app-import-quotation-dialog',
   standalone: true,
-  imports: [FormsModule, MaterialModule, DriveUploadCardComponent],
+  imports: [FormsModule, MaterialModule, DriveUploadCardComponent, QuotationDateFieldComponent],
   templateUrl: './import-quotation-dialog.html',
   styleUrl: './import-quotation-dialog.css',
 })
@@ -91,6 +99,8 @@ export class ImportQuotationDialogComponent {
   importErrors: ActivityImportIssue[] = [];
   isImporting = false;
   lineSubmitted = false;
+  quotedDate = '';
+  validUntil = '';
   error = '';
   private checkToken = 0;
   private mappingToken = 0;
@@ -101,6 +111,7 @@ export class ImportQuotationDialogComponent {
     { key: 'descriptionColumn', def: 'defaultDescription', label: 'Description' },
     { key: 'conditionColumn', def: 'defaultCondition', label: 'Condition' },
     { key: 'leadTimeColumn', def: 'defaultLeadTime', label: 'Lead Time' },
+    { key: 'minimumQtyColumn', def: 'defaultMinimumQty', label: 'MOQ' },
     { key: 'unitPriceColumn', def: 'defaultUnitPrice', label: 'Unit Price' },
     { key: 'quantityColumn', def: 'defaultQuantity', label: 'Quantity' },
     { key: 'totalPriceColumn', def: 'defaultTotalPrice', label: 'Total Price' },
@@ -154,7 +165,7 @@ export class ImportQuotationDialogComponent {
     return currency?.symbol || currency?.code || '$';
   }
 
-  lineInvalid(line: ImportLine, field: 'dsn' | 'part' | 'price' | 'qty'): boolean {
+  lineInvalid(line: ImportLine, field: 'dsn' | 'part' | 'price' | 'qty' | 'moq'): boolean {
     if (!this.lineSubmitted || !this.isPriced(line)) {
       return false;
     }
@@ -166,6 +177,9 @@ export class ImportQuotationDialogComponent {
     }
     if (field === 'qty') {
       return !this.validQuantity(line.quantity);
+    }
+    if (field === 'moq') {
+      return !!line.minimumQty.trim() && !this.validQuantity(line.minimumQty);
     }
     if (line.unitPrice.trim() && this.money(line.unitPrice) == null) {
       return true;
@@ -332,6 +346,7 @@ export class ImportQuotationDialogComponent {
           descriptionColumn: mapping.suggested.description ?? '',
           conditionColumn: mapping.suggested.condition ?? '',
           leadTimeColumn: mapping.suggested.leadTime ?? '',
+          minimumQtyColumn: mapping.suggested.minimumQty ?? '',
           unitPriceColumn: mapping.suggested.unitPrice ?? '',
           quantityColumn: mapping.suggested.quantity ?? '',
           totalPriceColumn: mapping.suggested.totalPrice ?? '',
@@ -433,13 +448,24 @@ export class ImportQuotationDialogComponent {
     if (!this.supplierReady() || this.requiredMissing) {
       return;
     }
+    if (this.datesOutOfOrder()) {
+      this.error = 'Valid until cannot be earlier than the quoted date.';
+      return;
+    }
     const token = ++this.checkToken;
     this.checkState = 'checking';
     this.importErrors = [];
     this.lines = [];
     this.error = '';
     this.dialogRef.disableClose = true;
-    this.api.quotationExcelValidate(this.data.projectId, this.file, { ...this.mapping, currencyId: this.currencyId }).subscribe({
+    this.api.quotationExcelValidate(this.data.projectId, this.file, {
+      ...this.mapping,
+      quotedDateColumn: '',
+      validUntilColumn: '',
+      defaultQuotedDate: this.quotedDate,
+      defaultValidUntil: this.validUntil,
+      currencyId: this.currencyId,
+    }).subscribe({
       next: (result) => {
         if (token !== this.checkToken) {
           return;
@@ -484,8 +510,12 @@ export class ImportQuotationDialogComponent {
     }
     this.lineSubmitted = true;
     this.error = '';
-    if (this.lines.some((line) => this.isPriced(line) && (this.lineInvalid(line, 'dsn') || this.lineInvalid(line, 'part') || this.lineInvalid(line, 'qty') || this.lineInvalid(line, 'price')))) {
+    if (this.lines.some((line) => this.isPriced(line) && (this.lineInvalid(line, 'dsn') || this.lineInvalid(line, 'part') || this.lineInvalid(line, 'qty') || this.lineInvalid(line, 'moq') || this.lineInvalid(line, 'price')))) {
       this.error = 'DSN number, part number, and quantity are required. Check the highlighted rows.';
+      return;
+    }
+    if (this.datesOutOfOrder()) {
+      this.error = 'Valid until cannot be earlier than the quoted date.';
       return;
     }
     if (!this.supplierReady()) {
@@ -499,6 +529,8 @@ export class ImportQuotationDialogComponent {
           supplierId: this.supplierId!,
           supplierReference: this.supplierQuotationRef.trim(),
           currencyId: this.currencyId,
+          quotedDate: this.quotedDate || null,
+          validUntil: this.validUntil || null,
           items,
         }, this.storedFile())),
         whileBusy((busy) => (this.isImporting = busy)),
@@ -617,6 +649,7 @@ export class ImportQuotationDialogComponent {
     description?: string | null;
     condition?: string | null;
     leadTime?: string | null;
+    minimumQty?: number | null;
     unitPrice?: number | null;
     quantity?: number | null;
     totalPrice?: number | null;
@@ -636,6 +669,7 @@ export class ImportQuotationDialogComponent {
       description: source.description ?? '',
       condition: source.condition ?? '',
       leadTime: source.leadTime ?? '',
+      minimumQty: source.minimumQty ? String(source.minimumQty) : '',
       unitPrice: unitText,
       quantity: String(source.quantity ?? 1),
       totalPrice: totalText,
@@ -682,6 +716,7 @@ export class ImportQuotationDialogComponent {
         description: line.description.trim(),
         condition: line.condition.trim(),
         leadTime: line.leadTime.trim(),
+        minimumQty: this.optionalQuantity(line.minimumQty),
         unitPrice: this.money(line.unitPrice),
         quantity: this.quantity(line),
         totalPrice: this.money(line.totalPrice),
@@ -701,12 +736,20 @@ export class ImportQuotationDialogComponent {
     return Number.isInteger(parsed) && parsed >= 1 ? parsed : 1;
   }
 
+  private datesOutOfOrder(): boolean {
+    return !!this.quotedDate && !!this.validUntil && this.validUntil < this.quotedDate;
+  }
+
   private validQuantity(value: string): boolean {
     if (!value.trim()) {
       return true;
     }
     const parsed = Number(value);
     return Number.isInteger(parsed) && parsed >= 1;
+  }
+
+  private optionalQuantity(value: string): number | null {
+    return value.trim() && this.validQuantity(value) ? Number(value) : null;
   }
 
   private formatMoney(value: number): string {
@@ -729,6 +772,9 @@ export class ImportQuotationDialogComponent {
       descriptionColumn: '',
       conditionColumn: '',
       leadTimeColumn: '',
+      minimumQtyColumn: '',
+      quotedDateColumn: '',
+      validUntilColumn: '',
       unitPriceColumn: '',
       quantityColumn: '',
       totalPriceColumn: '',
@@ -738,6 +784,9 @@ export class ImportQuotationDialogComponent {
       defaultDescription: '',
       defaultCondition: '',
       defaultLeadTime: '',
+      defaultMinimumQty: '',
+      defaultQuotedDate: '',
+      defaultValidUntil: '',
       defaultUnitPrice: '',
       defaultQuantity: '',
       defaultTotalPrice: '',

@@ -50,7 +50,15 @@
             }
             <span>{{ quotation.supplierReference }}</span>
             <span>{{ quotation.itemCount }}</span>
-            <span>{{ when(quotation.modifiedAt || quotation.createdAt) }}</span>
+            <span class="when-cell">
+              <span>{{ when(quotation.modifiedAt || quotation.createdAt) }}</span>
+              @if (quotation.quotedDate) {
+                <span class="quoted-on">Quoted {{ when(quotation.quotedDate) }}</span>
+              }
+              @if (validity(quotation.validUntil); as term) {
+                <span class="validity" [class.expired]="term.expired">{{ term.label }}</span>
+              }
+            </span>
             <span>{{ money(quotation.totalPrice, '$', 'USD') }}</span>
             <span class="actions">
               <button class="icon-btn" type="button" matTooltip="Edit quotation" aria-label="Edit quotation" [disabled]="deletingId != null" (click)="edit(quotation)">
@@ -94,7 +102,12 @@
                     <span>{{ line.leadTime || '—' }}</span>
                     <span>{{ line.currencyCode || 'USD' }}</span>
                     <span>{{ money(line.unitPrice, line.currencySymbol, line.currencyCode) }}</span>
-                    <span>{{ line.quantity }}</span>
+                    <span class="qty-stack">
+                      <span>{{ line.quantity }}</span>
+                      @if (orderNote(line.quantity, line.minimumQty); as note) {
+                        <span class="moq-note" [class.short]="note.short">{{ note.text }}</span>
+                      }
+                    </span>
                     <span>{{ money(line.totalPrice, line.currencySymbol, line.currencyCode) }}</span>
                   </div>
                 }

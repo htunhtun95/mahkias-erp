@@ -102,8 +102,8 @@
 
 .line-row {
   display: grid;
-  grid-template-columns: 80px minmax(120px, 1.1fr) minmax(160px, 1.5fr) 100px 110px 72px 110px 80px 110px;
-  min-width: 1040px;
+  grid-template-columns: 80px minmax(120px, 1.1fr) minmax(160px, 1.5fr) 100px 110px 72px 110px 112px 110px;
+  min-width: 1080px;
   gap: 8px;
   align-items: center;
   min-height: 48px;

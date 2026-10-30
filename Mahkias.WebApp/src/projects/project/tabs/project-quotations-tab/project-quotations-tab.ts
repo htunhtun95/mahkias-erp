@@ -10,6 +10,7 @@ import { CreateQuotationDialogComponent } from '../../../add-quotation-dialog/ad
 import { ConfirmDialog } from '../../../confirm-dialog/confirm-dialog';
 import { QuotationSync } from '../../../quotation-sync';
 import { formatMoney } from '../../../money-format';
+import { minimumOrderNote, quotationValidity } from '../../../quotation-terms';
 
 @Component({
   selector: 'app-project-quotations-tab',
@@ -199,6 +200,14 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
 
   money(value?: number | null, symbol?: string | null, code?: string | null): string {
     return formatMoney(value, symbol, code);
+  }
+
+  validity(validUntil?: string | null) {
+    return quotationValidity(validUntil);
+  }
+
+  orderNote(quantity?: number | null, minimumQty?: number | null) {
+    return minimumOrderNote(quantity, minimumQty);
   }
 
   when(value?: string | null): string {

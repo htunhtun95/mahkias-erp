@@ -68,7 +68,15 @@
             }
             <span>{{ quotation.projectNames || '—' }}</span>
             <span>{{ quotation.itemCount }}</span>
-            <span>{{ listDate(quotation.createdAt) }}</span>
+            <span>
+              {{ listDate(quotation.createdAt) }}
+              @if (quotation.quotedDate) {
+                <span class="quoted-on">Quoted {{ listDate(quotation.quotedDate) }}</span>
+              }
+              @if (validity(quotation.validUntil); as term) {
+                <span class="validity" [class.expired]="term.expired">{{ term.label }}</span>
+              }
+            </span>
           </div>
         }
       }

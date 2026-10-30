@@ -21,6 +21,7 @@ CREATE TABLE [projects].[QuotationItems]
     [ModifiedAt] DATETIME NULL,
     [Condition] NVARCHAR(100) NULL,
     [LeadTime] NVARCHAR(100) NULL,
+    [MinimumQty] INT NULL,
     CONSTRAINT [PK_QuotationItems] PRIMARY KEY CLUSTERED ([Id] ASC),
     CONSTRAINT [FK_QuotationItems_Quotations] FOREIGN KEY ([QuotationId]) REFERENCES [projects].[Quotations] ([Id]) ON DELETE CASCADE,
     CONSTRAINT [FK_QuotationItems_Activities] FOREIGN KEY ([ActivityId]) REFERENCES [projects].[Activities] ([Id]) ON DELETE SET NULL,

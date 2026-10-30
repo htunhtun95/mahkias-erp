@@ -43,7 +43,12 @@
                 </span>
               }
               <span>{{ row.link?.supplierName || '—' }}</span>
-              <span>{{ row.link?.quotationRef || '—' }}</span>
+              <span class="qty-stack">
+                <span>{{ row.link?.quotationRef || '—' }}</span>
+                @if (validity(row.link?.validUntil); as term) {
+                  <span class="validity" [class.expired]="term.expired">{{ term.label }}</span>
+                }
+              </span>
               <span>{{ row.link?.supplierQuotationRef || '—' }}</span>
               @if (!isGroup) {
                 <span class="part">
@@ -61,7 +66,12 @@
                   <span class="lowest-badge">Lowest price</span>
                 }
               </span>
-              <span>{{ row.link ? quantity(row.link.quantity) : '—' }}</span>
+              <span class="qty-stack">
+                <span>{{ row.link ? quantity(row.link.quantity) : '—' }}</span>
+                @if (orderNote(row.link); as note) {
+                  <span class="moq-note" [class.short]="note.short">{{ note.text }}</span>
+                }
+              </span>
               <span>{{ row.link ? quotedTotal(row.link) : '—' }}</span>
             </div>
           }

@@ -9,6 +9,7 @@ import { MaterialModule } from '../app/material-module';
 import { GoogleAuthService } from '../auth/google-auth.service';
 import { Project, ProjectApiService, QuotationListItem } from '../core/services/project-api.service';
 import { formatMoney } from '../projects/money-format';
+import { quotationValidity } from '../projects/quotation-terms';
 import { CreatedRange, applyDashboardFilters, createDashboardFilters } from './dashboard-filters';
 
 type QuoteStage = 'pending' | 'processing';
@@ -26,6 +27,7 @@ interface QuoteRow {
   baseTotalAmount: number;
   updatedAt: string | null;
   createdAt: string | null;
+  validUntil: string | null;
   dataset: string;
   status: QuoteStage;
 }
@@ -112,6 +114,10 @@ export class DashboardComponent implements OnInit {
     return `${value.getFullYear()}-${month}-${day}`;
   }
 
+  validity(validUntil?: string | null) {
+    return quotationValidity(validUntil);
+  }
+
   when(value?: string | null): string {
     if (!value) {
       return '—';
@@ -172,6 +178,7 @@ export class DashboardComponent implements OnInit {
       baseTotalAmount: quote.baseTotalAmount ?? quote.totalPrice ?? 0,
       updatedAt: quote.modifiedAt || quote.createdAt || null,
       createdAt: quote.createdAt || null,
+      validUntil: quote.validUntil || null,
       dataset: 'quotations',
       status: quote.itemCount > 0 ? 'processing' : 'pending',
     };

@@ -4,8 +4,10 @@ CREATE PROCEDURE [dbo].[CreateQuotation]
     @SupplierReference NVARCHAR(100) = NULL,
     @DriveFileLink NVARCHAR(1000) = NULL,
     @CurrencyId INT = NULL,
+    @QuotedDate DATETIME = NULL,
+    @ValidUntil DATETIME = NULL,
     @ProjectIds [dbo].[NumberTableType] READONLY,
-    -- NumericValue1 = ActivityId, NumericValue2 = ActivityGroupId, NumericValue3 = AlternativePartId, NumericValue4 = Quantity, NumericValue5 = CurrencyId
+    -- NumericValue1 = ActivityId, NumericValue2 = ActivityGroupId, NumericValue3 = AlternativePartId, NumericValue4 = Quantity, NumericValue5 = CurrencyId, NumericValue6 = MinimumQty
     -- BitValue1 = IsAlternativePart
     -- TextValue1 = DsnNo, TextValue2 = PartNo, TextValue3 = PartDescription, TextValue4 = Condition, TextValue5 = LeadTime
     -- DecimalValue1 = UnitPrice, DecimalValue2 = TotalPrice
@@ -59,7 +61,7 @@ BEGIN
 
         DECLARE @Id INT;
 
-        INSERT INTO projects.Quotations (SupplierId, Code, SupplierReference, DriveFileLink, CurrencyId, ExchangeRate, BaseTotalAmount)
+        INSERT INTO projects.Quotations (SupplierId, Code, SupplierReference, DriveFileLink, CurrencyId, ExchangeRate, BaseTotalAmount, QuotedDate, ValidUntil)
         VALUES (
             @SupplierId,
             N'T' + REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N''),
@@ -67,7 +69,9 @@ BEGIN
             NULLIF(LTRIM(RTRIM(@DriveFileLink)), N''),
             @ResolvedCurrencyId,
             @ExchangeRate,
-            0
+            0,
+            @QuotedDate,
+            @ValidUntil
         );
 
         SET @Id = CAST(SCOPE_IDENTITY() AS INT);
@@ -103,7 +107,8 @@ BEGIN
             BaseTotalPrice,
             AwardedQuantity,
             Condition,
-            LeadTime
+            LeadTime,
+            MinimumQty
         )
         SELECT
             @Id,
@@ -123,7 +128,8 @@ BEGIN
             CAST(ROUND(I.DecimalValue2 * Resolved.Rate, 2) AS DECIMAL(18, 2)),
             0,
             LEFT(NULLIF(LTRIM(RTRIM(I.TextValue4)), N''), 100),
-            LEFT(NULLIF(LTRIM(RTRIM(I.TextValue5)), N''), 100)
+            LEFT(NULLIF(LTRIM(RTRIM(I.TextValue5)), N''), 100),
+            CASE WHEN I.NumericValue6 > 0 THEN I.NumericValue6 ELSE NULL END
         FROM @Items AS I
         CROSS APPLY (
             SELECT

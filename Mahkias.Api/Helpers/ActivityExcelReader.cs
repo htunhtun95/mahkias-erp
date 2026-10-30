@@ -161,7 +161,9 @@ namespace Mahkias.Api.Helpers
             {
                 return cell.CachedFormulaResultType switch
                 {
-                    CellType.Numeric => FormatNumber(cell.NumericCellValue),
+                    CellType.Numeric => DateUtil.IsCellDateFormatted(cell) && cell.DateCellValue is DateTime formulaDate
+                        ? formulaDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+                        : FormatNumber(cell.NumericCellValue),
                     CellType.Boolean => cell.BooleanCellValue ? "true" : "false",
                     CellType.Blank => null,
                     _ => cell.ToString()
@@ -170,6 +172,11 @@ namespace Mahkias.Api.Helpers
 
             if (cell.CellType == CellType.Numeric)
             {
+                if (DateUtil.IsCellDateFormatted(cell) && cell.DateCellValue is DateTime date)
+                {
+                    return date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                }
+
                 return FormatNumber(cell.NumericCellValue);
             }
 
