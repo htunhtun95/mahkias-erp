@@ -51,12 +51,18 @@
             <span>{{ quotation.supplierReference }}</span>
             <span>{{ quotation.itemCount }}</span>
             <span class="when-cell">
-              <span>{{ when(quotation.modifiedAt || quotation.createdAt) }}</span>
-              @if (quotation.quotedDate) {
-                <span class="quoted-on">Quoted {{ when(quotation.quotedDate) }}</span>
-              }
-              @if (validity(quotation.validUntil); as term) {
-                <span class="validity" [class.expired]="term.expired">{{ term.label }}</span>
+              @if (quotation.quotedDate || quotation.validUntil) {
+                @if (quotation.quotedDate) {
+                  <span>Quoted Date: {{ when(quotation.quotedDate) }}</span>
+                }
+                @if (quotation.validUntil) {
+                  <span [class.quoted-on]="!!quotation.quotedDate">Valid Until: {{ when(quotation.validUntil) }}</span>
+                }
+                @if (validity(quotation.quotedDate, quotation.validUntil); as term) {
+                  <span class="validity" [class.expired]="term.expired">{{ term.label }}</span>
+                }
+              } @else {
+                <span>-</span>
               }
             </span>
             <span>{{ money(quotation.totalPrice, '$', 'USD') }}</span>

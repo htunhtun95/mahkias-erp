@@ -28,12 +28,17 @@
   border: 1px solid #dadce0;
   border-radius: 8px;
   background: #fff;
-  cursor: pointer;
 }
 
 :host ::ng-deep .quote-date-field.mat-focused .mat-mdc-text-field-wrapper {
   border-color: #1a73e8;
   box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.16);
+}
+
+:host ::ng-deep .quote-date-field.invalid .mat-mdc-text-field-wrapper,
+:host ::ng-deep .quote-date-field.invalid.mat-focused .mat-mdc-text-field-wrapper {
+  border-color: #d93025;
+  box-shadow: 0 0 0 3px rgba(217, 48, 37, 0.16);
 }
 
 :host ::ng-deep .quote-date-field.mat-form-field-disabled .mat-mdc-text-field-wrapper {
@@ -70,13 +75,10 @@
   margin: 0 !important;
   padding: 0 !important;
   line-height: normal !important;
-  caret-color: transparent;
-  cursor: pointer;
   color: #202124;
   font: inherit;
   font-size: 14px;
   font-weight: 400;
-  user-select: none;
 }
 
 :host ::ng-deep .quote-date-field .mat-mdc-input-element::placeholder {
@@ -142,4 +144,11 @@
 .clear-date:hover {
   background: #f1f3f4;
   color: #202124;
+}
+
+.date-error {
+  color: #d93025;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
 }

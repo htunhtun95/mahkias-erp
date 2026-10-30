@@ -161,6 +161,46 @@
   cursor: default;
 }
 
+.upload-card.compact {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 4px 12px;
+}
+
+.upload-card.compact .upload-heading {
+  flex: 0 0 auto;
+}
+
+.upload-card.compact .drop-zone {
+  flex: 1 1 180px;
+  justify-content: flex-start;
+  min-height: 28px;
+  height: 28px;
+  padding: 0 4px;
+}
+
+.upload-card.compact .upload-hint {
+  flex: 0 0 auto;
+  font-size: 12px;
+}
+
+.upload-card.compact .file-chips {
+  flex: 0 1 auto;
+}
+
+:host ::ng-deep .upload-card.compact .mat-mdc-chip-set,
+:host ::ng-deep .upload-card.compact .mdc-evolution-chip-set__chips {
+  margin: 0;
+  min-height: 0;
+}
+
+:host ::ng-deep .upload-card.compact .mat-mdc-chip {
+  --mdc-chip-container-height: 28px;
+  height: 28px;
+}
+
 .file-chip a {
   margin-left: 8px;
   color: #1a73e8;

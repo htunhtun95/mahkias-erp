@@ -1,9 +1,10 @@
 :host {
   display: flex;
   flex-direction: column;
-  height: auto;
+  flex: 1 1 auto;
+  height: 100%;
   min-height: 0;
-  max-height: 90vh;
+  max-height: 95vh;
   overflow: hidden;
   color: #202124;
 }
@@ -12,9 +13,10 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  height: auto;
+  flex: 1 1 auto;
+  height: 100%;
   min-height: 0;
-  max-height: 90vh;
+  max-height: 95vh;
   overflow: hidden;
 }
 
@@ -24,18 +26,19 @@
   z-index: 2;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 24px 32px 16px;
+  gap: 10px;
+  padding: 16px 32px 8px;
 }
 
 .quotation-dialog-body {
   flex: 1 1 auto;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 8px 32px 20px;
+  gap: 10px;
+  padding: 4px 32px 8px;
 }
 
 .quotation-dialog-footer {
@@ -44,7 +47,7 @@
   flex-direction: column;
   align-items: stretch;
   gap: 10px;
-  padding: 18px 32px 24px;
+  padding: 12px 32px 16px;
   border-top: 1px solid #e0e0e0;
   background: #fff;
 }
@@ -74,7 +77,7 @@ h2 {
 .header-fields {
   display: grid;
   grid-template-columns: minmax(160px, 0.9fr) minmax(180px, 1fr) minmax(220px, 1.4fr);
-  gap: 16px;
+  gap: 12px;
 }
 
 .header-fields.creating-supplier {
@@ -95,7 +98,7 @@ h2 {
 label {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   min-width: 0;
   color: #5f6368;
   font-size: 12px;
@@ -262,8 +265,8 @@ label.invalid input {
 }
 
 .sheet-wrap {
-  flex: 0 1 auto;
-  max-height: 360px;
+  flex: 1 1 auto;
+  min-height: 180px;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
   overflow: auto;
@@ -271,18 +274,27 @@ label.invalid input {
 
 .sheet-filters {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
 }
 
 .row-search {
   display: flex;
+  flex: 1 1 280px;
   flex-direction: column;
   gap: 6px;
+  max-width: 360px;
+  min-width: min(100%, 220px);
   margin-bottom: 0;
   color: #5f6368;
   font-size: 12px;
   font-weight: 500;
+}
+
+.sheet-filters:not(:has(.label-switch)) .row-search {
+  flex-basis: 100%;
+  max-width: none;
 }
 
 .row-search input {
@@ -304,14 +316,19 @@ label.invalid input {
 
 .label-switch {
   display: flex;
+  flex: 1 1 240px;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   max-width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
 }
 
 .label-switch .segment-btn {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 8px;
   height: 34px;
@@ -368,7 +385,8 @@ label.invalid input {
 .sheet {
   width: 100%;
   min-width: 1340px;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: fixed;
 }
 
@@ -425,6 +443,9 @@ label.invalid input {
 .sheet th.part,
 .sheet td.part {
   min-width: 150px;
+}
+
+.sheet td.part {
   position: relative;
 }
 
@@ -457,22 +478,29 @@ label.invalid input {
 .sheet th,
 .sheet td {
   vertical-align: middle;
+  border: 0;
+  border-right: 1px solid #e0e0e0;
+  border-bottom: 1px solid #e0e0e0;
 }
 
-.sheet th {
-  border: 1px solid #e0e0e0;
+.sheet th:first-child,
+.sheet td:first-child {
+  border-left: 1px solid #e0e0e0;
 }
 
-.sheet th {
+.sheet thead th {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 3;
+  border-top: 1px solid #e0e0e0;
   background: #f8f9fa;
+  background-clip: padding-box;
   color: #5f6368;
   font-size: 12px;
   font-weight: 500;
   text-align: left;
   padding: 10px 12px;
+  box-shadow: 0 1px 0 #e0e0e0;
 }
 
 .sheet td.dsn input,

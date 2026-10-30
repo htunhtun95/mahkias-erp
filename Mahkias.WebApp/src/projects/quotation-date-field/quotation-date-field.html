@@ -1,22 +1,18 @@
 <span class="caption">{{ label }}</span>
-<mat-form-field class="quote-date-field" appearance="outline" subscriptSizing="dynamic" (click)="open()">
+<mat-form-field class="quote-date-field" appearance="outline" subscriptSizing="dynamic" [class.invalid]="showError || !!externalError">
   <input
+    #dateBox
     matInput
     [matDatepicker]="picker"
-    [ngModel]="date"
-    [ngModelOptions]="{ standalone: true }"
-    (ngModelChange)="choose($event)"
     [disabled]="disabled"
-    readonly
-    placeholder="Select date"
+    [attr.aria-invalid]="showError || !!externalError"
+    placeholder="dd/mm/yyyy"
     autocomplete="off"
-    inputmode="none"
-    (beforeinput)="$event.preventDefault()"
-    (paste)="$event.preventDefault()"
-    (drop)="$event.preventDefault()"
-    (keydown)="blockTyping($event)"
+    (input)="onTyped($event)"
+    (blur)="onBlur()"
+    (dateChange)="onPicked($event)"
   />
-  @if (date && !disabled) {
+  @if (hasValue && !disabled) {
     <button class="clear-date" type="button" matSuffix matTooltip="Clear date" aria-label="Clear date" (click)="clear($event)">
       <mat-icon>close</mat-icon>
     </button>
@@ -24,3 +20,8 @@
   <mat-datepicker-toggle matIconSuffix [for]="picker" [disabled]="disabled" (click)="$event.stopPropagation()"></mat-datepicker-toggle>
   <mat-datepicker #picker panelClass="quote-date-panel"></mat-datepicker>
 </mat-form-field>
+@if (showError) {
+  <span class="date-error">Enter a valid {{ label }} as dd/mm/yyyy.</span>
+} @else if (externalError) {
+  <span class="date-error">{{ externalError }}</span>
+}

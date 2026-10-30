@@ -263,10 +263,11 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
 
     const ref = this.dialog.open(CreateQuotationDialogComponent, {
       disableClose: true,
-      width: '90vw',
-      maxWidth: '1200px',
-      minWidth: 'min(850px, 96vw)',
-      maxHeight: '90vh',
+      width: '95vw',
+      maxWidth: '95vw',
+      minWidth: 'min(720px, 95vw)',
+      height: '95vh',
+      maxHeight: '95vh',
       panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       autoFocus: 'first-tabbable',
@@ -286,10 +287,11 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
 
     const ref = this.dialog.open(ImportQuotationDialogComponent, {
       disableClose: true,
-      width: '90vw',
-      maxWidth: '1200px',
-      minWidth: 'min(850px, 96vw)',
-      maxHeight: '90vh',
+      width: '95vw',
+      maxWidth: '95vw',
+      minWidth: 'min(720px, 95vw)',
+      height: '95vh',
+      maxHeight: '95vh',
       panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       autoFocus: 'first-tabbable',

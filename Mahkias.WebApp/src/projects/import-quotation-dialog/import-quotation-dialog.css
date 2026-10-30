@@ -1,9 +1,10 @@
 :host {
   display: flex;
   flex-direction: column;
-  height: auto;
+  flex: 1 1 auto;
+  height: 100%;
   min-height: 0;
-  max-height: 90vh;
+  max-height: 95vh;
   overflow: hidden;
   color: #202124;
 }
@@ -12,9 +13,10 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  height: auto;
+  flex: 1 1 auto;
+  height: 100%;
   min-height: 0;
-  max-height: 90vh;
+  max-height: 95vh;
   overflow: hidden;
 }
 
@@ -51,18 +53,19 @@
   z-index: 2;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 24px 32px 16px;
+  gap: 10px;
+  padding: 16px 32px 8px;
 }
 
 .quotation-dialog-body {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 8px 32px 20px;
+  gap: 10px;
+  padding: 4px 32px 8px;
 }
 
 .upload-row {
@@ -78,7 +81,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
-  padding: 18px 32px 24px;
+  padding: 12px 32px 16px;
   border-top: 1px solid #e0e0e0;
   background: #fff;
 }
@@ -201,7 +204,7 @@ h2 {
 .header-fields {
   display: grid;
   grid-template-columns: minmax(160px, 0.9fr) minmax(180px, 1fr) minmax(220px, 1.4fr);
-  gap: 16px;
+  gap: 12px;
 }
 
 .header-fields.creating-supplier {
@@ -228,7 +231,7 @@ h2 {
 label {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   min-width: 0;
   color: #5f6368;
   font-size: 12px;
@@ -395,13 +398,12 @@ label.invalid input {
 }
 
 .map-panel {
-  flex: 0 1 auto;
-  min-height: 0;
-  max-height: 300px;
+  flex: 1 1 auto;
+  min-height: 180px;
   overflow: auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .map-grid {
@@ -592,9 +594,8 @@ label.invalid input {
 }
 
 .sheet-wrap {
-  flex: 0 1 auto;
-  min-height: 0;
-  max-height: 250px;
+  flex: 1 1 auto;
+  min-height: 180px;
   margin-top: 0;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
@@ -621,7 +622,8 @@ label.invalid input {
 .sheet {
   width: 100%;
   min-width: 980px;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: fixed;
 }
 
@@ -641,16 +643,26 @@ label.invalid input {
 
 .sheet th,
 .sheet td {
-  border: 1px solid #e0e0e0;
+  border: 0;
+  border-right: 1px solid #e0e0e0;
+  border-bottom: 1px solid #e0e0e0;
   padding: 0;
   vertical-align: middle;
 }
 
-.sheet th {
+.sheet th:first-child,
+.sheet td:first-child {
+  border-left: 1px solid #e0e0e0;
+}
+
+.sheet thead th {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 3;
+  border-top: 1px solid #e0e0e0;
   background: #f8f9fa;
+  background-clip: padding-box;
+  box-shadow: 0 1px 0 #e0e0e0;
   color: #5f6368;
   font-size: 12px;
   font-weight: 500;

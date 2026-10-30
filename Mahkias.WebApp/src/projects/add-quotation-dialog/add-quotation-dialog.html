@@ -82,7 +82,7 @@
         </label>
       }
       <app-quotation-date-field label="Quoted Date" [(ngModel)]="quotedDate" name="quotedDate" [disabled]="isSaving"></app-quotation-date-field>
-      <app-quotation-date-field label="Valid Until" [(ngModel)]="validUntil" name="validUntil" [disabled]="isSaving"></app-quotation-date-field>
+      <app-quotation-date-field label="Valid Until" [(ngModel)]="validUntil" name="validUntil" [disabled]="isSaving" [externalError]="dateOrderError"></app-quotation-date-field>
     </div>
   </header>
 
@@ -187,6 +187,7 @@
       </table>
     </div>
     <app-drive-upload-card
+      [compact]="true"
       title="Attachment File"
       hint="PDF, Excel, Word, or image."
       emptyLabel="Drag a file here, or browse"

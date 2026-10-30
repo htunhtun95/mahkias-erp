@@ -128,10 +128,11 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
       next: (detail) => {
         const ref = this.dialog.open(CreateQuotationDialogComponent, {
           disableClose: true,
-          width: '90vw',
-          maxWidth: '1200px',
-          minWidth: 'min(850px, 96vw)',
-          maxHeight: '90vh',
+          width: '95vw',
+          maxWidth: '95vw',
+          minWidth: 'min(720px, 95vw)',
+          height: '95vh',
+          maxHeight: '95vh',
           panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'app-dialog-pane'],
           backdropClass: 'add-project-dialog-backdrop',
           autoFocus: 'first-tabbable',
@@ -202,7 +203,10 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
     return formatMoney(value, symbol, code);
   }
 
-  validity(validUntil?: string | null) {
+  validity(quotedDate?: string | null, validUntil?: string | null) {
+    if (!quotedDate || !validUntil) {
+      return null;
+    }
     return quotationValidity(validUntil);
   }
 

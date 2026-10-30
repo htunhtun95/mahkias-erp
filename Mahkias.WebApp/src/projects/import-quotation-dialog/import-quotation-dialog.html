@@ -86,7 +86,7 @@
     }
     <div class="header-dates">
       <app-quotation-date-field label="Quoted Date" [(ngModel)]="quotedDate" name="quotedDate" [disabled]="busy"></app-quotation-date-field>
-      <app-quotation-date-field label="Valid Until" [(ngModel)]="validUntil" name="validUntil" [disabled]="busy"></app-quotation-date-field>
+      <app-quotation-date-field label="Valid Until" [(ngModel)]="validUntil" name="validUntil" [disabled]="busy" [externalError]="dateOrderError"></app-quotation-date-field>
     </div>
   </header>
 
@@ -97,6 +97,7 @@
       <span>Imported spreadsheet is the original quotation file</span>
     </label>
     <app-drive-upload-card
+      [compact]="true"
       title="Quotation spreadsheet"
       hint="Excel or CSV."
       emptyLabel="Drag a spreadsheet here, or browse"

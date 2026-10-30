@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild, inject } from '@angular/core';
+import { Component, ElementRef, QueryList, ViewChild, ViewChildren, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
@@ -68,6 +68,7 @@ type CheckState = 'idle' | 'checking' | 'passed' | 'failed';
 })
 export class ImportQuotationDialogComponent {
   @ViewChild('supplierInput') private supplierInput?: ElementRef<HTMLInputElement>;
+  @ViewChildren(QuotationDateFieldComponent) private dateFields?: QueryList<QuotationDateFieldComponent>;
 
   private api = inject(ProjectApiService);
   private dialogRef = inject(MatDialogRef<ImportQuotationDialogComponent, boolean>);
@@ -449,11 +450,11 @@ export class ImportQuotationDialogComponent {
     }
     this.submitted = true;
     this.error = '';
+    const datesInvalid = this.revealInvalidDates();
     if (!this.supplierReady() || this.requiredMissing) {
       return;
     }
-    if (this.datesOutOfOrder()) {
-      this.error = 'Valid until cannot be earlier than the quoted date.';
+    if (datesInvalid || this.dateOrderError) {
       return;
     }
     const token = ++this.checkToken;
@@ -514,12 +515,11 @@ export class ImportQuotationDialogComponent {
     }
     this.lineSubmitted = true;
     this.error = '';
-    if (this.lines.some((line) => this.isPriced(line) && (this.lineInvalid(line, 'dsn') || this.lineInvalid(line, 'part') || this.lineInvalid(line, 'qty') || this.lineInvalid(line, 'moq') || this.lineInvalid(line, 'price')))) {
-      this.error = 'DSN number, part number, and quantity are required. Check the highlighted rows.';
+    if (this.revealInvalidDates() || this.dateOrderError) {
       return;
     }
-    if (this.datesOutOfOrder()) {
-      this.error = 'Valid until cannot be earlier than the quoted date.';
+    if (this.lines.some((line) => this.isPriced(line) && (this.lineInvalid(line, 'dsn') || this.lineInvalid(line, 'part') || this.lineInvalid(line, 'qty') || this.lineInvalid(line, 'moq') || this.lineInvalid(line, 'price')))) {
+      this.error = 'DSN number, part number, and quantity are required. Check the highlighted rows.';
       return;
     }
     if (!this.supplierReady()) {
@@ -749,8 +749,21 @@ export class ImportQuotationDialogComponent {
     return Number.isInteger(requested) && requested > 0 ? requested : 1;
   }
 
-  private datesOutOfOrder(): boolean {
-    return !!this.quotedDate && !!this.validUntil && this.validUntil < this.quotedDate;
+  private revealInvalidDates(): boolean {
+    const invalid = this.dateFields?.some((field) => field.invalid) ?? false;
+    this.dateFields?.forEach((field) => {
+      if (field.invalid) {
+        field.reveal();
+      }
+    });
+    return invalid;
+  }
+
+  get dateOrderError(): string {
+    if (this.quotedDate && this.validUntil && this.validUntil < this.quotedDate) {
+      return 'Valid until cannot be earlier than the quoted date.';
+    }
+    return '';
   }
 
   private validQuantity(value: string): boolean {

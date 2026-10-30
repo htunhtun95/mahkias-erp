@@ -306,8 +306,10 @@ a.menu-text-left.active-menu .mat-icon {
 }
 
 .cdk-overlay-pane.quotation-dialog-panel {
-  height: auto !important;
-  max-height: 90vh !important;
+  width: 95vw !important;
+  max-width: 95vw !important;
+  height: 95vh !important;
+  max-height: 95vh !important;
   overflow: hidden;
 }
 
@@ -320,12 +322,12 @@ a.menu-text-left.active-menu .mat-icon {
 .cdk-overlay-pane.quotation-dialog-panel .quotation-modal-content {
   display: flex;
   flex-direction: column;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   box-sizing: border-box;
   width: 100%;
-  height: auto;
+  height: 100%;
   min-height: 0;
-  max-height: 90vh;
+  max-height: 95vh;
   overflow: hidden;
 }
 
@@ -336,14 +338,15 @@ a.menu-text-left.active-menu .mat-icon {
   overflow: hidden;
 }
 
+.cdk-overlay-pane.quotation-dialog-panel .mat-mdc-dialog-component-host,
 .cdk-overlay-pane.quotation-dialog-panel app-create-quotation-dialog,
 .cdk-overlay-pane.quotation-dialog-panel app-import-quotation-dialog {
   display: flex;
   flex-direction: column;
-  flex: 0 1 auto;
-  height: auto;
+  flex: 1 1 auto;
+  height: 100%;
   min-height: 0;
-  max-height: 90vh;
+  max-height: 95vh;
   overflow: hidden;
 }
 
@@ -354,6 +357,10 @@ a.menu-text-left.active-menu .mat-icon {
   min-height: 0;
   max-height: 90vh;
   overflow: hidden;
+}
+
+.cdk-overlay-pane.quotation-dialog-panel.app-dialog-pane .mat-mdc-dialog-component-host {
+  max-height: 95vh;
 }
 
 .app-dialog-container {

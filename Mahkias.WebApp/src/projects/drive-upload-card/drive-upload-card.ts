@@ -18,6 +18,7 @@ export class DriveUploadCardComponent {
   @Input() title = 'Attachment File';
   @Input() hint = '';
   @Input() emptyLabel = 'Drag a file here, or browse';
+  @Input() compact = false;
   @Input() accept = '';
   @Input() disabled = false;
   @Input() file: File | null = null;

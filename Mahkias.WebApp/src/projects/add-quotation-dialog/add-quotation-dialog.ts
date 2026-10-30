@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild, inject } from '@angular/core';
+import { Component, ElementRef, QueryList, ViewChild, ViewChildren, inject } from '@angular/core';
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -52,6 +52,7 @@ interface QuoteRow {
 })
 export class CreateQuotationDialogComponent {
   @ViewChild('supplierInput') private supplierInput?: ElementRef<HTMLInputElement>;
+  @ViewChildren(QuotationDateFieldComponent) private dateFields?: QueryList<QuotationDateFieldComponent>;
 
   private api = inject(ProjectApiService);
   private dialogRef = inject(MatDialogRef<CreateQuotationDialogComponent>);
@@ -301,7 +302,11 @@ export class CreateQuotationDialogComponent {
     }
     this.submitted = true;
     this.error = '';
+    const datesInvalid = this.revealInvalidDates();
     if (!this.supplierReady()) {
+      return;
+    }
+    if (datesInvalid) {
       return;
     }
     for (const row of this.rows) {
@@ -319,8 +324,7 @@ export class CreateQuotationDialogComponent {
       this.error = 'DSN number, part number, and quantity are required. Check the highlighted rows.';
       return;
     }
-    if (this.quotedDate && this.validUntil && this.validUntil < this.quotedDate) {
-      this.error = 'Valid until cannot be earlier than the quoted date.';
+    if (this.dateOrderError) {
       return;
     }
 
@@ -434,6 +438,23 @@ export class CreateQuotationDialogComponent {
   private driveError(error: HttpErrorResponse): string {
     const body = error.error;
     return typeof body === 'string' ? body : body?.message || '';
+  }
+
+  get dateOrderError(): string {
+    if (this.quotedDate && this.validUntil && this.validUntil < this.quotedDate) {
+      return 'Valid until cannot be earlier than the quoted date.';
+    }
+    return '';
+  }
+
+  private revealInvalidDates(): boolean {
+    const invalid = this.dateFields?.some((field) => field.invalid) ?? false;
+    this.dateFields?.forEach((field) => {
+      if (field.invalid) {
+        field.reveal();
+      }
+    });
+    return invalid;
   }
 
   private supplierReady(): boolean {
