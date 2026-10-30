@@ -73,7 +73,13 @@ SELECT Q.Id, Q.Code, Q.CreatedAt, Q.QuotedDate, Q.ValidUntil,
 FROM projects.Quotations Q
 WHERE Q.SupplierId = @Id
   AND Q.IsDeleted = 0
-ORDER BY Q.CreatedAt DESC, Q.Id DESC");
+ORDER BY Q.CreatedAt DESC, Q.Id DESC;
+
+SELECT QP.QuotationId, P.Id AS ProjectId, P.Reference, P.Name
+FROM projects.QuotationProjects QP
+INNER JOIN projects.Quotations Q ON Q.Id = QP.QuotationId AND Q.SupplierId = @Id AND Q.IsDeleted = 0
+INNER JOIN projects.Projects P ON P.Id = QP.ProjectId AND P.IsDeleted = 0
+ORDER BY P.Name, P.Id");
             command.Parameters.AddInt("Id", id);
             command.Connection = _connection;
             _connection.Open();
@@ -109,6 +115,26 @@ ORDER BY Q.CreatedAt DESC, Q.Id DESC");
                             ItemCount = reader.ReadIntValue("ItemCount"),
                             ProjectNames = reader.ReadStringValue("ProjectNames"),
                             ProjectId = reader.IsDBNull(projectOrdinal) ? null : reader.GetInt32(projectOrdinal),
+                        });
+                    }
+                }
+
+                if (supplier != null && await reader.NextResultAsync())
+                {
+                    var quotations = supplier.Quotations.ToDictionary(quotation => quotation.Id);
+                    while (await reader.ReadAsync())
+                    {
+                        var quotationId = reader.ReadIntValue("QuotationId");
+                        if (!quotations.TryGetValue(quotationId, out var quotation))
+                        {
+                            continue;
+                        }
+
+                        quotation.Projects.Add(new SupplierQuotationProjectResult
+                        {
+                            Id = reader.ReadIntValue("ProjectId"),
+                            Reference = reader.ReadStringValue("Reference"),
+                            Name = reader.ReadStringValue("Name"),
                         });
                     }
                 }

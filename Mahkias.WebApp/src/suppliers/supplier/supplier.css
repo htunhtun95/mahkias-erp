@@ -160,6 +160,50 @@ h2 {
   text-decoration: underline;
 }
 
+.project {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.project-entry {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.project-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #e8f0fe;
+  color: #0078d4;
+  font-size: 11px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.project-tag:hover {
+  color: #005a9e;
+  text-decoration: underline;
+}
+
+.project-name {
+  color: #5f6368;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
 .empty-row,
 .loading {
   padding: 36px 16px;

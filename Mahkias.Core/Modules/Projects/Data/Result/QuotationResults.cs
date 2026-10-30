@@ -15,6 +15,15 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
         public int QuotationCount { get; set; }
     }
 
+    public class SupplierQuotationProjectResult
+    {
+        public int Id { get; set; }
+
+        public string Reference { get; set; }
+
+        public string Name { get; set; }
+    }
+
     public class SupplierQuotationResult
     {
         public int Id { get; set; }
@@ -24,6 +33,8 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
         public string ProjectNames { get; set; }
 
         public int? ProjectId { get; set; }
+
+        public List<SupplierQuotationProjectResult> Projects { get; set; } = new List<SupplierQuotationProjectResult>();
 
         public int ItemCount { get; set; }
 

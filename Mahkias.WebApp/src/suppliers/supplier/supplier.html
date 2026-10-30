@@ -66,7 +66,20 @@
             } @else {
               <span class="ref">{{ quotation.code }}</span>
             }
-            <span>{{ quotation.projectNames || '—' }}</span>
+            <span class="project">
+              @if (quotation.projects?.length) {
+                @for (project of quotation.projects; track project.id) {
+                  <span class="project-entry">
+                    @if (project.reference) {
+                      <a class="project-tag" [routerLink]="['/projects', project.id]">{{ project.reference }}</a>
+                    }
+                    <span class="project-name">{{ project.name }}</span>
+                  </span>
+                }
+              } @else {
+                <span class="project-name">{{ quotation.projectNames || '—' }}</span>
+              }
+            </span>
             <span>{{ quotation.itemCount }}</span>
             <span>
               {{ listDate(quotation.createdAt) }}

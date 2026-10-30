@@ -136,11 +136,18 @@ export interface Supplier {
   quotationCount?: number;
 }
 
+export interface SupplierQuotationProject {
+  id: number;
+  reference?: string | null;
+  name: string;
+}
+
 export interface SupplierQuotation {
   id: number;
   code: string;
   projectNames?: string | null;
   projectId?: number | null;
+  projects?: SupplierQuotationProject[];
   itemCount: number;
   createdAt?: string | null;
   quotedDate?: string | null;
