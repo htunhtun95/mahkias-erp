@@ -215,6 +215,10 @@ export class ImportQuotationDialogComponent {
     this.recalculate(line);
   }
 
+  onMinimum(line: ImportLine) {
+    this.recalculate(line);
+  }
+
   onQuantityBlur(line: ImportLine) {
     if (!line.quantity.trim()) {
       line.quantity = '1';
@@ -688,7 +692,7 @@ export class ImportQuotationDialogComponent {
   }
 
   private recalculate(line: ImportLine) {
-    const quantity = this.quantity(line);
+    const quantity = this.effectiveQuantity(line);
     if (line.unitExplicit && !line.totalExplicit) {
       const unit = this.money(line.unitPrice);
       line.totalPrice = unit == null ? '' : this.formatMoney(unit * quantity);
@@ -734,6 +738,15 @@ export class ImportQuotationDialogComponent {
   private quantity(line: ImportLine): number {
     const parsed = Number(line.quantity);
     return Number.isInteger(parsed) && parsed >= 1 ? parsed : 1;
+  }
+
+  private effectiveQuantity(line: ImportLine): number {
+    const minimum = Number(line.minimumQty);
+    if (line.minimumQty.trim() && Number.isInteger(minimum) && minimum > 0) {
+      return minimum;
+    }
+    const requested = Number(line.quantity);
+    return Number.isInteger(requested) && requested > 0 ? requested : 1;
   }
 
   private datesOutOfOrder(): boolean {

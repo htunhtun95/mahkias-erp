@@ -3,7 +3,7 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MaterialModule } from '../../../../app/material-module';
 import { ActivityQuotationLink } from '../../../../core/services/project-api.service';
 import { formatMoney } from '../../../money-format';
-import { minimumOrderNote, quotationValidity } from '../../../quotation-terms';
+import { quotationQuantity, quotationValidity } from '../../../quotation-terms';
 
 export type QuotationViewKind = 'item' | 'group';
 
@@ -98,18 +98,10 @@ export class QuotationDataDialog {
     return quotationValidity(validUntil);
   }
 
-  orderNote(link: ActivityQuotationLink | null | undefined) {
+  quantityDisplay(link: ActivityQuotationLink | null | undefined) {
     if (!link) {
-      return null;
+      return quotationQuantity(null, null);
     }
-    const required = this.isGroup ? null : this.data.requiredQuantity;
-    return minimumOrderNote(link.quantity, link.minimumQty, required);
-  }
-
-  quantity(value?: number | null): string {
-    if (value == null) {
-      return '—';
-    }
-    return Number.isInteger(Number(value)) ? String(Number(value)) : String(value);
+    return quotationQuantity(link.quantity, link.minimumQty);
   }
 }

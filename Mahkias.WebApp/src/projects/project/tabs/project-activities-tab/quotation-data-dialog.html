@@ -67,9 +67,11 @@
                 }
               </span>
               <span class="qty-stack">
-                <span>{{ row.link ? quantity(row.link.quantity) : '—' }}</span>
-                @if (orderNote(row.link); as note) {
-                  <span class="moq-note" [class.short]="note.short">{{ note.text }}</span>
+                @if (quantityDisplay(row.link); as shown) {
+                  <span>{{ shown.value }}</span>
+                  @if (shown.note) {
+                    <span class="moq-note" [class.short]="shown.short">{{ shown.note }}</span>
+                  }
                 }
               </span>
               <span>{{ row.link ? quotedTotal(row.link) : '—' }}</span>

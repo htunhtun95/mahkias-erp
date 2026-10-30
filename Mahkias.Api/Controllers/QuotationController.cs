@@ -423,7 +423,7 @@ namespace Mahkias.Api.Controllers
                     }
 
                     var quantity = row.Quantity < 1 ? 1 : row.Quantity;
-                    TryPrice(row.UnitPrice, row.TotalPrice, quantity, out var unit, out var total);
+                    TryPrice(row.UnitPrice, row.TotalPrice, EffectiveQuantity(row.MinimumQty, quantity), out var unit, out var total);
                     var match = QuotationAllocator.Direct(row.DsnNo, row.PartNo, activities);
                     items.Add(new
                     {
@@ -555,7 +555,7 @@ namespace Mahkias.Api.Controllers
                     continue;
                 }
 
-                if (!TryPrice(entry.item.UnitPrice, entry.item.TotalPrice, quantity, out var unit, out var total))
+                if (!TryPrice(entry.item.UnitPrice, entry.item.TotalPrice, EffectiveQuantity(entry.item.MinimumQty, quantity), out var unit, out var total))
                 {
                     errors.Add(new ActivityImportIssue { Row = entry.row, Field = "Unit Price", Message = "Price must be a valid number." });
                     continue;
@@ -738,7 +738,7 @@ namespace Mahkias.Api.Controllers
                     var quantity = group.Sum(item => item.Quantity);
                     decimal? total = group.All(item => item.TotalPrice == null && item.UnitPrice == null)
                         ? null
-                        : group.Sum(item => item.TotalPrice ?? (item.UnitPrice.HasValue ? decimal.Round(item.UnitPrice.Value * item.Quantity, 4, MidpointRounding.AwayFromZero) : 0));
+                        : group.Sum(item => item.TotalPrice ?? (item.UnitPrice.HasValue ? decimal.Round(item.UnitPrice.Value * EffectiveQuantity(item.MinimumQty, item.Quantity), 4, MidpointRounding.AwayFromZero) : 0));
                     decimal? unit = total.HasValue && quantity > 0
                         ? decimal.Round(total.Value / quantity, 4, MidpointRounding.AwayFromZero)
                         : null;
@@ -873,6 +873,16 @@ namespace Mahkias.Api.Controllers
 
             var token = code.Trim();
             return currencies.FirstOrDefault(currency => string.Equals(currency.Code, token, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static int EffectiveQuantity(int? minimumQty, int quantity)
+        {
+            if (minimumQty is > 0)
+            {
+                return minimumQty.Value;
+            }
+
+            return quantity > 0 ? quantity : 1;
         }
 
         private static bool TryPrice(decimal? unitPrice, decimal? totalPrice, int quantity, out decimal? unit, out decimal? total)

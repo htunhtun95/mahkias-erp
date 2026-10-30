@@ -153,7 +153,7 @@
                 <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.quantity" (ngModelChange)="onQuantity(row)" (blur)="onQuantityBlur(row)" [name]="'qty' + row.key" />
               </td>
               <td class="cell qty" [class.invalid]="submitted && !validOptionalQuantity(row.minimumQty)">
-                <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.minimumQty" [name]="'moq' + row.key" inputmode="numeric" />
+                <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.minimumQty" (ngModelChange)="onMinimum(row)" [name]="'moq' + row.key" inputmode="numeric" />
               </td>
               <td class="cell price" [class.invalid]="invalid(row, 'price')">
                 <span class="price-field">

@@ -103,9 +103,11 @@
                     <span>{{ line.currencyCode || 'USD' }}</span>
                     <span>{{ money(line.unitPrice, line.currencySymbol, line.currencyCode) }}</span>
                     <span class="qty-stack">
-                      <span>{{ line.quantity }}</span>
-                      @if (orderNote(line.quantity, line.minimumQty); as note) {
-                        <span class="moq-note" [class.short]="note.short">{{ note.text }}</span>
+                      @if (quantityDisplay(line.quantity, line.minimumQty); as shown) {
+                        <span>{{ shown.value }}</span>
+                        @if (shown.note) {
+                          <span class="moq-note" [class.short]="shown.short">{{ shown.note }}</span>
+                        }
                       }
                     </span>
                     <span>{{ money(line.totalPrice, line.currencySymbol, line.currencyCode) }}</span>

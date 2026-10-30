@@ -4,8 +4,9 @@ export interface QuotationTerm {
   label: string;
 }
 
-export interface MinimumOrderNote {
-  text: string;
+export interface QuantityDisplay {
+  value: string;
+  note: string | null;
   short: boolean;
 }
 
@@ -27,23 +28,24 @@ export function quotationValidity(validUntil?: string | null, today = new Date()
   return { days, expired: false, label: days === 1 ? '1 day left' : `${days} days left` };
 }
 
-export function minimumOrderNote(
+export function quotationQuantity(
   quantity: number | null | undefined,
   minimumQty: number | null | undefined,
-  requiredQuantity?: number | null,
-): MinimumOrderNote | null {
+): QuantityDisplay {
+  const requested = Number(quantity);
+  const hasRequested = Number.isFinite(requested);
   const minimum = Number(minimumQty);
-  if (!Number.isFinite(minimum) || minimum <= 0) {
-    return null;
+  const hasMinimum = Number.isFinite(minimum) && minimum > 0;
+  if (!hasMinimum) {
+    return { value: hasRequested ? formatCount(requested) : '—', note: null, short: false };
   }
 
-  const required = requiredQuantity != null && Number.isFinite(Number(requiredQuantity)) && Number(requiredQuantity) > 0
-    ? Number(requiredQuantity)
-    : Number(quantity ?? 0);
-  if (minimum > required) {
-    return { text: `Req ${formatCount(required)} · MOQ ${formatCount(minimum)}`, short: true };
-  }
-  return { text: `MOQ ${formatCount(minimum)}`, short: false };
+  const required = hasRequested ? requested : 0;
+  return {
+    value: formatCount(minimum),
+    note: `Req: ${formatCount(required)}`,
+    short: minimum > required,
+  };
 }
 
 export function dateInputValue(value?: string | null): string {

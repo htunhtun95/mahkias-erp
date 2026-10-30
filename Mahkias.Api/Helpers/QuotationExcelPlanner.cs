@@ -176,17 +176,18 @@ namespace Mahkias.Api.Helpers
                 var unitExplicit = unit.HasValue;
                 var totalExplicit = total.HasValue;
                 var priceWarning = false;
-                if (!totalExplicit && unitExplicit && quantity > 0)
+                var effectiveQuantity = minimumQty is > 0 ? minimumQty.Value : (quantity > 0 ? quantity : 0);
+                if (!totalExplicit && unitExplicit && effectiveQuantity > 0)
                 {
-                    total = decimal.Round(unit.Value * quantity, 4, MidpointRounding.AwayFromZero);
+                    total = decimal.Round(unit.Value * effectiveQuantity, 4, MidpointRounding.AwayFromZero);
                 }
-                else if (!unitExplicit && totalExplicit && quantity > 0)
+                else if (!unitExplicit && totalExplicit && effectiveQuantity > 0)
                 {
-                    unit = decimal.Round(total.Value / quantity, 4, MidpointRounding.AwayFromZero);
+                    unit = decimal.Round(total.Value / effectiveQuantity, 4, MidpointRounding.AwayFromZero);
                 }
-                else if (unitExplicit && totalExplicit && quantity > 0)
+                else if (unitExplicit && totalExplicit && effectiveQuantity > 0)
                 {
-                    var computed = decimal.Round(unit.Value * quantity, 4, MidpointRounding.AwayFromZero);
+                    var computed = decimal.Round(unit.Value * effectiveQuantity, 4, MidpointRounding.AwayFromZero);
                     var imported = decimal.Round(total.Value, 4, MidpointRounding.AwayFromZero);
                     priceWarning = Math.Abs(computed - imported) > 0.01m;
                     total = imported;

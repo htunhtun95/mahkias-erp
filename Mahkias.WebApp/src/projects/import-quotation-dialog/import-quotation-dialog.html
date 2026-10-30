@@ -227,7 +227,7 @@
                     <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.quantity" (ngModelChange)="onQuantity(line)" (blur)="onQuantityBlur(line)" [name]="'qty' + line.row" />
                   </td>
                   <td class="qty" [class.invalid]="lineInvalid(line, 'moq')">
-                    <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.minimumQty" [name]="'moq' + line.row" inputmode="numeric" />
+                    <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.minimumQty" (ngModelChange)="onMinimum(line)" [name]="'moq' + line.row" inputmode="numeric" />
                   </td>
                   <td class="price" [class.invalid]="lineInvalid(line, 'price')">
                     <span class="price-field">

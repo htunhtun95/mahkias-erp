@@ -213,6 +213,10 @@ export class CreateQuotationDialogComponent {
     this.recalculate(row);
   }
 
+  onMinimum(row: QuoteRow) {
+    this.recalculate(row);
+  }
+
   onQuantityBlur(row: QuoteRow) {
     if (!row.quantity.trim()) {
       row.quantity = '1';
@@ -530,7 +534,7 @@ export class CreateQuotationDialogComponent {
     if (unit == null || total == null) {
       return false;
     }
-    return Math.abs(unit * this.quantity(row) - total) <= 0.01;
+    return Math.abs(unit * this.effectiveQuantity(row) - total) <= 0.01;
   }
 
   private linkRow(row: QuoteRow) {
@@ -538,7 +542,7 @@ export class CreateQuotationDialogComponent {
   }
 
   private recalculate(row: QuoteRow) {
-    const quantity = this.quantity(row);
+    const quantity = this.effectiveQuantity(row);
     if (row.unitExplicit && !row.totalExplicit) {
       const unit = this.money(row.unitPrice);
       row.totalPrice = unit == null ? '' : this.formatMoney(unit * quantity);
@@ -586,6 +590,15 @@ export class CreateQuotationDialogComponent {
 
   private quantity(row: QuoteRow): number {
     return this.validQuantity(row.quantity) ? Number(row.quantity) : 1;
+  }
+
+  private effectiveQuantity(row: QuoteRow): number {
+    const minimum = Number(row.minimumQty);
+    if (row.minimumQty.trim() && Number.isInteger(minimum) && minimum > 0) {
+      return minimum;
+    }
+    const requested = Number(row.quantity);
+    return Number.isInteger(requested) && requested > 0 ? requested : 1;
   }
 
   private validQuantity(value: string): boolean {
