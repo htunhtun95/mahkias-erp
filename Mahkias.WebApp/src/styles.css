@@ -297,6 +297,16 @@ a.menu-text-left.active-menu .mat-icon {
   overflow: hidden;
 }
 
+.cdk-global-overlay-wrapper:has(> .cdk-overlay-pane.quotation-dialog-panel) {
+  align-items: flex-start !important;
+  justify-content: center !important;
+  box-sizing: border-box;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 24px 0;
+}
+
 .cdk-overlay-pane.quotation-dialog-panel,
 .cdk-overlay-pane.app-dialog-pane {
   display: flex !important;
@@ -306,11 +316,22 @@ a.menu-text-left.active-menu .mat-icon {
 }
 
 .cdk-overlay-pane.quotation-dialog-panel {
+  position: relative !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  transform: none !important;
+  flex: 0 0 auto;
   width: 95vw !important;
   max-width: 95vw !important;
-  height: 95vh !important;
-  max-height: 95vh !important;
+  height: auto !important;
+  min-height: calc(100vh - 48px);
+  max-height: none !important;
+  margin: 0 auto;
   overflow: hidden;
+  border-radius: 16px;
+  background: #fff;
 }
 
 .cdk-overlay-pane.quotation-dialog-panel .mat-dialog-container,
@@ -325,10 +346,11 @@ a.menu-text-left.active-menu .mat-icon {
   flex: 1 1 auto;
   box-sizing: border-box;
   width: 100%;
-  height: 100%;
-  min-height: 0;
-  max-height: 95vh;
+  height: auto;
+  min-height: 100%;
+  max-height: none;
   overflow: hidden;
+  border-radius: 16px;
 }
 
 .cdk-overlay-pane.quotation-dialog-panel .mat-mdc-dialog-surface,
@@ -338,16 +360,26 @@ a.menu-text-left.active-menu .mat-icon {
   overflow: hidden;
 }
 
+.cdk-overlay-pane.quotation-dialog-panel .mat-mdc-dialog-surface {
+  height: auto;
+  max-height: none;
+  overflow: hidden;
+  border-radius: 16px;
+}
+
 .cdk-overlay-pane.quotation-dialog-panel .mat-mdc-dialog-component-host,
 .cdk-overlay-pane.quotation-dialog-panel app-create-quotation-dialog,
-.cdk-overlay-pane.quotation-dialog-panel app-import-quotation-dialog {
+.cdk-overlay-pane.quotation-dialog-panel app-import-quotation-dialog,
+.cdk-overlay-pane.quotation-dialog-panel app-purchase-order-dialog,
+.cdk-overlay-pane.quotation-dialog-panel app-import-purchase-order-dialog {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
-  height: 100%;
-  min-height: 0;
-  max-height: 95vh;
+  height: auto;
+  min-height: 100%;
+  max-height: none;
   overflow: hidden;
+  border-radius: 16px;
 }
 
 .cdk-overlay-pane.app-dialog-pane .mat-mdc-dialog-component-host {
@@ -360,7 +392,11 @@ a.menu-text-left.active-menu .mat-icon {
 }
 
 .cdk-overlay-pane.quotation-dialog-panel.app-dialog-pane .mat-mdc-dialog-component-host {
-  max-height: 95vh;
+  height: auto;
+  min-height: auto;
+  max-height: none;
+  overflow: hidden;
+  border-radius: 16px;
 }
 
 .app-dialog-container {
@@ -371,6 +407,16 @@ a.menu-text-left.active-menu .mat-icon {
   width: 100%;
   min-height: 0;
   max-height: 90vh;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.cdk-overlay-pane.quotation-dialog-panel .app-dialog-container,
+.cdk-overlay-pane.quotation-dialog-panel .quotation-dialog-container {
+  height: auto;
+  min-height: 100%;
+  max-height: none;
   overflow: hidden;
   border-radius: 16px;
   background: #fff;
@@ -439,9 +485,13 @@ a.menu-text-left.active-menu .mat-icon {
   background: transparent;
 }
 
+.cdk-global-overlay-wrapper:has(> .cdk-overlay-pane.quotation-menu-panel) {
+  z-index: 2000 !important;
+}
+
 .cdk-overlay-pane.quotation-menu-panel {
   pointer-events: auto;
-  z-index: 1200 !important;
+  z-index: 2000 !important;
 }
 
 .map-resolver-backdrop {
@@ -527,6 +577,10 @@ a.menu-text-left.active-menu .mat-icon {
   position: relative;
   z-index: 1;
   border: 2px solid #1a73e8;
+}
+
+.app-grid-table tbody td app-lookup-combobox input {
+  padding-right: 28px;
 }
 
 .app-grid-table tbody td input,

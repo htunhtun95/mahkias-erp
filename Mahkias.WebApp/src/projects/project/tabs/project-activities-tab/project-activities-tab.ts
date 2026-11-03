@@ -141,6 +141,20 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     return best;
   }
 
+  quoteCount(activity: Activity): number {
+    return new Set(this.quotesFor(activity.id).map((link) => link.quotationId)).size;
+  }
+
+  groupQuoteCount(activities: Activity[]): number {
+    const ids = new Set<number>();
+    for (const activity of activities) {
+      for (const link of this.quotesFor(activity.id)) {
+        ids.add(link.quotationId);
+      }
+    }
+    return ids.size;
+  }
+
   priceText(link: ActivityQuotationLink): string {
     if (link.unitPrice != null) {
       return formatMoney(link.unitPrice, link.currencySymbol, link.currencyCode);

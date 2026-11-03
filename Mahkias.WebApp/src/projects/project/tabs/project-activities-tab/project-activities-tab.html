@@ -133,8 +133,11 @@
                 <span class="lowest-price">
                   @if (groupLowestLink(block.activities); as link) {
                     <button class="price-link" type="button" matTooltip="View quotes" (click)="openGroupQuotations(block.group, block.activities)" [disabled]="isSaving || deletingId != null" [attr.aria-label]="'View quotes for ' + block.group.name">{{ priceText(link) }}</button>
+                    @if (groupQuoteCount(block.activities) > 1) {
+                      <span class="count-badge">{{ groupQuoteCount(block.activities) }}</span>
+                    }
                   } @else {
-                    <span class="price-empty">—</span>
+                    <span class="price-empty">Unquoted</span>
                   }
                 </span>
                 <span class="row-actions">
@@ -204,8 +207,11 @@
                     <span class="lowest-price">
                       @if (lowestLink(activity); as link) {
                         <button class="price-link" type="button" matTooltip="View quotations" (click)="openItemQuotations(activity)" [disabled]="isSaving || deletingId != null" [attr.aria-label]="'View quotations for ' + (activity.dsnNo || activity.partNo)">{{ priceText(link) }}</button>
+                        @if (quoteCount(activity) > 1) {
+                          <span class="count-badge">{{ quoteCount(activity) }}</span>
+                        }
                       } @else {
-                        <span class="price-empty">—</span>
+                        <span class="price-empty">Unquoted</span>
                       }
                     </span>
                     <span class="row-actions">
@@ -302,8 +308,11 @@
               <span class="lowest-price">
                 @if (lowestLink(activity); as link) {
                   <button class="price-link" type="button" matTooltip="View quotations" (click)="openItemQuotations(activity)" [disabled]="isSaving || deletingId != null" [attr.aria-label]="'View quotations for ' + (activity.dsnNo || activity.partNo)">{{ priceText(link) }}</button>
+                  @if (quoteCount(activity) > 1) {
+                    <span class="count-badge">{{ quoteCount(activity) }}</span>
+                  }
                 } @else {
-                  <span class="price-empty">—</span>
+                  <span class="price-empty">Unquoted</span>
                 }
               </span>
               <span class="row-actions">

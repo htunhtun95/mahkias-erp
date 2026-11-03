@@ -97,19 +97,34 @@ ORDER BY AP.ActivityId, AP.SortOrder, AP.Id;";
                 _connection.Close();
             }
 
-            using var command = new SqlCommand("dbo.CreateQuotation", _connection)
-            {
-                CommandType = CommandType.StoredProcedure
-            };
-            BindCreate(command, args);
-            _connection.Open();
+            await _connection.OpenAsync();
+            SqlTransaction transaction = null;
             try
             {
-                var id = await command.ExecuteScalarAsync();
-                return id == null || id == DBNull.Value ? 0 : Convert.ToInt32(id);
+                transaction = (SqlTransaction)await _connection.BeginTransactionAsync();
+                var id = await ExecuteCreateAsync(args, transaction, CancellationToken.None);
+                if (id <= 0)
+                {
+                    await RollbackQuietlyAsync(transaction);
+                    return 0;
+                }
+
+                await ReplaceChargesAsync(id, args.Charges, transaction, CancellationToken.None);
+                await transaction.CommitAsync();
+                return id;
+            }
+            catch
+            {
+                await RollbackQuietlyAsync(transaction);
+                throw;
             }
             finally
             {
+                if (transaction != null)
+                {
+                    await transaction.DisposeAsync();
+                }
+
                 _connection.Close();
             }
         }
@@ -132,6 +147,7 @@ ORDER BY AP.ActivityId, AP.SortOrder, AP.Id;";
                     throw new InvalidOperationException("The quotation could not be saved.");
                 }
 
+                await ReplaceChargesAsync(id, args.Charges, transaction, cancellationToken);
                 if (attachFile != null)
                 {
                     await LinkUploadedFileAsync(id, attachFile, transaction, cancellationToken);
@@ -179,6 +195,7 @@ ORDER BY AP.ActivityId, AP.SortOrder, AP.Id;";
                     throw new InvalidOperationException("The quotation could not be saved.");
                 }
 
+                await ReplaceChargesAsync(quotationId, args.Charges, transaction, cancellationToken);
                 if (attachFile != null)
                 {
                     await LinkUploadedFileAsync(quotationId, attachFile, transaction, cancellationToken);
@@ -272,15 +289,27 @@ INNER JOIN dbo.Currencies C ON C.Id = Q.CurrencyId
 WHERE Q.Id = @Id
   AND Q.IsDeleted = 0;
 
-SELECT I.Id, COALESCE(NULLIF(LTRIM(RTRIM(I.DsnNo)), N''), A.DSNNo) AS DsnNo, I.PartNo, I.PartDescription,
-       I.Condition, I.LeadTime, I.MinimumQty,
+SELECT I.Id, COALESCE(NULLIF(LTRIM(RTRIM(I.DsnNo)), N''), A.DSNNo) AS DsnNo,
+       CASE
+           WHEN I.IsAlternativePart = 1 AND NULLIF(LTRIM(RTRIM(AP.AlternativePartNo)), N'') IS NOT NULL THEN AP.AlternativePartNo
+           ELSE I.PartNo
+       END AS PartNo,
+       I.IsAlternativePart, I.PartDescription,
+       I.Condition, U.Name AS Unit, I.LeadTime, I.MinimumQty,
        I.UnitPrice, I.Quantity, I.TotalPrice, I.CurrencyId, C.Code AS CurrencyCode, C.Symbol AS CurrencySymbol,
        I.ExchangeRate, I.BaseUnitPrice, I.BaseTotalPrice, I.ActivityId, A.DSNNo AS ActivityDsn, A.PartNo AS ActivityPart
 FROM projects.QuotationItems I
 LEFT JOIN projects.Activities A ON A.Id = I.ActivityId
+LEFT JOIN projects.ActivityAlternativeParts AP ON AP.Id = I.AlternativePartId
 LEFT JOIN dbo.Currencies C ON C.Id = I.CurrencyId
+LEFT JOIN dbo.Units U ON U.Id = I.UnitId
 WHERE I.QuotationId = @Id
-ORDER BY I.Id;", _connection);
+ORDER BY I.Id;
+
+SELECT Id, Name, Basis, Amount, Rate, BaseAmount, SortOrder
+FROM projects.QuotationCharges
+WHERE QuotationId = @Id
+ORDER BY SortOrder, Id;", _connection);
             command.Parameters.AddInt("Id", quotationId);
             _connection.Open();
             try
@@ -319,8 +348,10 @@ ORDER BY I.Id;", _connection);
                             Id = reader.ReadIntValue("Id"),
                             DsnNo = reader.ReadStringValue("DsnNo"),
                             PartNo = reader.ReadStringValue("PartNo"),
+                            IsAlternativePart = reader.ReadBooleanValue("IsAlternativePart"),
                             Description = reader.ReadStringValue("PartDescription"),
                             Condition = reader.ReadStringValue("Condition"),
+                            Unit = reader.ReadStringValue("Unit"),
                             LeadTime = reader.ReadStringValue("LeadTime"),
                             MinimumQty = reader.ReadNullableIntValue("MinimumQty"),
                             UnitPrice = reader.ReadNullableDecimalValue("UnitPrice"),
@@ -337,8 +368,25 @@ ORDER BY I.Id;", _connection);
                         });
                     }
 
+                    if (await reader.NextResultAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            detail.Charges.Add(new QuotationChargeResult
+                            {
+                                Id = reader.ReadIntValue("Id"),
+                                Name = reader.ReadStringValue("Name"),
+                                Basis = reader.ReadStringValue("Basis"),
+                                Amount = reader.ReadNullableDecimalValue("Amount"),
+                                Rate = reader.ReadNullableDecimalValue("Rate"),
+                                BaseAmount = reader.GetDecimal(reader.GetOrdinal("BaseAmount")),
+                                SortOrder = reader.ReadIntValue("SortOrder"),
+                            });
+                        }
+                    }
+
                     detail.ItemCount = detail.Items.Count;
-                    detail.TotalPrice = detail.Items.Sum(item => item.BaseTotalPrice ?? item.TotalPrice ?? 0);
+                    detail.TotalPrice = detail.BaseTotalAmount;
                 }
             }
             finally
@@ -356,7 +404,7 @@ ORDER BY I.Id;", _connection);
 WITH Matched AS (
     SELECT A.Id AS ActivityId, Q.Id AS QuotationId, I.Id AS ItemId, Q.Code AS QuotationRef, S.Name AS SupplierName,
            Q.SupplierReference AS SupplierQuotationRef, I.PartNo, I.PartDescription AS Description,
-           I.Condition, I.LeadTime, I.MinimumQty,
+           I.Condition, U.Name AS Unit, I.LeadTime, I.MinimumQty,
            I.Quantity,
            Q.QuotedDate, Q.ValidUntil,
            I.UnitPrice,
@@ -379,6 +427,7 @@ WITH Matched AS (
     INNER JOIN projects.Suppliers S ON S.Id = Q.SupplierId
     INNER JOIN projects.QuotationItems I ON I.QuotationId = Q.Id
     LEFT JOIN dbo.Currencies C ON C.Id = I.CurrencyId
+    LEFT JOIN dbo.Units U ON U.Id = I.UnitId
     WHERE A.ProjectId = @ProjectId
       AND A.IsDeleted = 0
       AND Q.IsDeleted = 0
@@ -434,7 +483,7 @@ Ranked AS (
            ROW_NUMBER() OVER (PARTITION BY ActivityId ORDER BY BaseUnitPrice ASC, QuotationId ASC, ItemId ASC) AS QuoteRank
     FROM Matched
 )
-SELECT ActivityId, ItemId, QuotationId, QuotationRef, SupplierName, SupplierQuotationRef, PartNo, Description, Condition, LeadTime, MinimumQty, Quantity, QuotedDate, ValidUntil, AlternativePart,
+SELECT ActivityId, ItemId, QuotationId, QuotationRef, SupplierName, SupplierQuotationRef, PartNo, Description, Condition, Unit, LeadTime, MinimumQty, Quantity, QuotedDate, ValidUntil, AlternativePart,
        UnitPrice, TotalPrice, CurrencyCode, CurrencySymbol, BaseUnitPrice, BaseTotalPrice, RecordedAt,
        CASE WHEN QuoteRank = 1 THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS Lowest
 FROM Ranked
@@ -457,6 +506,7 @@ ORDER BY ActivityId, QuoteRank, QuotationId", _connection);
                         PartNo = reader.ReadStringValue("PartNo"),
                         Description = reader.ReadStringValue("Description"),
                         Condition = reader.ReadStringValue("Condition"),
+                        Unit = reader.ReadStringValue("Unit"),
                         LeadTime = reader.ReadStringValue("LeadTime"),
                         MinimumQty = reader.ReadNullableIntValue("MinimumQty"),
                         Quantity = reader.ReadIntValue("Quantity"),
@@ -489,25 +539,34 @@ ORDER BY ActivityId, QuoteRank, QuotationId", _connection);
                 _connection.Close();
             }
 
-            using var command = new SqlCommand("dbo.ReplaceQuotationItems", _connection)
-            {
-                CommandType = CommandType.StoredProcedure
-            };
-            command.Parameters.AddInt("Id", quotationId);
-            command.Parameters.AddInt("SupplierId", args.SupplierId);
-            command.Parameters.Add(OptionalText("SupplierReference", NullIfBlank(args.SupplierReference), 100));
-            command.Parameters.AddNullableInt("CurrencyId", args.CurrencyId);
-            command.Parameters.AddNullableDateTime("QuotedDate", args.QuotedDate);
-            command.Parameters.AddNullableDateTime("ValidUntil", args.ValidUntil);
-            command.Parameters.AddTable("Items", ItemTable(args.Items), "dbo.DefaultGenericTableType");
-            _connection.Open();
+            await _connection.OpenAsync();
+            SqlTransaction transaction = null;
             try
             {
-                var updated = await command.ExecuteScalarAsync();
-                return updated != null && updated != DBNull.Value && Convert.ToInt32(updated) > 0;
+                transaction = (SqlTransaction)await _connection.BeginTransactionAsync();
+                var updated = await ExecuteUpdateAsync(quotationId, args, transaction, CancellationToken.None);
+                if (!updated)
+                {
+                    await RollbackQuietlyAsync(transaction);
+                    return false;
+                }
+
+                await ReplaceChargesAsync(quotationId, args.Charges, transaction, CancellationToken.None);
+                await transaction.CommitAsync();
+                return true;
+            }
+            catch
+            {
+                await RollbackQuietlyAsync(transaction);
+                throw;
             }
             finally
             {
+                if (transaction != null)
+                {
+                    await transaction.DisposeAsync();
+                }
+
                 _connection.Close();
             }
         }
@@ -596,6 +655,41 @@ END", _connection);
             {
                 _connection.Close();
             }
+        }
+
+        private async Task ReplaceChargesAsync(int quotationId, IReadOnlyList<QuotationChargeWrite> charges, SqlTransaction transaction, CancellationToken cancellationToken)
+        {
+            if (charges != null)
+            {
+                using (var delete = new SqlCommand("DELETE FROM projects.QuotationCharges WHERE QuotationId = @QuotationId", _connection, transaction))
+                {
+                    delete.Parameters.AddInt("QuotationId", quotationId);
+                    await delete.ExecuteNonQueryAsync(cancellationToken);
+                }
+
+                foreach (var charge in charges.Where(item => item != null && !string.IsNullOrWhiteSpace(item.Name)))
+                {
+                    using var insert = new SqlCommand(@"
+INSERT INTO projects.QuotationCharges (QuotationId, Name, Basis, Amount, Rate, BaseAmount, SortOrder)
+SELECT @QuotationId, @Name, N'Amount', @Amount, NULL, ROUND(@Amount * Q.ExchangeRate, 2), @SortOrder
+FROM projects.Quotations Q
+WHERE Q.Id = @QuotationId;", _connection, transaction);
+                    insert.Parameters.AddInt("QuotationId", quotationId);
+                    insert.Parameters.AddNVarChar("Name", charge.Name.Trim(), 200, false);
+                    insert.Parameters.AddNullableDecimal("Amount", charge.Amount, 18, 2);
+                    insert.Parameters.AddInt("SortOrder", charge.SortOrder);
+                    await insert.ExecuteNonQueryAsync(cancellationToken);
+                }
+            }
+
+            using var update = new SqlCommand(@"
+UPDATE projects.Quotations
+SET BaseTotalAmount = ROUND(
+    ISNULL((SELECT SUM(BaseTotalPrice) FROM projects.QuotationItems WHERE QuotationId = @QuotationId), 0)
+    + ISNULL((SELECT SUM(BaseAmount) FROM projects.QuotationCharges WHERE QuotationId = @QuotationId), 0), 2)
+WHERE Id = @QuotationId;", _connection, transaction);
+            update.Parameters.AddInt("QuotationId", quotationId);
+            await update.ExecuteNonQueryAsync(cancellationToken);
         }
 
         private async Task<int> ExecuteCreateAsync(CreateQuotationArgs args, SqlTransaction transaction, CancellationToken cancellationToken)
@@ -726,6 +820,7 @@ END", _connection);
                     TextValue3 = item.PartDescription,
                     TextValue4 = item.Condition,
                     TextValue5 = item.LeadTime,
+                    TextValue6 = item.Unit,
                     NumericValue5 = item.CurrencyId,
                     NumericValue6 = item.MinimumQty,
                     DecimalValue1 = item.UnitPrice,

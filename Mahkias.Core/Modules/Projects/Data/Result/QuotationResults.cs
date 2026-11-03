@@ -30,6 +30,8 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
 
         public string Code { get; set; }
 
+        public string SupplierReference { get; set; }
+
         public string ProjectNames { get; set; }
 
         public int? ProjectId { get; set; }
@@ -153,9 +155,13 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
 
         public string PartNo { get; set; }
 
+        public bool IsAlternativePart { get; set; }
+
         public string Description { get; set; }
 
         public string Condition { get; set; }
+
+        public string Unit { get; set; }
 
         public string LeadTime { get; set; }
 
@@ -184,9 +190,28 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
         public decimal? BaseTotalPrice { get; set; }
     }
 
+    public class QuotationChargeResult
+    {
+        public int Id { get; set; }
+
+        public string Name { get; set; }
+
+        public string Basis { get; set; }
+
+        public decimal? Amount { get; set; }
+
+        public decimal? Rate { get; set; }
+
+        public decimal BaseAmount { get; set; }
+
+        public int SortOrder { get; set; }
+    }
+
     public class QuotationDetailResult : QuotationListItem
     {
         public List<QuotationLineResult> Items { get; set; } = new List<QuotationLineResult>();
+
+        public List<QuotationChargeResult> Charges { get; set; } = new List<QuotationChargeResult>();
     }
 
     public class ActivityQuotationLink
@@ -208,6 +233,8 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
         public string Description { get; set; }
 
         public string Condition { get; set; }
+
+        public string Unit { get; set; }
 
         public string LeadTime { get; set; }
 

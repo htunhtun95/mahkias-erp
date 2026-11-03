@@ -145,6 +145,7 @@ export interface SupplierQuotationProject {
 export interface SupplierQuotation {
   id: number;
   code: string;
+  supplierReference?: string | null;
   projectNames?: string | null;
   projectId?: number | null;
   projects?: SupplierQuotationProject[];
@@ -157,6 +158,13 @@ export interface SupplierQuotation {
 export interface SupplierDetail extends Supplier {
   projectCount: number;
   quotations: SupplierQuotation[];
+}
+
+export interface LookupValue {
+  id: number;
+  name: string;
+  code: string;
+  isDefault?: boolean;
 }
 
 export interface Currency {
@@ -190,8 +198,10 @@ export interface QuotationLine {
   id: number;
   dsnNo?: string | null;
   partNo?: string | null;
+  isAlternativePart?: boolean;
   description?: string | null;
   condition?: string | null;
+  unit?: string | null;
   leadTime?: string | null;
   minimumQty?: number | null;
   unitPrice?: number | null;
@@ -207,8 +217,24 @@ export interface QuotationLine {
   baseTotalPrice?: number | null;
 }
 
+export interface QuotationCharge {
+  id: number;
+  name: string;
+  basis?: string | null;
+  amount?: number | null;
+  rate?: number | null;
+  baseAmount: number;
+  sortOrder: number;
+}
+
+export interface QuotationChargeInput {
+  name: string;
+  amount: number;
+}
+
 export interface QuotationDetail extends QuotationListItem {
   items: QuotationLine[];
+  charges?: QuotationCharge[];
 }
 
 export interface ActivityQuotationLink {
@@ -221,6 +247,7 @@ export interface ActivityQuotationLink {
   partNo?: string | null;
   description?: string | null;
   condition?: string | null;
+  unit?: string | null;
   leadTime?: string | null;
   minimumQty?: number | null;
   quotedDate?: string | null;
@@ -242,6 +269,7 @@ export interface QuotationItemInput {
   partNo: string;
   description: string;
   condition?: string | null;
+  unit?: string | null;
   leadTime?: string | null;
   minimumQty?: number | null;
   unitPrice: number | null;
@@ -282,6 +310,7 @@ export interface QuotationExcelMapping {
     partNo?: string;
     description?: string;
     condition?: string;
+    unit?: string;
     leadTime?: string;
     minimumQty?: string;
     quotedDate?: string;
@@ -306,6 +335,103 @@ export interface QuotationImportValidation {
   supplierReference?: string | null;
   quotedDate?: string | null;
   validUntil?: string | null;
+}
+
+export interface PurchaseOrderListItem {
+  id: number;
+  supplierId: number;
+  supplierName: string;
+  code: string;
+  poDate?: string | null;
+  shipToAddress?: string | null;
+  itemCount: number;
+  currencyId: number;
+  currencyCode?: string | null;
+  currencySymbol?: string | null;
+  exchangeRate: number;
+  subTotal: number;
+  baseSubTotal: number;
+  total: number;
+  baseTotalAmount: number;
+}
+
+export interface PurchaseOrderLine {
+  id: number;
+  activityId?: number | null;
+  quotationId?: number | null;
+  quotationCode?: string | null;
+  dsnNo?: string | null;
+  partNo?: string | null;
+  description?: string | null;
+  condition?: string | null;
+  unit?: string | null;
+  leadTime?: string | null;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  currencyId?: number | null;
+  currencyCode?: string | null;
+  currencySymbol?: string | null;
+}
+
+export interface PurchaseOrderDetail extends PurchaseOrderListItem {
+  items: PurchaseOrderLine[];
+  charges: QuotationCharge[];
+}
+
+export interface PurchaseOrderItemInput {
+  activityId?: number | null;
+  quotationId?: number | null;
+  dsnNo?: string | null;
+  partNo?: string | null;
+  description?: string | null;
+  condition?: string | null;
+  unit?: string | null;
+  leadTime?: string | null;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+export interface PurchaseOrderWrite {
+  code?: string | null;
+  supplierId: number;
+  poDate?: string | null;
+  shipToAddress?: string | null;
+  currencyId?: number | null;
+  projectIds: number[];
+  items: PurchaseOrderItemInput[];
+  charges?: QuotationChargeInput[];
+}
+
+export interface PurchaseOrderDocument {
+  documentId: number;
+  purchaseOrderId: number;
+  fileName: string;
+  fileType: string;
+  webViewLink: string;
+  uploadedAt?: string | null;
+}
+
+export interface PurchaseOrderExcelMappingInput {
+  dsnNoColumn?: string;
+  partNoColumn?: string;
+  descriptionColumn?: string;
+  conditionColumn?: string;
+  unitColumn?: string;
+  leadTimeColumn?: string;
+  quantityColumn?: string;
+  unitPriceColumn?: string;
+  totalPriceColumn?: string;
+}
+
+export interface PurchaseOrderExcelValidation {
+  valid: boolean;
+  ready: number;
+  rowCount: number;
+  errorCount: number;
+  errors: ActivityImportIssue[];
+  items: PurchaseOrderItemInput[];
 }
 
 export interface ActivityExcelUpload {
@@ -558,6 +684,14 @@ export class ProjectApiService {
     return this.http.get<Currency[]>(`${this.baseUrl}/currencies`);
   }
 
+  units() {
+    return this.http.get<LookupValue[]>(`${this.baseUrl}/units`);
+  }
+
+  conditions() {
+    return this.http.get<LookupValue[]>(`${this.baseUrl}/conditions`);
+  }
+
   quotation(id: number) {
     return this.http.get<QuotationDetail>(`${this.baseUrl}/quotations/${id}`);
   }
@@ -574,6 +708,7 @@ export class ProjectApiService {
     quotedDate?: string | null;
     validUntil?: string | null;
     items: QuotationItemInput[];
+    charges?: QuotationChargeInput[];
   }) {
     return this.http.put<QuotationDetail>(`${this.baseUrl}/quotations/${id}`, body);
   }
@@ -606,6 +741,7 @@ export class ProjectApiService {
       quotedDate?: string | null;
       validUntil?: string | null;
       items: QuotationItemInput[];
+      charges?: QuotationChargeInput[];
     },
     file: File | null,
   ) {
@@ -618,6 +754,7 @@ export class ProjectApiService {
     form.append('quotedDate', body.quotedDate ?? '');
     form.append('validUntil', body.validUntil ?? '');
     form.append('items', JSON.stringify(body.items));
+    form.append('charges', JSON.stringify(body.charges ?? []));
     if (file) {
       form.append('file', file, file.name);
     }
@@ -634,6 +771,7 @@ export class ProjectApiService {
       quotedDate?: string | null;
       validUntil?: string | null;
       items: QuotationItemInput[];
+      charges?: QuotationChargeInput[];
     },
     file: File,
     documentId?: number | null,
@@ -647,6 +785,7 @@ export class ProjectApiService {
     form.append('quotedDate', body.quotedDate ?? '');
     form.append('validUntil', body.validUntil ?? '');
     form.append('items', JSON.stringify(body.items));
+    form.append('charges', JSON.stringify(body.charges ?? []));
     if (documentId) {
       form.append('documentId', String(documentId));
     }
@@ -671,6 +810,7 @@ export class ProjectApiService {
       partNoColumn: string;
       descriptionColumn: string;
       conditionColumn?: string;
+      unitColumn?: string;
       leadTimeColumn?: string;
       minimumQtyColumn?: string;
       quotedDateColumn?: string;
@@ -682,6 +822,7 @@ export class ProjectApiService {
       defaultPartNo: string;
       defaultDescription: string;
       defaultCondition?: string;
+      defaultUnit?: string;
       defaultLeadTime?: string;
       defaultMinimumQty?: string;
       defaultQuotedDate?: string;
@@ -700,6 +841,7 @@ export class ProjectApiService {
     body.append('partNoColumn', mapping.partNoColumn ?? '');
     body.append('descriptionColumn', mapping.descriptionColumn ?? '');
     body.append('conditionColumn', mapping.conditionColumn ?? '');
+    body.append('unitColumn', mapping.unitColumn ?? '');
     body.append('leadTimeColumn', mapping.leadTimeColumn ?? '');
     body.append('minimumQtyColumn', mapping.minimumQtyColumn ?? '');
     body.append('quotedDateColumn', mapping.quotedDateColumn ?? '');
@@ -712,6 +854,7 @@ export class ProjectApiService {
     body.append('defaultPartNo', mapping.defaultPartNo ?? '');
     body.append('defaultDescription', mapping.defaultDescription ?? '');
     body.append('defaultCondition', mapping.defaultCondition ?? '');
+    body.append('defaultUnit', mapping.defaultUnit ?? '');
     body.append('defaultLeadTime', mapping.defaultLeadTime ?? '');
     body.append('defaultMinimumQty', mapping.defaultMinimumQty ?? '');
     body.append('defaultQuotedDate', mapping.defaultQuotedDate ?? '');
@@ -728,4 +871,97 @@ export class ProjectApiService {
       body,
     );
   }
+
+  purchaseOrders(projectId: number) {
+    return this.http.get<PurchaseOrderListItem[]>(`${this.baseUrl}/projects/${projectId}/purchase-orders`);
+  }
+
+  purchaseOrder(id: number) {
+    return this.http.get<PurchaseOrderDetail>(`${this.baseUrl}/purchase-orders/${id}`);
+  }
+
+  nextPurchaseOrderCode() {
+    return this.http.get<{ code: string }>(`${this.baseUrl}/purchase-orders/next-code`);
+  }
+
+  purchaseOrderDocuments(projectId: number, purchaseOrderId: number) {
+    return this.http.get<PurchaseOrderDocument[]>(`${this.baseUrl}/projects/${projectId}/purchase-orders/${purchaseOrderId}/documents`);
+  }
+
+  removePurchaseOrderDocument(projectId: number, purchaseOrderId: number, documentId: number) {
+    return this.http.delete<void>(`${this.baseUrl}/projects/${projectId}/purchase-orders/${purchaseOrderId}/documents/${documentId}`);
+  }
+
+  createPurchaseOrder(body: PurchaseOrderWrite) {
+    return this.http.post<PurchaseOrderDetail>(`${this.baseUrl}/purchase-orders`, body);
+  }
+
+  updatePurchaseOrder(id: number, body: PurchaseOrderWrite) {
+    return this.http.put<PurchaseOrderDetail>(`${this.baseUrl}/purchase-orders/${id}`, body);
+  }
+
+  deletePurchaseOrder(id: number) {
+    return this.http.delete<void>(`${this.baseUrl}/purchase-orders/${id}`);
+  }
+
+  importPurchaseOrder(projectId: number, body: PurchaseOrderWrite, file?: File | null) {
+    return this.http.post<PurchaseOrderDetail>(
+      `${this.baseUrl}/projects/${projectId}/purchase-orders/import`,
+      purchaseOrderForm(body, file),
+    );
+  }
+
+  savePurchaseOrder(projectId: number, purchaseOrderId: number, body: PurchaseOrderWrite, file: File) {
+    return this.http.post<PurchaseOrderDetail>(
+      `${this.baseUrl}/projects/${projectId}/purchase-orders/${purchaseOrderId}/save`,
+      purchaseOrderForm(body, file),
+    );
+  }
+
+  purchaseOrderExcelValidate(projectId: number, file: File, mapping: PurchaseOrderExcelMappingInput) {
+    const body = new FormData();
+    body.append('file', file);
+    body.append('dsnNoColumn', mapping.dsnNoColumn ?? '');
+    body.append('partNoColumn', mapping.partNoColumn ?? '');
+    body.append('descriptionColumn', mapping.descriptionColumn ?? '');
+    body.append('conditionColumn', mapping.conditionColumn ?? '');
+    body.append('unitColumn', mapping.unitColumn ?? '');
+    body.append('leadTimeColumn', mapping.leadTimeColumn ?? '');
+    body.append('quantityColumn', mapping.quantityColumn ?? '');
+    body.append('unitPriceColumn', mapping.unitPriceColumn ?? '');
+    body.append('totalPriceColumn', mapping.totalPriceColumn ?? '');
+    body.append('defaultDsnNo', '');
+    body.append('defaultPartNo', '');
+    body.append('defaultDescription', '');
+    body.append('defaultCondition', '');
+    body.append('defaultUnit', '');
+    body.append('defaultLeadTime', '');
+    body.append('defaultMinimumQty', '');
+    body.append('defaultQuotedDate', '');
+    body.append('defaultValidUntil', '');
+    body.append('defaultUnitPrice', '');
+    body.append('defaultQuantity', '');
+    body.append('defaultTotalPrice', '');
+    return this.http.post<PurchaseOrderExcelValidation>(
+      `${this.baseUrl}/projects/${projectId}/purchase-orders/excel/validate`,
+      body,
+    );
+  }
+}
+
+function purchaseOrderForm(body: PurchaseOrderWrite, file?: File | null): FormData {
+  const form = new FormData();
+  form.append('code', body.code ?? '');
+  form.append('supplierId', String(body.supplierId));
+  form.append('poDate', body.poDate ?? '');
+  form.append('shipToAddress', body.shipToAddress ?? '');
+  if (body.currencyId != null) {
+    form.append('currencyId', String(body.currencyId));
+  }
+  form.append('items', JSON.stringify(body.items));
+  form.append('charges', JSON.stringify(body.charges ?? []));
+  if (file) {
+    form.append('file', file, file.name);
+  }
+  return form;
 }

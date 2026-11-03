@@ -23,6 +23,57 @@ export interface PartSuggestion {
   groupId: number | null;
 }
 
+export interface ActivitySuggestion {
+  activityId: number;
+  dsnNo: string;
+  partNo: string;
+  label: string;
+}
+
+export function activitySuggestions(query: string, activities: Activity[]): ActivitySuggestion[] {
+  const text = (query ?? '').trim().toLowerCase();
+  const items: ActivitySuggestion[] = [];
+  const seen = new Set<string>();
+  for (const activity of activities ?? []) {
+    const dsn = (activity.dsnNo ?? '').trim();
+    const parts = suggestionParts(activity);
+    for (const part of parts) {
+      const key = `${activity.id}|${part.toLowerCase()}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      const label = [dsn, part].filter((value) => value.length > 0).join(' - ');
+      const haystack = `${dsn} ${part} ${label}`.toLowerCase();
+      if (text && !haystack.includes(text)) {
+        continue;
+      }
+      items.push({ activityId: activity.id, dsnNo: dsn, partNo: part, label });
+    }
+  }
+  items.sort((left, right) => left.label.localeCompare(right.label, undefined, { numeric: true, sensitivity: 'base' }));
+  return items.slice(0, 12);
+}
+
+function suggestionParts(activity: Activity): string[] {
+  const main = (activity.mainPartNo ?? '').trim();
+  const alternatives = (activity.alternativePartNos ?? []).map((value) => (value ?? '').trim()).filter((value) => value.length > 0);
+  const parts = [main, ...alternatives].filter((value) => value.length > 0);
+  if (!parts.length) {
+    const display = (activity.partNo ?? '').trim();
+    if (display) {
+      parts.push(display);
+    }
+  }
+  const unique: string[] = [];
+  for (const part of parts) {
+    if (!unique.some((value) => value.toLowerCase() === part.toLowerCase())) {
+      unique.push(part);
+    }
+  }
+  return unique;
+}
+
 export function partSuggestions(query: string, activities: Activity[], groups: ActivityGroup[]): PartSuggestion[] {
   const text = (query ?? '').trim().toLowerCase();
   const parts = new Map<string, string>();

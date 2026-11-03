@@ -121,34 +121,29 @@ export class SuppliersComponent implements OnInit {
     this.router.navigate(['/suppliers', supplier.id]);
   }
 
+  hasQuotations(supplier: Supplier) {
+    return (supplier.quotationCount ?? 0) > 0;
+  }
+
   openDelete(event: Event, supplier: Supplier) {
     event.stopPropagation();
-    if (this.isDeleting) {
+    if (this.isDeleting || this.hasQuotations(supplier)) {
       return;
     }
-    const blocked = (supplier.quotationCount ?? 0) > 0;
     const ref = this.dialog.open(ConfirmDialog, {
       disableClose: true,
       width: '480px',
       maxWidth: 'calc(100vw - 32px)',
       panelClass: 'add-project-dialog-panel',
       backdropClass: 'add-project-dialog-backdrop',
-      data: blocked
-        ? {
-            title: 'Delete Supplier',
-            message: 'This supplier cannot be deleted because it has quotations.',
-            confirmLabel: 'Delete',
-            allowConfirm: false,
-            cancelLabel: 'Close',
-          }
-        : {
-            title: 'Delete Supplier',
-            message: 'Are you sure you want to delete this supplier?',
-            confirmLabel: 'Delete',
-          },
+      data: {
+        title: 'Delete Supplier',
+        message: 'Are you sure you want to delete this supplier?',
+        confirmLabel: 'Delete',
+      },
     });
     ref.afterClosed().subscribe((confirmed) => {
-      if (!confirmed || blocked || this.isDeleting) {
+      if (!confirmed || this.isDeleting) {
         return;
       }
       this.api.deleteSupplier(supplier.id).pipe(whileBusy((busy) => (this.deletingId = busy ? supplier.id : null))).subscribe({

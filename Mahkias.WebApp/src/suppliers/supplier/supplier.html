@@ -20,15 +20,17 @@
         <mat-icon>edit</mat-icon>
         Edit Supplier
       </button>
-      <button class="delete-supplier" type="button" matTooltip="Delete supplier" (click)="openDelete()" [disabled]="isDeleting">
-        @if (isDeleting) {
-          <mat-spinner diameter="18"></mat-spinner>
-          Deleting...
-        } @else {
-          <mat-icon>delete</mat-icon>
-          Delete Supplier
-        }
-      </button>
+      @if (!hasQuotations) {
+        <button class="delete-supplier" type="button" matTooltip="Delete supplier" (click)="openDelete()" [disabled]="isDeleting">
+          @if (isDeleting) {
+            <mat-spinner diameter="18"></mat-spinner>
+            Deleting...
+          } @else {
+            <mat-icon>delete</mat-icon>
+            Delete Supplier
+          }
+        </button>
+      }
     </div>
   </header>
 
@@ -54,18 +56,24 @@
         <span>Quotation Reference</span>
         <span>Project Name</span>
         <span>Items Count</span>
-        <span>Created Date</span>
+        <span>Quoted date</span>
+        <span>Valid until</span>
       </div>
       @if (supplier.quotations.length === 0) {
         <div class="empty-row">No quotations for this supplier yet.</div>
       } @else {
         @for (quotation of supplier.quotations; track quotation.id) {
           <div class="row">
-            @if (projectLink(quotation); as link) {
-              <a class="ref-link" [routerLink]="link" [queryParams]="{ tab: 'procurement', section: 'quotations' }">{{ quotation.code }}</a>
-            } @else {
-              <span class="ref">{{ quotation.code }}</span>
-            }
+            <span class="refs">
+              @if (projectLink(quotation); as link) {
+                <a class="ref-tag" [routerLink]="link" [queryParams]="{ tab: 'procurement', section: 'quotations' }">{{ quotation.code }}</a>
+              } @else {
+                <span class="ref-tag">{{ quotation.code }}</span>
+              }
+              @if (supplierRef(quotation)) {
+                <span class="ref-note">{{ supplierRef(quotation) }}</span>
+              }
+            </span>
             <span class="project">
               @if (quotation.projects?.length) {
                 @for (project of quotation.projects; track project.id) {
@@ -81,13 +89,15 @@
               }
             </span>
             <span>{{ quotation.itemCount }}</span>
-            <span>
-              {{ listDate(quotation.createdAt) }}
-              @if (quotation.quotedDate) {
-                <span class="quoted-on">Quoted {{ listDate(quotation.quotedDate) }}</span>
-              }
-              @if (validity(quotation.validUntil); as term) {
-                <span class="validity" [class.expired]="term.expired">{{ term.label }}</span>
+            <span class="when-cell">{{ quotation.quotedDate ? when(quotation.quotedDate) : '-' }}</span>
+            <span class="when-cell">
+              @if (quotation.validUntil) {
+                <span>{{ when(quotation.validUntil) }}</span>
+                @if (validity(quotation.quotedDate, quotation.validUntil); as term) {
+                  <span class="validity" [class.expired]="term.expired">{{ term.label }}</span>
+                }
+              } @else {
+                <span>-</span>
               }
             </span>
           </div>

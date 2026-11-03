@@ -14,7 +14,17 @@
     </article>
   </div>
 
-  @if (error) {
+  @if (selectedCount) {
+    <div class="selection-dock">
+    <div class="selection-bar">
+      <span class="selection-note" [class.error]="!!error">{{ error || selectionNote }}</span>
+      <button class="selection-primary" type="button" (click)="createPurchaseOrder()" [disabled]="deletingId != null">Create purchase order</button>
+      <button class="selection-clear" type="button" (click)="clearSelection()" [disabled]="deletingId != null">Clear</button>
+    </div>
+    </div>
+  }
+
+  @if (error && !selectedCount) {
     <p class="error">{{ error }}</p>
   }
 
@@ -25,7 +35,8 @@
       <span>Supplier</span>
       <span>Supplier quotation ref</span>
       <span>Items</span>
-      <span>Date</span>
+      <span>Quoted date</span>
+      <span>Valid until</span>
       <span>Total</span>
       <span></span>
     </div>
@@ -50,14 +61,10 @@
             }
             <span>{{ quotation.supplierReference }}</span>
             <span>{{ quotation.itemCount }}</span>
+            <span class="when-cell">{{ quotation.quotedDate ? when(quotation.quotedDate) : '-' }}</span>
             <span class="when-cell">
-              @if (quotation.quotedDate || quotation.validUntil) {
-                @if (quotation.quotedDate) {
-                  <span>Quoted Date: {{ when(quotation.quotedDate) }}</span>
-                }
-                @if (quotation.validUntil) {
-                  <span [class.quoted-on]="!!quotation.quotedDate">Valid Until: {{ when(quotation.validUntil) }}</span>
-                }
+              @if (quotation.validUntil) {
+                <span>{{ when(quotation.validUntil) }}</span>
                 @if (validity(quotation.quotedDate, quotation.validUntil); as term) {
                   <span class="validity" [class.expired]="term.expired">{{ term.label }}</span>
                 }
@@ -67,6 +74,9 @@
             </span>
             <span>{{ money(quotation.totalPrice, '$', 'USD') }}</span>
             <span class="actions">
+              <button class="icon-btn" type="button" matTooltip="Quotation details" aria-label="Quotation details" [disabled]="deletingId != null" (click)="openDetails(quotation)">
+                <mat-icon>description</mat-icon>
+              </button>
               <button class="icon-btn" type="button" matTooltip="Edit quotation" aria-label="Edit quotation" [disabled]="deletingId != null" (click)="edit(quotation)">
                 <mat-icon>edit</mat-icon>
               </button>
@@ -85,14 +95,19 @@
                 <div class="line-loading" role="status" aria-live="polite" aria-busy="true">
                   <mat-spinner diameter="28"></mat-spinner>
                 </div>
-              } @else if (!lineItems(quotation.id).length) {
-                <p class="line-empty">No line items.</p>
               } @else {
+                @if (!lineItems(quotation.id).length) {
+                  <p class="line-empty">No line items.</p>
+                } @else {
                 <div class="line-row heading">
+                  <label class="line-check">
+                    <input type="checkbox" [checked]="allLinesSelected(quotation.id)" [indeterminate]="someLinesSelected(quotation.id)" (change)="toggleAllLines(quotation.id, $any($event.target).checked)" aria-label="Select all line items" />
+                  </label>
                   <span>DSN No</span>
                   <span>Part No</span>
                   <span>Description</span>
                   <span>Condition</span>
+                  <span>Unit</span>
                   <span>Lead Time</span>
                   <span>Currency</span>
                   <span>Unit Price</span>
@@ -101,10 +116,14 @@
                 </div>
                 @for (line of lineItems(quotation.id); track line.id) {
                   <div class="line-row">
+                    <label class="line-check">
+                      <input type="checkbox" [checked]="lineSelected(line.id)" (change)="toggleLine(line.id, $any($event.target).checked)" [attr.aria-label]="'Select ' + (line.partNo || line.dsnNo || 'line item')" />
+                    </label>
                     <span>{{ line.dsnNo || '—' }}</span>
                     <span>{{ line.partNo || '—' }}</span>
                     <span>{{ line.description || '—' }}</span>
                     <span>{{ line.condition || '—' }}</span>
+                    <span>{{ line.unit || '—' }}</span>
                     <span>{{ line.leadTime || '—' }}</span>
                     <span>{{ line.currencyCode || 'USD' }}</span>
                     <span>{{ money(line.unitPrice, line.currencySymbol, line.currencyCode) }}</span>
@@ -119,14 +138,6 @@
                     <span>{{ money(line.totalPrice, line.currencySymbol, line.currencyCode) }}</span>
                   </div>
                 }
-              }
-            </div>
-            <div class="quote-files">
-              @if (!quotationDocuments(quotation.id).length) {
-                <p class="line-empty">No files stored for this quotation.</p>
-              } @else {
-                @for (document of quotationDocuments(quotation.id); track document.documentId) {
-                  <a class="doc-link" [href]="document.webViewLink" target="_blank" rel="noopener noreferrer">{{ document.fileName }}</a>
                 }
               }
             </div>

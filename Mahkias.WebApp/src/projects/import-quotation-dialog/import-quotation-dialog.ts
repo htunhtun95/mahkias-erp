@@ -10,6 +10,9 @@ import { whileBusy } from '../../core/while-busy';
 import { Activity, ActivityImportIssue, Currency, ProjectApiService, QuotationItemInput, Supplier } from '../../core/services/project-api.service';
 import { directActivityId } from '../quotation-map';
 import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-date-field';
+import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
+import { LookupValue, canonicalCondition, canonicalUnit } from '../quotation-lookups';
+import { QuotationChargeRow, QuotationChargesComponent, readQuotationCharges } from '../quotation-charges/quotation-charges';
 
 interface ImportLine {
   row: number;
@@ -17,6 +20,7 @@ interface ImportLine {
   partNo: string;
   description: string;
   condition: string;
+  unit: string;
   leadTime: string;
   minimumQty: string;
   unitPrice: string;
@@ -36,6 +40,7 @@ interface QuoteMapping {
   partNoColumn: string;
   descriptionColumn: string;
   conditionColumn: string;
+  unitColumn: string;
   leadTimeColumn: string;
   minimumQtyColumn: string;
   quotedDateColumn: string;
@@ -48,6 +53,7 @@ interface QuoteMapping {
   defaultPartNo: string;
   defaultDescription: string;
   defaultCondition: string;
+  defaultUnit: string;
   defaultLeadTime: string;
   defaultMinimumQty: string;
   defaultQuotedDate: string;
@@ -62,7 +68,7 @@ type CheckState = 'idle' | 'checking' | 'passed' | 'failed';
 @Component({
   selector: 'app-import-quotation-dialog',
   standalone: true,
-  imports: [FormsModule, MaterialModule, DriveUploadCardComponent, QuotationDateFieldComponent],
+  imports: [FormsModule, MaterialModule, DriveUploadCardComponent, QuotationDateFieldComponent, LookupComboboxComponent, QuotationChargesComponent],
   templateUrl: './import-quotation-dialog.html',
   styleUrl: './import-quotation-dialog.css',
 })
@@ -81,6 +87,8 @@ export class ImportQuotationDialogComponent {
   supplierOpen = false;
   creatingSupplier = false;
   currencies: Currency[] = [];
+  units: LookupValue[] = [];
+  conditions: LookupValue[] = [];
   currencyId: number | null = null;
   newSupplierName = '';
   newSupplierReference = '';
@@ -102,6 +110,7 @@ export class ImportQuotationDialogComponent {
   lineSubmitted = false;
   quotedDate = '';
   validUntil = '';
+  charges: QuotationChargeRow[] = [];
   error = '';
   private checkToken = 0;
   private mappingToken = 0;
@@ -111,6 +120,7 @@ export class ImportQuotationDialogComponent {
     { key: 'partNoColumn', def: 'defaultPartNo', label: 'Part No' },
     { key: 'descriptionColumn', def: 'defaultDescription', label: 'Description' },
     { key: 'conditionColumn', def: 'defaultCondition', label: 'Condition' },
+    { key: 'unitColumn', def: 'defaultUnit', label: 'Unit' },
     { key: 'leadTimeColumn', def: 'defaultLeadTime', label: 'Lead Time' },
     { key: 'minimumQtyColumn', def: 'defaultMinimumQty', label: 'MOQ' },
     { key: 'unitPriceColumn', def: 'defaultUnitPrice', label: 'Unit Price' },
@@ -123,6 +133,16 @@ export class ImportQuotationDialogComponent {
     this.api.suppliers().subscribe({
       next: (suppliers) => {
         this.suppliers = suppliers;
+      },
+    });
+    this.api.units().subscribe({
+      next: (units) => {
+        this.units = units ?? [];
+      },
+    });
+    this.api.conditions().subscribe({
+      next: (conditions) => {
+        this.conditions = conditions ?? [];
       },
     });
     this.api.currencies().subscribe({
@@ -164,6 +184,26 @@ export class ImportQuotationDialogComponent {
   currencyMark(currencyId: number | null): string {
     const currency = this.currencies.find((item) => item.id === currencyId);
     return currency?.symbol || currency?.code || '$';
+  }
+
+  get chargeSymbol(): string {
+    return this.currencyMark(this.currencyId);
+  }
+
+  get conditionNames(): string[] {
+    return this.conditions.map((condition) => condition.name);
+  }
+
+  get unitNames(): string[] {
+    return this.units.map((unit) => unit.name);
+  }
+
+  normalizeUnit(line: ImportLine) {
+    line.unit = canonicalUnit(line.unit, this.units);
+  }
+
+  normalizeCondition(line: ImportLine) {
+    line.condition = canonicalCondition(line.condition, this.conditions);
   }
 
   lineInvalid(line: ImportLine, field: 'dsn' | 'part' | 'price' | 'qty' | 'moq'): boolean {
@@ -350,6 +390,7 @@ export class ImportQuotationDialogComponent {
           partNoColumn: mapping.suggested.partNo ?? '',
           descriptionColumn: mapping.suggested.description ?? '',
           conditionColumn: mapping.suggested.condition ?? '',
+          unitColumn: mapping.suggested.unit ?? '',
           leadTimeColumn: mapping.suggested.leadTime ?? '',
           minimumQtyColumn: mapping.suggested.minimumQty ?? '',
           unitPriceColumn: mapping.suggested.unitPrice ?? '',
@@ -526,6 +567,11 @@ export class ImportQuotationDialogComponent {
       this.isVerifyStep = false;
       return;
     }
+    const charges = readQuotationCharges(this.charges);
+    if (charges.error) {
+      this.error = charges.error;
+      return;
+    }
     this.dialogRef.disableClose = true;
     this.withSupplier()
       .pipe(
@@ -536,6 +582,7 @@ export class ImportQuotationDialogComponent {
           quotedDate: this.quotedDate || null,
           validUntil: this.validUntil || null,
           items,
+          charges: charges.charges,
         }, this.storedFile())),
         whileBusy((busy) => (this.isImporting = busy)),
       )
@@ -640,7 +687,7 @@ export class ImportQuotationDialogComponent {
 
   private lineSearchText(line: ImportLine): string {
     const currency = this.currencies.find((item) => item.id === line.currencyId);
-    return [line.dsnNo, line.partNo, line.description, line.condition, line.leadTime, line.quantity, line.unitPrice, line.totalPrice, currency?.code, currency?.symbol]
+    return [line.dsnNo, line.partNo, line.description, line.condition, line.unit, line.leadTime, line.quantity, line.unitPrice, line.totalPrice, currency?.code, currency?.symbol]
       .filter((value) => !!value)
       .join(' ')
       .toLowerCase();
@@ -652,6 +699,7 @@ export class ImportQuotationDialogComponent {
     partNo?: string | null;
     description?: string | null;
     condition?: string | null;
+    unit?: string | null;
     leadTime?: string | null;
     minimumQty?: number | null;
     unitPrice?: number | null;
@@ -672,6 +720,7 @@ export class ImportQuotationDialogComponent {
       partNo: source.partNo ?? '',
       description: source.description ?? '',
       condition: source.condition ?? '',
+      unit: source.unit?.trim() || '',
       leadTime: source.leadTime ?? '',
       minimumQty: source.minimumQty ? String(source.minimumQty) : '',
       unitPrice: unitText,
@@ -719,6 +768,7 @@ export class ImportQuotationDialogComponent {
         partNo: line.partNo.trim(),
         description: line.description.trim(),
         condition: line.condition.trim(),
+        unit: line.unit.trim(),
         leadTime: line.leadTime.trim(),
         minimumQty: this.optionalQuantity(line.minimumQty),
         unitPrice: this.money(line.unitPrice),
@@ -797,6 +847,7 @@ export class ImportQuotationDialogComponent {
       partNoColumn: '',
       descriptionColumn: '',
       conditionColumn: '',
+      unitColumn: '',
       leadTimeColumn: '',
       minimumQtyColumn: '',
       quotedDateColumn: '',
@@ -809,6 +860,7 @@ export class ImportQuotationDialogComponent {
       defaultPartNo: '',
       defaultDescription: '',
       defaultCondition: '',
+      defaultUnit: '',
       defaultLeadTime: '',
       defaultMinimumQty: '',
       defaultQuotedDate: '',

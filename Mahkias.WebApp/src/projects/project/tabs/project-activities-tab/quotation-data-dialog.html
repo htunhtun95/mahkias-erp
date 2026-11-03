@@ -26,6 +26,7 @@
               <span>Quoted part no</span>
             }
             <span>Condition</span>
+            <span>Unit</span>
             <span>Lead time</span>
             <span>Unit price</span>
             <span>Quantity</span>
@@ -59,6 +60,8 @@
                 </span>
               }
               <span>{{ row.link?.condition || '—' }}</span>
+              <span>{{ row.link?.unit || '—' }}</span>
+
               <span>{{ row.link?.leadTime || '—' }}</span>
               <span class="price">
                 {{ row.link ? quotedUnit(row.link) : '—' }}

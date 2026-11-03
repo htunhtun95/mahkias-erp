@@ -25,6 +25,8 @@ namespace Mahkias.Core.Modules.Projects.Data.Args
 
         public string Condition { get; set; }
 
+        public string Unit { get; set; }
+
         public string LeadTime { get; set; }
 
         public int? MinimumQty { get; set; }
@@ -36,6 +38,15 @@ namespace Mahkias.Core.Modules.Projects.Data.Args
         public decimal? TotalPrice { get; set; }
 
         public int? CurrencyId { get; set; }
+    }
+
+    public class QuotationChargeWrite
+    {
+        public string Name { get; set; }
+
+        public decimal Amount { get; set; }
+
+        public int SortOrder { get; set; }
     }
 
     public class CreateQuotationArgs
@@ -55,5 +66,7 @@ namespace Mahkias.Core.Modules.Projects.Data.Args
         public IReadOnlyList<int> ProjectIds { get; set; }
 
         public IReadOnlyList<QuotationItemWrite> Items { get; set; }
+
+        public IReadOnlyList<QuotationChargeWrite> Charges { get; set; }
     }
 }

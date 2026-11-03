@@ -22,10 +22,14 @@ CREATE TABLE [projects].[QuotationItems]
     [Condition] NVARCHAR(100) NULL,
     [LeadTime] NVARCHAR(100) NULL,
     [MinimumQty] INT NULL,
+    [UnitId] INT NULL,
+    [ConditionId] INT NULL,
     CONSTRAINT [PK_QuotationItems] PRIMARY KEY CLUSTERED ([Id] ASC),
     CONSTRAINT [FK_QuotationItems_Quotations] FOREIGN KEY ([QuotationId]) REFERENCES [projects].[Quotations] ([Id]) ON DELETE CASCADE,
     CONSTRAINT [FK_QuotationItems_Activities] FOREIGN KEY ([ActivityId]) REFERENCES [projects].[Activities] ([Id]) ON DELETE SET NULL,
     CONSTRAINT [FK_QuotationItems_ActivityGroups] FOREIGN KEY ([ActivityGroupId]) REFERENCES [projects].[ActivityGroups] ([Id]),
     CONSTRAINT [FK_QuotationItems_ActivityAlternativeParts] FOREIGN KEY ([AlternativePartId]) REFERENCES [projects].[ActivityAlternativeParts] ([Id]),
-    CONSTRAINT [FK_QuotationItems_Currencies] FOREIGN KEY ([CurrencyId]) REFERENCES [dbo].[Currencies] ([Id])
+    CONSTRAINT [FK_QuotationItems_Currencies] FOREIGN KEY ([CurrencyId]) REFERENCES [dbo].[Currencies] ([Id]),
+    CONSTRAINT [FK_QuotationItems_Units] FOREIGN KEY ([UnitId]) REFERENCES [dbo].[Units] ([Id]),
+    CONSTRAINT [FK_QuotationItems_Conditions] FOREIGN KEY ([ConditionId]) REFERENCES [dbo].[Conditions] ([Id])
 );

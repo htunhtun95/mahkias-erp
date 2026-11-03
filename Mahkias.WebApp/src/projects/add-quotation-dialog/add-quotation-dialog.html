@@ -114,6 +114,7 @@
           <col class="col-part" />
             <col class="col-description" />
             <col class="col-condition" />
+            <col class="col-unit" />
             <col class="col-lead" />
             <col class="col-currency" />
           <col class="col-price" />
@@ -127,6 +128,7 @@
             <th class="part">Part No</th>
             <th class="description">Description</th>
             <th>Condition</th>
+            <th>Unit</th>
             <th>Lead Time</th>
             <th class="currency">Currency</th>
             <th class="price">Unit Price</th>
@@ -150,7 +152,26 @@
                   [name]="'desc' + row.key"
                 ></textarea>
               </td>
-              <td><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.condition" [name]="'condition' + row.key" maxlength="100" /></td>
+              <td>
+                <app-lookup-combobox
+                  ariaLabel="Condition"
+                  [value]="row.condition"
+                  [options]="conditionNames"
+                  [disabled]="isSaving"
+                  (valueChange)="row.condition = $event"
+                  (committed)="normalizeCondition(row)"
+                />
+              </td>
+              <td>
+                <app-lookup-combobox
+                  ariaLabel="Unit"
+                  [value]="row.unitCode"
+                  [options]="unitNames"
+                  [disabled]="isSaving"
+                  (valueChange)="row.unitCode = $event"
+                  (committed)="normalizeUnit(row)"
+                />
+              </td>
               <td><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.leadTime" [name]="'lead' + row.key" maxlength="100" /></td>
               <td class="cell currency">
                 <select [disabled]="isSaving" [(ngModel)]="row.currencyId" (ngModelChange)="onRowCurrency(row)" [name]="'currency' + row.key">
@@ -186,6 +207,7 @@
         </tbody>
       </table>
     </div>
+    <app-quotation-charges [rows]="charges" [symbol]="chargeSymbol" [disabled]="isSaving"></app-quotation-charges>
     <app-drive-upload-card
       [compact]="true"
       title="Attachment File"

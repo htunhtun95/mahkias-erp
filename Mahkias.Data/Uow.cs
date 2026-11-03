@@ -22,9 +22,11 @@ namespace Mahkias.Data
         public IActivityRepository Activities { get { return GetAdoRepo<IActivityRepository>(); } }
         public ISupplierRepository Suppliers { get { return GetAdoRepo<ISupplierRepository>(); } }
         public IQuotationRepository Quotations { get { return GetAdoRepo<IQuotationRepository>(); } }
+        public IPurchaseOrderRepository PurchaseOrders { get { return GetAdoRepo<IPurchaseOrderRepository>(); } }
         public IActivityGroupRepository ActivityGroups { get { return GetAdoRepo<IActivityGroupRepository>(); } }
         public IActivityLabelRepository ActivityLabels { get { return GetAdoRepo<IActivityLabelRepository>(); } }
         public ICurrencyRepository Currencies { get { return GetAdoRepo<ICurrencyRepository>(); } }
+        public ILookupRepository Lookups { get { return GetAdoRepo<ILookupRepository>(); } }
         public IProjectDocumentRepository ProjectDocuments { get { return GetAdoRepo<IProjectDocumentRepository>(); } }
 
         public void Dispose()

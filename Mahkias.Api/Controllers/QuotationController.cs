@@ -147,6 +147,12 @@ namespace Mahkias.Api.Controllers
                 return BadRequest(new { message = "Quotation items could not be read." });
             }
 
+            var charges = ReadFormCharges(form.Charges);
+            if (charges.Error != null)
+            {
+                return BadRequest(new { message = charges.Error });
+            }
+
             var request = new CreateQuotationRequest
             {
                 SupplierId = form.SupplierId,
@@ -154,6 +160,7 @@ namespace Mahkias.Api.Controllers
                 CurrencyId = form.CurrencyId,
                 ProjectIds = new List<int> { projectId },
                 Items = items,
+                Charges = charges.Charges,
             };
             var dateError = ApplyFormDates(form, request);
             if (dateError != null)
@@ -239,6 +246,12 @@ namespace Mahkias.Api.Controllers
                 return BadRequest(new { message = "Quotation items could not be read." });
             }
 
+            var charges = ReadFormCharges(form.Charges);
+            if (charges.Error != null)
+            {
+                return BadRequest(new { message = charges.Error });
+            }
+
             var request = new CreateQuotationRequest
             {
                 SupplierId = form.SupplierId,
@@ -246,6 +259,7 @@ namespace Mahkias.Api.Controllers
                 CurrencyId = form.CurrencyId,
                 ProjectIds = new List<int> { projectId },
                 Items = items,
+                Charges = charges.Charges,
             };
             var dateError = ApplyFormDates(form, request);
             if (dateError != null)
@@ -352,6 +366,7 @@ namespace Mahkias.Api.Controllers
                     partNo = Suggest(sheet.Columns, "partno", "partnumber", "part"),
                     description = Suggest(sheet.Columns, "description", "desc"),
                     condition = Suggest(sheet.Columns, "condition", "itemcondition", "cond"),
+                    unit = Suggest(sheet.Columns, "uom", "unitofmeasure", "unitcode", "unit"),
                     leadTime = Suggest(sheet.Columns, "leadtime", "lead", "deliveryleadtime"),
                     minimumQty = Suggest(sheet.Columns, "minimumqty", "moq", "minqty", "minimumorderqty", "minimumquantity"),
                     quotedDate = Suggest(sheet.Columns, "quoteddate", "quotedate", "quotationdate", "quotedon"),
@@ -432,6 +447,7 @@ namespace Mahkias.Api.Controllers
                         partNo = row.PartNo,
                         description = row.Description,
                         condition = row.Condition,
+                        unit = row.UnitName,
                         leadTime = row.LeadTime,
                         minimumQty = row.MinimumQty,
                         unitPrice = unit,
@@ -530,6 +546,11 @@ namespace Mahkias.Api.Controllers
                     errors.Add(new ActivityImportIssue { Row = entry.row, Field = "Condition", Message = "Condition must be 100 characters or fewer." });
                 }
 
+                if (!string.IsNullOrWhiteSpace(entry.item.Unit) && entry.item.Unit.Trim().Length > 100)
+                {
+                    errors.Add(new ActivityImportIssue { Row = entry.row, Field = "Unit", Message = "Unit must be 100 characters or fewer." });
+                }
+
                 if (!string.IsNullOrWhiteSpace(entry.item.LeadTime) && entry.item.LeadTime.Trim().Length > 100)
                 {
                     errors.Add(new ActivityImportIssue { Row = entry.row, Field = "Lead Time", Message = "Lead time must be 100 characters or fewer." });
@@ -542,6 +563,7 @@ namespace Mahkias.Api.Controllers
 
                 if (string.IsNullOrWhiteSpace(entry.item.DsnNo) || string.IsNullOrWhiteSpace(entry.item.PartNo)
                     || (!string.IsNullOrWhiteSpace(entry.item.Condition) && entry.item.Condition.Trim().Length > 100)
+                    || (!string.IsNullOrWhiteSpace(entry.item.Unit) && entry.item.Unit.Trim().Length > 100)
                     || (!string.IsNullOrWhiteSpace(entry.item.LeadTime) && entry.item.LeadTime.Trim().Length > 100)
                     || entry.item.MinimumQty is < 1)
                 {
@@ -582,6 +604,12 @@ namespace Mahkias.Api.Controllers
                 }), null);
             }
 
+            var charges = NormalizeCharges(request.Charges);
+            if (charges.Error != null)
+            {
+                return (BadRequest(new { message = charges.Error }), null);
+            }
+
             int? currencyId = headerCurrencyId;
 
             return (null, new CreateQuotationArgs
@@ -594,7 +622,76 @@ namespace Mahkias.Api.Controllers
                 ValidUntil = request.ValidUntil?.Date,
                 ProjectIds = projectIds,
                 Items = writes,
+                Charges = charges.Charges,
             });
+        }
+
+        private static (string Error, List<QuotationChargeRequest> Charges) ReadFormCharges(string json)
+        {
+            if (json == null)
+            {
+                return (null, null);
+            }
+
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return (null, new List<QuotationChargeRequest>());
+            }
+
+            try
+            {
+                var charges = JsonSerializer.Deserialize<List<QuotationChargeRequest>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                    ?? new List<QuotationChargeRequest>();
+                return (null, charges);
+            }
+            catch (JsonException)
+            {
+                return ("Additional charges could not be read.", null);
+            }
+        }
+
+        private static (string Error, List<QuotationChargeWrite> Charges) NormalizeCharges(IEnumerable<QuotationChargeRequest> charges)
+        {
+            if (charges == null)
+            {
+                return (null, null);
+            }
+
+            var writes = new List<QuotationChargeWrite>();
+            var sort = 0;
+            foreach (var charge in charges)
+            {
+                var name = charge?.Name?.Trim() ?? string.Empty;
+                var hasAmount = charge?.Amount != null;
+                if (name.Length == 0 && !hasAmount)
+                {
+                    continue;
+                }
+
+                if (name.Length == 0)
+                {
+                    return ("Each additional charge needs a name.", null);
+                }
+
+                if (name.Length > 200)
+                {
+                    return ("Additional charge names must be 200 characters or fewer.", null);
+                }
+
+                if (!hasAmount || charge.Amount < 0)
+                {
+                    return ("Each additional charge needs an amount of zero or more.", null);
+                }
+
+                writes.Add(new QuotationChargeWrite
+                {
+                    Name = name,
+                    Amount = decimal.Round(charge.Amount.Value, 2, MidpointRounding.AwayFromZero),
+                    SortOrder = sort++,
+                });
+            }
+
+            return (null, writes);
         }
 
         private async Task<IReadOnlyList<QuotationMapGroup>> GroupsForAsync(IReadOnlyList<int> projectIds)
@@ -673,6 +770,7 @@ namespace Mahkias.Api.Controllers
                 PartNo = item.PartNo.Trim(),
                 PartDescription = item.Description?.Trim(),
                 Condition = TrimOptional(item.Condition),
+                Unit = TrimOptional(item.Unit),
                 LeadTime = TrimOptional(item.LeadTime),
                 MinimumQty = item.MinimumQty is > 0 ? item.MinimumQty : null,
                 UnitPrice = unit,
@@ -751,8 +849,9 @@ namespace Mahkias.Api.Controllers
                         DsnNo = first.DsnNo,
                         PartNo = first.PartNo,
                         PartDescription = first.PartDescription,
-                        Condition = first.Condition,
-                        LeadTime = first.LeadTime,
+                Condition = first.Condition,
+                Unit = first.Unit,
+                LeadTime = first.LeadTime,
                         MinimumQty = first.MinimumQty,
                         UnitPrice = unit,
                         Quantity = quantity,

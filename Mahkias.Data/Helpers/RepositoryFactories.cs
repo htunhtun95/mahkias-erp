@@ -18,9 +18,11 @@ namespace Mahkias.Data.Helpers
                 { typeof(IActivityRepository), connectionString => new ActivityRepository(connectionString) },
                 { typeof(ISupplierRepository), connectionString => new SupplierRepository(connectionString) },
                 { typeof(IQuotationRepository), connectionString => new QuotationRepository(connectionString) },
+                { typeof(IPurchaseOrderRepository), connectionString => new PurchaseOrderRepository(connectionString) },
                 { typeof(IActivityGroupRepository), connectionString => new ActivityGroupRepository(connectionString) },
                 { typeof(IActivityLabelRepository), connectionString => new ActivityLabelRepository(connectionString) },
                 { typeof(ICurrencyRepository), connectionString => new CurrencyRepository(connectionString) },
+                { typeof(ILookupRepository), connectionString => new LookupRepository(connectionString) },
                 { typeof(IProjectDocumentRepository), connectionString => new ProjectDocumentRepository(connectionString) },
             };
         }

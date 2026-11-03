@@ -7,7 +7,6 @@ import { MaterialModule } from '../../app/material-module';
 import { whileBusy } from '../../core/while-busy';
 import { ProjectApiService, SupplierDetail, SupplierQuotation } from '../../core/services/project-api.service';
 import { ConfirmDialog } from '../../projects/confirm-dialog/confirm-dialog';
-import { formatProjectListDate } from '../../projects/projects';
 import { quotationValidity } from '../../projects/quotation-terms';
 import { SupplierDialog } from '../supplier-dialog/supplier-dialog';
 
@@ -50,12 +49,22 @@ export class SupplierDetailsComponent implements OnInit {
     });
   }
 
-  validity(validUntil?: string | null) {
+  validity(quotedDate?: string | null, validUntil?: string | null) {
+    if (!quotedDate || !validUntil) {
+      return null;
+    }
     return quotationValidity(validUntil);
   }
 
-  listDate(value?: string | null) {
-    return formatProjectListDate(value);
+  when(value?: string | null): string {
+    if (!value) {
+      return '';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
   openEdit() {
@@ -80,11 +89,14 @@ export class SupplierDetailsComponent implements OnInit {
     });
   }
 
+  get hasQuotations() {
+    return (this.supplier?.quotationCount ?? 0) > 0 || (this.supplier?.quotations.length ?? 0) > 0;
+  }
+
   openDelete() {
-    if (!this.supplier || this.isDeleting) {
+    if (!this.supplier || this.isDeleting || this.hasQuotations) {
       return;
     }
-    const blocked = (this.supplier.quotationCount ?? 0) > 0;
     const supplierId = this.supplier.id;
     const ref = this.dialog.open(ConfirmDialog, {
       disableClose: true,
@@ -92,22 +104,14 @@ export class SupplierDetailsComponent implements OnInit {
       maxWidth: 'calc(100vw - 32px)',
       panelClass: 'add-project-dialog-panel',
       backdropClass: 'add-project-dialog-backdrop',
-      data: blocked
-        ? {
-            title: 'Delete Supplier',
-            message: 'This supplier cannot be deleted because it has quotations.',
-            confirmLabel: 'Delete',
-            allowConfirm: false,
-            cancelLabel: 'Close',
-          }
-        : {
-            title: 'Delete Supplier',
-            message: 'Are you sure you want to delete this supplier?',
-            confirmLabel: 'Delete',
-          },
+      data: {
+        title: 'Delete Supplier',
+        message: 'Are you sure you want to delete this supplier?',
+        confirmLabel: 'Delete',
+      },
     });
     ref.afterClosed().subscribe((confirmed) => {
-      if (!confirmed || blocked || this.isDeleting) {
+      if (!confirmed || this.isDeleting) {
         return;
       }
       this.api.deleteSupplier(supplierId).pipe(whileBusy((busy) => (this.isDeleting = busy))).subscribe({
@@ -126,5 +130,9 @@ export class SupplierDetailsComponent implements OnInit {
 
   projectLink(quotation: SupplierQuotation) {
     return quotation.projectId ? ['/projects', quotation.projectId] : null;
+  }
+
+  supplierRef(quotation: SupplierQuotation) {
+    return quotation.supplierReference?.trim() ?? '';
   }
 }

@@ -8,11 +8,14 @@ import { whileBusy } from '../../core/while-busy';
 import { ActivityType, Project, ProjectApiService } from '../../core/services/project-api.service';
 import { AddProjectDialog } from '../add-project-dialog/add-project-dialog';
 import { CreateQuotationDialogComponent } from '../add-quotation-dialog/add-quotation-dialog';
+import { ImportPurchaseOrderDialogComponent } from '../import-purchase-order-dialog/import-purchase-order-dialog';
 import { ImportQuotationDialogComponent } from '../import-quotation-dialog/import-quotation-dialog';
+import { PurchaseOrderDialogComponent } from '../purchase-order-dialog/purchase-order-dialog';
 import { ConfirmDialog } from '../confirm-dialog/confirm-dialog';
 import { ProjectActivitiesTabComponent } from './tabs/project-activities-tab/project-activities-tab';
 import { ProjectPurchasesTabComponent } from './tabs/project-purchases-tab/project-purchases-tab';
 import { ProjectQuotationsTabComponent } from './tabs/project-quotations-tab/project-quotations-tab';
+import { PurchaseOrderSync } from '../purchase-order-sync';
 import { QuotationSync } from '../quotation-sync';
 
 export type ProjectTab = 'activities' | 'procurement';
@@ -41,6 +44,7 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
   private quotationSync = inject(QuotationSync);
+  private purchaseSync = inject(PurchaseOrderSync);
   private syncSub?: Subscription;
   private activitiesTab = viewChild(ProjectActivitiesTabComponent);
   private quotationsTab = viewChild(ProjectQuotationsTabComponent);
@@ -54,6 +58,7 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
   activityFilter = '';
   quoteFilter: 'all' | 'quoted' | 'unquoted' = 'all';
   quotationCount = 0;
+  purchaseCount = 0;
   error = '';
 
   get activityCount(): number {
@@ -266,8 +271,7 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
       width: '95vw',
       maxWidth: '95vw',
       minWidth: 'min(720px, 95vw)',
-      height: '95vh',
-      maxHeight: '95vh',
+      maxHeight: 'none',
       panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       autoFocus: 'first-tabbable',
@@ -290,8 +294,7 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
       width: '95vw',
       maxWidth: '95vw',
       minWidth: 'min(720px, 95vw)',
-      height: '95vh',
-      maxHeight: '95vh',
+      maxHeight: 'none',
       panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       autoFocus: 'first-tabbable',
@@ -302,6 +305,56 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
       },
     });
     this.afterQuotationSaved(ref);
+  }
+
+  openPurchaseOrder() {
+    if (!this.project || this.isDeleting) {
+      return;
+    }
+
+    const ref = this.dialog.open(PurchaseOrderDialogComponent, {
+      disableClose: true,
+      width: '95vw',
+      maxWidth: '95vw',
+      minWidth: 'min(720px, 95vw)',
+      maxHeight: 'none',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'app-dialog-pane'],
+      backdropClass: 'add-project-dialog-backdrop',
+      autoFocus: 'first-tabbable',
+      data: {
+        projectId: this.project.id,
+        activities: this.project.activities ?? [],
+      },
+    });
+    this.afterPurchaseSaved(ref);
+  }
+
+  openImportPurchaseOrder() {
+    if (!this.project || this.isDeleting) {
+      return;
+    }
+
+    const ref = this.dialog.open(ImportPurchaseOrderDialogComponent, {
+      disableClose: true,
+      width: '95vw',
+      maxWidth: '95vw',
+      minWidth: 'min(720px, 95vw)',
+      maxHeight: 'none',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'app-dialog-pane'],
+      backdropClass: 'add-project-dialog-backdrop',
+      autoFocus: 'first-tabbable',
+      data: { projectId: this.project.id },
+    });
+    this.afterPurchaseSaved(ref);
+  }
+
+  private afterPurchaseSaved(ref: { afterClosed: () => { subscribe: (next: (saved: boolean) => void) => void } }) {
+    ref.afterClosed().subscribe((saved) => {
+      if (saved && this.project) {
+        this.snackBar.open('Purchase order saved.', undefined, { duration: 3000 });
+        this.purchaseSync.notify(this.project.id);
+      }
+    });
   }
 
   private afterQuotationSaved(ref: { afterClosed: () => { subscribe: (next: (saved: boolean) => void) => void } }) {

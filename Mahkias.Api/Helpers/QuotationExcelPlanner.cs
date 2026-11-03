@@ -17,6 +17,8 @@ namespace Mahkias.Api.Helpers
 
         public string Condition { get; set; }
 
+        public string UnitName { get; set; }
+
         public string LeadTime { get; set; }
 
         public int? MinimumQty { get; set; }
@@ -54,6 +56,7 @@ namespace Mahkias.Api.Helpers
                 var part = CellOrDefault(source, form.PartNoColumn, form.DefaultPartNo);
                 var description = CellOrDefault(source, form.DescriptionColumn, form.DefaultDescription);
                 var condition = CellOrDefault(source, form.ConditionColumn, form.DefaultCondition);
+                var unitName = CellOrDefault(source, form.UnitColumn, form.DefaultUnit);
                 var leadTime = CellOrDefault(source, form.LeadTimeColumn, form.DefaultLeadTime);
                 var minimumText = Cell(source, form.MinimumQtyColumn);
                 var quotedDateText = Cell(source, form.QuotedDateColumn);
@@ -97,6 +100,11 @@ namespace Mahkias.Api.Helpers
                 if (!string.IsNullOrWhiteSpace(condition) && condition.Trim().Length > 100)
                 {
                     errors.Add(Issue(source.RowNumber, "Condition", "Condition must be 100 characters or fewer."));
+                }
+
+                if (!string.IsNullOrWhiteSpace(unitName) && unitName.Trim().Length > 100)
+                {
+                    errors.Add(Issue(source.RowNumber, "Unit", "Unit must be 100 characters or fewer."));
                 }
 
                 if (!string.IsNullOrWhiteSpace(leadTime) && leadTime.Trim().Length > 100)
@@ -200,6 +208,7 @@ namespace Mahkias.Api.Helpers
                     PartNo = part,
                     Description = description,
                     Condition = TrimTo(condition, 100),
+                    UnitName = TrimTo(unitName, 100),
                     LeadTime = TrimTo(leadTime, 100),
                     MinimumQty = minimumQty,
                     QuotedDate = quotedDate,

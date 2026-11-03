@@ -70,7 +70,7 @@
 
 .row {
   display: grid;
-  grid-template-columns: 1fr 1.3fr 0.8fr 1.2fr 1fr;
+  grid-template-columns: 140px minmax(160px, 1.4fr) 140px 80px 140px 150px;
   gap: 12px;
   align-items: center;
   min-height: 44px;
@@ -93,6 +93,31 @@
   color: #80868b;
   font-size: 14px;
   text-align: center;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.text-btn {
+  border: 0;
+  background: transparent;
+  color: #1a73e8;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.text-btn:disabled {
+  color: #9aa0a6;
+  cursor: default;
+}
+
+.error {
+  margin: 0;
+  color: #c5221f;
 }
 
 @media (max-width: 800px) {

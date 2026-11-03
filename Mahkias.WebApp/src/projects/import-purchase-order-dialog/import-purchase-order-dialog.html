@@ -1,0 +1,153 @@
+<div class="quotation-dialog-container">
+  <header class="quotation-dialog-header">
+    <div class="title-row">
+      <h2>Import purchase order</h2>
+      <button class="icon-close" type="button" aria-label="Close" (click)="close()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+    <div class="header-fields">
+      <label>
+        <span>PO number</span>
+        <input [(ngModel)]="code" [disabled]="saving" maxlength="50" />
+      </label>
+      <label>
+        <span>Supplier</span>
+        <select [(ngModel)]="supplierId" [disabled]="saving">
+          <option [ngValue]="null">Select a supplier</option>
+          @for (supplier of suppliers; track supplier.id) {
+            <option [ngValue]="supplier.id">{{ supplier.name }}</option>
+          }
+        </select>
+      </label>
+      <app-quotation-date-field label="PO date" [(ngModel)]="poDate" [disabled]="saving" />
+      <label>
+        <span>Currency</span>
+        <select [(ngModel)]="currencyId" [disabled]="saving">
+          @for (currency of currencies; track currency.id) {
+            <option [ngValue]="currency.id">{{ currency.code }}</option>
+          }
+        </select>
+      </label>
+    </div>
+    <label class="ship-to">
+      <span>Ship to</span>
+      <textarea [(ngModel)]="shipToAddress" rows="2" maxlength="500" [disabled]="saving" placeholder="Ship-to address"></textarea>
+    </label>
+  </header>
+
+  <div class="quotation-dialog-body">
+    @if (step !== 'verify') {
+    <label class="original-toggle">
+      <input type="checkbox" [disabled]="saving || checking" [ngModel]="spreadsheetIsOriginal" (ngModelChange)="onOriginalChoice($event)" name="spreadsheetIsOriginal" />
+      <span>Imported spreadsheet is the original PO file</span>
+    </label>
+    <app-drive-upload-card
+      [compact]="true"
+      title="PO spreadsheet"
+      hint="Excel or CSV."
+      emptyLabel="Drag a spreadsheet here, or browse"
+      accept=".xlsx,.xls,.csv"
+      [file]="file"
+      [disabled]="saving || checking"
+      (fileChange)="onFile($event)"
+    />
+    @if (!spreadsheetIsOriginal) {
+      <div
+        class="original-file"
+        [class.dragging]="originalDragging"
+        (dragover)="onOriginalDragOver($event)"
+        (dragleave)="onOriginalDragLeave($event)"
+        (drop)="onOriginalDrop($event)"
+      >
+        <span>Original PO File</span>
+        <input type="file" [accept]="documentAccept" [disabled]="saving || checking" (change)="onOriginalFile($event)" aria-label="Original PO File" />
+        @if (originalFile) {
+          <span class="original-name">{{ originalFile.name }}</span>
+          <button class="original-clear" type="button" matTooltip="Remove file" aria-label="Remove original file" [disabled]="saving || checking" (click)="clearOriginal()">
+            <mat-icon>close</mat-icon>
+          </button>
+        }
+      </div>
+    }
+    }
+    <div class="steps">
+      <button type="button" [class.active]="step === 'file'" (click)="step = 'file'">Spreadsheet</button>
+      <button type="button" [class.active]="step === 'map'" [disabled]="!file" (click)="step = 'map'">Columns</button>
+      <button type="button" [class.active]="step === 'verify'" [disabled]="checkState !== 'checked'" (click)="step = 'verify'">Review</button>
+    </div>
+
+    @if (step === 'map') {
+      <div class="map-grid">
+        <label><span>DSN column</span><input [(ngModel)]="mapping.dsnNoColumn" (ngModelChange)="checkState = 'idle'" /></label>
+        <label><span>Part column</span><input [(ngModel)]="mapping.partNoColumn" (ngModelChange)="checkState = 'idle'" /></label>
+        <label><span>Description column</span><input [(ngModel)]="mapping.descriptionColumn" (ngModelChange)="checkState = 'idle'" /></label>
+        <label><span>Condition column</span><input [(ngModel)]="mapping.conditionColumn" (ngModelChange)="checkState = 'idle'" /></label>
+        <label><span>Unit column</span><input [(ngModel)]="mapping.unitColumn" (ngModelChange)="checkState = 'idle'" /></label>
+        <label><span>Lead time column</span><input [(ngModel)]="mapping.leadTimeColumn" (ngModelChange)="checkState = 'idle'" /></label>
+        <label><span>Quantity column</span><input [(ngModel)]="mapping.quantityColumn" (ngModelChange)="checkState = 'idle'" /></label>
+        <label><span>Unit price column</span><input [(ngModel)]="mapping.unitPriceColumn" (ngModelChange)="checkState = 'idle'" /></label>
+        <label><span>Total column</span><input [(ngModel)]="mapping.totalPriceColumn" (ngModelChange)="checkState = 'idle'" /></label>
+      </div>
+    }
+
+    @if (step === 'verify') {
+      <p class="preview-note">{{ items.length }} lines ready. {{ errors.length }} need attention.</p>
+      @if (errors.length) {
+        <ul class="check-list">
+          @for (issue of errors; track $index) {
+            <li>Row {{ issue.row }} · {{ issue.field }} · {{ issue.message }}</li>
+          }
+        </ul>
+      }
+      <div class="sheet-wrap">
+        <div class="sheet">
+          <div class="line heading">
+            <span>DSN</span>
+            <span>Part</span>
+            <span>Description</span>
+            <span></span>
+            <span></span>
+            <span>Lead time</span>
+            <span>Qty</span>
+            <span>Unit price</span>
+            <span>Total</span>
+            <span></span>
+          </div>
+          @for (item of items; track $index) {
+            <div class="line">
+              <span class="readonly">{{ item.dsnNo }}</span>
+              <span class="readonly">{{ item.partNo }}</span>
+              <span class="readonly">{{ item.description }}</span>
+              <span class="readonly">{{ item.condition }}</span>
+              <span class="readonly">{{ item.unit }}</span>
+              <span class="readonly">{{ item.leadTime }}</span>
+              <span class="readonly">{{ item.quantity }}</span>
+              <span class="readonly">{{ item.unitPrice }}</span>
+              <span class="readonly">{{ item.totalPrice }}</span>
+              <span></span>
+            </div>
+          }
+        </div>
+      </div>
+      <app-quotation-charges [rows]="charges" [symbol]="symbol" subject="purchase order" [disabled]="saving" />
+    }
+  </div>
+
+  <footer class="quotation-dialog-footer">
+    @if (error) {
+      <p class="error">{{ error }}</p>
+    }
+    <div class="footer-actions">
+      <button class="ghost" type="button" (click)="close()" [disabled]="saving">Cancel</button>
+      <span class="spacer"></span>
+      @if (step === 'file') {
+        <button class="primary" type="button" (click)="readColumns()" [disabled]="!file || checking">Continue</button>
+      } @else if (step === 'map') {
+        <button class="primary" type="button" (click)="check()" [disabled]="checking">Check spreadsheet</button>
+      } @else {
+        <button class="primary" type="button" (click)="startImport()" [disabled]="!canImport">Start import</button>
+      }
+    </div>
+  </footer>
+</div>

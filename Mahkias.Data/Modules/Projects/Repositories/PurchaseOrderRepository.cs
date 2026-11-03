@@ -1,0 +1,781 @@
+using Mahkias.Core.Modules.Projects;
+using Mahkias.Core.Modules.Projects.Data.Args;
+using Mahkias.Core.Modules.Projects.Data.Result;
+using Microsoft.Data.SqlClient;
+using System.Data;
+
+namespace Mahkias.Data.Modules.Projects.Repositories
+{
+    public class PurchaseOrderRepository : AdoRepository<PurchaseOrderEntity>, IPurchaseOrderRepository
+    {
+        public PurchaseOrderRepository(string connectionString) : base(connectionString)
+        {
+        }
+
+        public async Task<IReadOnlyList<PurchaseOrderListItem>> GetByProjectAsync(int projectId)
+        {
+            var items = new List<PurchaseOrderListItem>();
+            using var command = new SqlCommand(@"
+SELECT P.Id, P.SupplierId, S.Name AS SupplierName, P.Code, P.PoDate, P.ShipToAddress,
+       P.CurrencyId, C.Code AS CurrencyCode, C.Symbol AS CurrencySymbol, P.ExchangeRate,
+       P.SubTotal, P.BaseSubTotal, P.Total, P.BaseTotalAmount,
+       COUNT(I.Id) AS ItemCount
+FROM projects.PurchaseOrders P
+INNER JOIN projects.PurchaseOrderProjects PP ON PP.PurchaseOrderId = P.Id
+INNER JOIN projects.Suppliers S ON S.Id = P.SupplierId
+INNER JOIN dbo.Currencies C ON C.Id = P.CurrencyId
+LEFT JOIN projects.PurchaseOrderItems I ON I.PurchaseOrderId = P.Id
+WHERE PP.ProjectId = @ProjectId
+  AND P.IsDeleted = 0
+  AND S.IsDeleted = 0
+GROUP BY P.Id, P.SupplierId, S.Name, P.Code, P.PoDate, P.ShipToAddress,
+         P.CurrencyId, C.Code, C.Symbol, P.ExchangeRate,
+         P.SubTotal, P.BaseSubTotal, P.Total, P.BaseTotalAmount
+ORDER BY P.Id DESC;", _connection);
+            command.Parameters.AddInt("ProjectId", projectId);
+            _connection.Open();
+            try
+            {
+                using var reader = await command.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    items.Add(ReadListItem(reader));
+                }
+            }
+            finally
+            {
+                _connection.Close();
+            }
+
+            return items;
+        }
+
+        public async Task<PurchaseOrderDetailResult> GetDetailAsync(int purchaseOrderId)
+        {
+            using var command = new SqlCommand(@"
+SELECT P.Id, P.SupplierId, S.Name AS SupplierName, P.Code, P.PoDate, P.ShipToAddress,
+       P.CurrencyId, C.Code AS CurrencyCode, C.Symbol AS CurrencySymbol, P.ExchangeRate,
+       P.SubTotal, P.BaseSubTotal, P.Total, P.BaseTotalAmount,
+       (SELECT COUNT(*) FROM projects.PurchaseOrderItems I WHERE I.PurchaseOrderId = P.Id) AS ItemCount
+FROM projects.PurchaseOrders P
+INNER JOIN projects.Suppliers S ON S.Id = P.SupplierId
+INNER JOIN dbo.Currencies C ON C.Id = P.CurrencyId
+WHERE P.Id = @Id AND P.IsDeleted = 0;
+
+SELECT I.Id, I.ActivityId, I.QuotationId, Q.Code AS QuotationCode, I.DsnNo, I.PartNo, I.PartDescription,
+       I.Condition, I.Unit, I.LeadTime, I.Quantity, I.UnitPrice, I.TotalPrice,
+       I.CurrencyId, C.Code AS CurrencyCode, C.Symbol AS CurrencySymbol, I.ExchangeRate,
+       I.BaseUnitPrice, I.BaseTotalPrice, I.SortOrder
+FROM projects.PurchaseOrderItems I
+INNER JOIN dbo.Currencies C ON C.Id = I.CurrencyId
+LEFT JOIN projects.Quotations Q ON Q.Id = I.QuotationId
+WHERE I.PurchaseOrderId = @Id
+ORDER BY I.SortOrder, I.Id;
+
+SELECT Id, Name, Basis, Amount, Rate, BaseAmount, SortOrder
+FROM projects.PurchaseOrderCharges
+WHERE PurchaseOrderId = @Id
+ORDER BY SortOrder, Id;", _connection);
+            command.Parameters.AddInt("Id", purchaseOrderId);
+            _connection.Open();
+            try
+            {
+                using var reader = await command.ExecuteReaderAsync();
+                if (!await reader.ReadAsync())
+                {
+                    return null;
+                }
+
+                var detail = new PurchaseOrderDetailResult();
+                CopyListItem(ReadListItem(reader), detail);
+                await reader.NextResultAsync();
+                while (await reader.ReadAsync())
+                {
+                    detail.Items.Add(new PurchaseOrderItemResult
+                    {
+                        Id = reader.ReadIntValue("Id"),
+                        ActivityId = reader.ReadNullableIntValue("ActivityId"),
+                        QuotationId = reader.ReadNullableIntValue("QuotationId"),
+                        QuotationCode = reader.ReadNullableStringValue("QuotationCode"),
+                        DsnNo = reader.ReadNullableStringValue("DsnNo"),
+                        PartNo = reader.ReadNullableStringValue("PartNo"),
+                        Description = reader.ReadNullableStringValue("PartDescription"),
+                        Condition = reader.ReadNullableStringValue("Condition"),
+                        Unit = reader.ReadNullableStringValue("Unit"),
+                        LeadTime = reader.ReadNullableStringValue("LeadTime"),
+                        Quantity = reader.ReadDecimalValue("Quantity"),
+                        UnitPrice = reader.ReadDecimalValue("UnitPrice"),
+                        TotalPrice = reader.ReadDecimalValue("TotalPrice"),
+                        CurrencyId = reader.ReadIntValue("CurrencyId"),
+                        CurrencyCode = reader.ReadNullableStringValue("CurrencyCode"),
+                        CurrencySymbol = reader.ReadNullableStringValue("CurrencySymbol"),
+                        ExchangeRate = reader.ReadDecimalValue("ExchangeRate"),
+                        BaseUnitPrice = reader.ReadDecimalValue("BaseUnitPrice"),
+                        BaseTotalPrice = reader.ReadDecimalValue("BaseTotalPrice"),
+                        SortOrder = reader.ReadIntValue("SortOrder"),
+                    });
+                }
+
+                await reader.NextResultAsync();
+                while (await reader.ReadAsync())
+                {
+                    detail.Charges.Add(new PurchaseOrderChargeResult
+                    {
+                        Id = reader.ReadIntValue("Id"),
+                        Name = reader.ReadNullableStringValue("Name"),
+                        Basis = reader.ReadNullableStringValue("Basis"),
+                        Amount = reader.ReadNullableDecimalValue("Amount"),
+                        Rate = reader.ReadNullableDecimalValue("Rate"),
+                        BaseAmount = reader.ReadDecimalValue("BaseAmount"),
+                        SortOrder = reader.ReadIntValue("SortOrder"),
+                    });
+                }
+
+                return detail;
+            }
+            finally
+            {
+                _connection.Close();
+            }
+        }
+
+        public async Task<IReadOnlyList<PurchaseOrderActivityMatch>> GetProjectActivitiesAsync(int projectId)
+        {
+            var items = new List<PurchaseOrderActivityMatch>();
+            using var command = new SqlCommand(@"
+SELECT Id, DSNNo, PartNo, Description
+FROM projects.Activities
+WHERE ProjectId = @ProjectId AND IsDeleted = 0;", _connection);
+            command.Parameters.AddInt("ProjectId", projectId);
+            _connection.Open();
+            try
+            {
+                using var reader = await command.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    items.Add(new PurchaseOrderActivityMatch
+                    {
+                        Id = reader.ReadIntValue("Id"),
+                        DsnNo = reader.ReadNullableStringValue("DSNNo"),
+                        PartNo = reader.ReadNullableStringValue("PartNo"),
+                        Description = reader.ReadNullableStringValue("Description"),
+                    });
+                }
+            }
+            finally
+            {
+                _connection.Close();
+            }
+
+            return items;
+        }
+
+        public async Task<int> CreateAsync(CreatePurchaseOrderArgs args)
+        {
+            return await RunAsync(async (transaction, cancellationToken) =>
+            {
+                var id = await InsertHeaderAsync(args, transaction, cancellationToken);
+                await ReplaceItemsAsync(id, ProjectId(args), args.Items, transaction, cancellationToken);
+                await ReplaceChargesAsync(id, args.Charges, transaction, cancellationToken);
+                return id;
+            }, CancellationToken.None);
+        }
+
+        public async Task<int> ImportAsync(CreatePurchaseOrderArgs args, Func<int, CancellationToken, Task<CreatePurchaseOrderDocumentArgs>> attachFile, CancellationToken cancellationToken = default)
+        {
+            return await RunAsync(async (transaction, token) =>
+            {
+                var id = await InsertHeaderAsync(args, transaction, token);
+                await ReplaceItemsAsync(id, ProjectId(args), args.Items, transaction, token);
+                await ReplaceChargesAsync(id, args.Charges, transaction, token);
+                if (attachFile != null)
+                {
+                    var document = await attachFile(id, token);
+                    if (document != null)
+                    {
+                        document.PurchaseOrderId = id;
+                        await InsertDocumentAsync(document, transaction, token);
+                    }
+                }
+
+                return id;
+            }, cancellationToken);
+        }
+
+        public async Task SaveExistingAsync(int purchaseOrderId, CreatePurchaseOrderArgs args, Func<int, CancellationToken, Task<CreatePurchaseOrderDocumentArgs>> attachFile, CancellationToken cancellationToken = default)
+        {
+            await RunAsync(async (transaction, token) =>
+            {
+                var updated = await UpdateHeaderAsync(purchaseOrderId, args, transaction, token);
+                if (!updated)
+                {
+                    throw new InvalidOperationException("The purchase order could not be saved.");
+                }
+
+                await ReplaceItemsAsync(purchaseOrderId, ProjectId(args), args.Items, transaction, token);
+                await ReplaceChargesAsync(purchaseOrderId, args.Charges, transaction, token);
+                if (attachFile != null)
+                {
+                    var document = await attachFile(purchaseOrderId, token);
+                    if (document != null)
+                    {
+                        document.PurchaseOrderId = purchaseOrderId;
+                        await InsertDocumentAsync(document, transaction, token);
+                    }
+                }
+
+                return purchaseOrderId;
+            }, cancellationToken);
+        }
+
+        public async Task<bool> DeleteAsync(int purchaseOrderId)
+        {
+            using var command = new SqlCommand(@"
+UPDATE projects.PurchaseOrders
+SET IsDeleted = 1, DeletedAt = SYSUTCDATETIME(), ModifiedAt = GETDATE()
+WHERE Id = @Id AND IsDeleted = 0;", _connection);
+            command.Parameters.AddInt("Id", purchaseOrderId);
+            _connection.Open();
+            try
+            {
+                return await command.ExecuteNonQueryAsync() > 0;
+            }
+            finally
+            {
+                _connection.Close();
+            }
+        }
+
+        public async Task<string> NextCodeAsync()
+        {
+            using var command = new SqlCommand(@"
+SELECT CASE
+    WHEN EXISTS (SELECT 1 FROM projects.PurchaseOrders) THEN CAST(IDENT_CURRENT(N'projects.PurchaseOrders') AS INT) + 1
+    ELSE 1
+END", _connection);
+            _connection.Open();
+            try
+            {
+                var next = Convert.ToInt32(await command.ExecuteScalarAsync());
+                return PurchaseOrderCode.Format(next);
+            }
+            finally
+            {
+                _connection.Close();
+            }
+        }
+
+        public async Task<IReadOnlyList<PurchaseOrderDocumentResult>> ListDocumentsAsync(int projectId, int purchaseOrderId)
+        {
+            var items = new List<PurchaseOrderDocumentResult>();
+            using var command = new SqlCommand(@"
+SELECT D.DocumentId, D.PurchaseOrderId, D.FileName, D.FileType, D.GoogleDriveFileId, D.WebViewLink, D.UploadedAt
+FROM projects.PurchaseOrderDocuments D
+INNER JOIN projects.PurchaseOrders P ON P.Id = D.PurchaseOrderId
+INNER JOIN projects.PurchaseOrderProjects PP ON PP.PurchaseOrderId = P.Id
+WHERE D.PurchaseOrderId = @PurchaseOrderId
+  AND PP.ProjectId = @ProjectId
+  AND P.IsDeleted = 0
+ORDER BY D.UploadedAt DESC, D.DocumentId DESC;", _connection);
+            command.Parameters.AddInt("ProjectId", projectId);
+            command.Parameters.AddInt("PurchaseOrderId", purchaseOrderId);
+            _connection.Open();
+            try
+            {
+                using var reader = await command.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    items.Add(ReadDocument(reader));
+                }
+            }
+            finally
+            {
+                _connection.Close();
+            }
+
+            return items;
+        }
+
+        public async Task<bool> RemoveDocumentAsync(int projectId, int purchaseOrderId, int documentId)
+        {
+            using var command = new SqlCommand(@"
+DELETE D
+FROM projects.PurchaseOrderDocuments D
+INNER JOIN projects.PurchaseOrders P ON P.Id = D.PurchaseOrderId
+INNER JOIN projects.PurchaseOrderProjects PP ON PP.PurchaseOrderId = P.Id
+WHERE D.DocumentId = @DocumentId
+  AND D.PurchaseOrderId = @PurchaseOrderId
+  AND PP.ProjectId = @ProjectId
+  AND P.IsDeleted = 0;", _connection);
+            command.Parameters.AddInt("ProjectId", projectId);
+            command.Parameters.AddInt("PurchaseOrderId", purchaseOrderId);
+            command.Parameters.AddInt("DocumentId", documentId);
+            _connection.Open();
+            try
+            {
+                return await command.ExecuteNonQueryAsync() > 0;
+            }
+            finally
+            {
+                _connection.Close();
+            }
+        }
+
+        public async Task<PurchaseOrderDocumentResult> AddDocumentAsync(CreatePurchaseOrderDocumentArgs args)
+        {
+            if (_connection.State != ConnectionState.Closed)
+            {
+                _connection.Close();
+            }
+
+            await _connection.OpenAsync();
+            try
+            {
+                return await InsertDocumentAsync(args, null, CancellationToken.None);
+            }
+            finally
+            {
+                _connection.Close();
+            }
+        }
+
+        public override PurchaseOrderEntity PopulateRecord(SqlDataReader reader)
+        {
+            return new PurchaseOrderEntity();
+        }
+
+        private async Task<T> RunAsync<T>(Func<SqlTransaction, CancellationToken, Task<T>> work, CancellationToken cancellationToken)
+        {
+            if (_connection.State != ConnectionState.Closed)
+            {
+                _connection.Close();
+            }
+
+            await _connection.OpenAsync(cancellationToken);
+            SqlTransaction transaction = null;
+            try
+            {
+                transaction = (SqlTransaction)await _connection.BeginTransactionAsync(cancellationToken);
+                var result = await work(transaction, cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+                return result;
+            }
+            catch
+            {
+                if (transaction != null)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                }
+
+                throw;
+            }
+            finally
+            {
+                if (transaction != null)
+                {
+                    await transaction.DisposeAsync();
+                }
+
+                _connection.Close();
+            }
+        }
+
+        private static int ProjectId(CreatePurchaseOrderArgs args)
+        {
+            var projectId = args.ProjectIds?.FirstOrDefault(id => id > 0) ?? 0;
+            if (projectId <= 0)
+            {
+                throw new InvalidOperationException("The purchase order needs a project.");
+            }
+
+            return projectId;
+        }
+
+        private async Task<int> InsertHeaderAsync(CreatePurchaseOrderArgs args, SqlTransaction transaction, CancellationToken cancellationToken)
+        {
+            if (args.SupplierId <= 0)
+            {
+                throw new InvalidOperationException("Choose a supplier.");
+            }
+
+            if (args.Items == null || args.Items.Count == 0)
+            {
+                throw new InvalidOperationException("Add at least one purchase order line.");
+            }
+
+            var projectId = ProjectId(args);
+            using var command = new SqlCommand(@"
+DECLARE @BaseCurrencyId INT;
+SELECT @BaseCurrencyId = Id FROM dbo.Currencies WHERE IsDefault = 1;
+IF @BaseCurrencyId IS NULL
+BEGIN
+    ;THROW 50001, N'No default currency is configured.', 1;
+END
+
+DECLARE @CurrencyId INT = @RequestedCurrencyId;
+IF @CurrencyId IS NULL OR NOT EXISTS (SELECT 1 FROM dbo.Currencies WHERE Id = @CurrencyId AND IsActive = 1)
+BEGIN
+    SET @CurrencyId = @BaseCurrencyId;
+END
+
+DECLARE @Rate DECIMAL(18, 6) = 1.0;
+IF @CurrencyId <> @BaseCurrencyId
+BEGIN
+    SELECT TOP (1) @Rate = Rate
+    FROM dbo.ExchangeRates
+    WHERE FromCurrencyId = @CurrencyId
+      AND ToCurrencyId = @BaseCurrencyId
+      AND EffectiveDate <= CONVERT(DATE, GETDATE())
+    ORDER BY EffectiveDate DESC, ExchangeRateId DESC;
+END
+
+IF NOT EXISTS (SELECT 1 FROM projects.Projects WHERE Id = @ProjectId)
+BEGIN
+    ;THROW 50021, N'Project was not found.', 1;
+END
+
+IF NOT EXISTS (SELECT 1 FROM projects.Suppliers WHERE Id = @SupplierId AND IsDeleted = 0)
+BEGIN
+    ;THROW 50022, N'Supplier was not found.', 1;
+END
+
+DECLARE @Code NVARCHAR(50) = NULLIF(LTRIM(RTRIM(@RequestedCode)), N'');
+IF @Code IS NOT NULL AND EXISTS (
+    SELECT 1 FROM projects.PurchaseOrders WHERE IsDeleted = 0 AND Code = @Code
+)
+BEGIN
+    ;THROW 50024, N'That PO number is already in use.', 1;
+END
+
+INSERT INTO projects.PurchaseOrders (SupplierId, Code, PoDate, ShipToAddress, CurrencyId, ExchangeRate)
+VALUES (
+    @SupplierId,
+    COALESCE(@Code, N'T' + REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N'')),
+    @PoDate,
+    NULLIF(LTRIM(RTRIM(@ShipToAddress)), N''),
+    @CurrencyId,
+    @Rate
+);
+
+DECLARE @Id INT = CAST(SCOPE_IDENTITY() AS INT);
+IF @Code IS NULL
+BEGIN
+    UPDATE projects.PurchaseOrders
+    SET Code = CASE
+            WHEN @Id <= 99999 THEN N'PO-' + RIGHT(N'00000' + CAST(@Id AS NVARCHAR(10)), 5)
+            ELSE N'PO-' + CAST(@Id AS NVARCHAR(20))
+        END
+    WHERE Id = @Id;
+END
+
+INSERT INTO projects.PurchaseOrderProjects (PurchaseOrderId, ProjectId)
+VALUES (@Id, @ProjectId);
+
+SELECT @Id;", _connection, transaction);
+            command.Parameters.AddInt("SupplierId", args.SupplierId);
+            command.Parameters.AddNVarChar("RequestedCode", args.Code ?? string.Empty, 50);
+            command.Parameters.AddNullableInt("RequestedCurrencyId", args.CurrencyId);
+            command.Parameters.AddInt("ProjectId", projectId);
+            command.Parameters.AddNullableDateTime("PoDate", args.PoDate);
+            command.Parameters.AddNVarChar("ShipToAddress", args.ShipToAddress ?? string.Empty, 500);
+            var id = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
+            if (id <= 0)
+            {
+                throw new InvalidOperationException("The purchase order could not be saved.");
+            }
+
+            return id;
+        }
+
+        private async Task<bool> UpdateHeaderAsync(int purchaseOrderId, CreatePurchaseOrderArgs args, SqlTransaction transaction, CancellationToken cancellationToken)
+        {
+            if (args.SupplierId <= 0)
+            {
+                throw new InvalidOperationException("Choose a supplier.");
+            }
+
+            if (args.Items == null || args.Items.Count == 0)
+            {
+                throw new InvalidOperationException("Add at least one purchase order line.");
+            }
+
+            using var command = new SqlCommand(@"
+DECLARE @BaseCurrencyId INT;
+SELECT @BaseCurrencyId = Id FROM dbo.Currencies WHERE IsDefault = 1;
+DECLARE @CurrencyId INT = @RequestedCurrencyId;
+IF @CurrencyId IS NULL OR NOT EXISTS (SELECT 1 FROM dbo.Currencies WHERE Id = @CurrencyId AND IsActive = 1)
+BEGIN
+    SET @CurrencyId = @BaseCurrencyId;
+END
+DECLARE @Rate DECIMAL(18, 6) = 1.0;
+IF @CurrencyId <> @BaseCurrencyId
+BEGIN
+    SELECT TOP (1) @Rate = Rate
+    FROM dbo.ExchangeRates
+    WHERE FromCurrencyId = @CurrencyId
+      AND ToCurrencyId = @BaseCurrencyId
+      AND EffectiveDate <= CONVERT(DATE, GETDATE())
+    ORDER BY EffectiveDate DESC, ExchangeRateId DESC;
+END
+
+DECLARE @Code NVARCHAR(50) = NULLIF(LTRIM(RTRIM(@RequestedCode)), N'');
+IF @Code IS NOT NULL AND EXISTS (
+    SELECT 1 FROM projects.PurchaseOrders WHERE IsDeleted = 0 AND Code = @Code AND Id <> @Id
+)
+BEGIN
+    ;THROW 50024, N'That PO number is already in use.', 1;
+END
+
+UPDATE projects.PurchaseOrders
+SET SupplierId = @SupplierId,
+    Code = COALESCE(@Code, Code),
+    PoDate = @PoDate,
+    ShipToAddress = NULLIF(LTRIM(RTRIM(@ShipToAddress)), N''),
+    CurrencyId = @CurrencyId,
+    ExchangeRate = @Rate,
+    ModifiedAt = GETDATE()
+WHERE Id = @Id AND IsDeleted = 0;", _connection, transaction);
+            command.Parameters.AddInt("Id", purchaseOrderId);
+            command.Parameters.AddInt("SupplierId", args.SupplierId);
+            command.Parameters.AddNVarChar("RequestedCode", args.Code ?? string.Empty, 50);
+            command.Parameters.AddNullableInt("RequestedCurrencyId", args.CurrencyId);
+            command.Parameters.AddNullableDateTime("PoDate", args.PoDate);
+            command.Parameters.AddNVarChar("ShipToAddress", args.ShipToAddress ?? string.Empty, 500);
+            return await command.ExecuteNonQueryAsync(cancellationToken) > 0;
+        }
+
+        private async Task ReplaceItemsAsync(int purchaseOrderId, int projectId, IReadOnlyList<PurchaseOrderItemWrite> items, SqlTransaction transaction, CancellationToken cancellationToken)
+        {
+            using (var delete = new SqlCommand("DELETE FROM projects.PurchaseOrderItems WHERE PurchaseOrderId = @PurchaseOrderId", _connection, transaction))
+            {
+                delete.Parameters.AddInt("PurchaseOrderId", purchaseOrderId);
+                await delete.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            var sort = 0;
+            foreach (var item in items.Where(line => line != null))
+            {
+                var activityId = item.ActivityId > 0 ? item.ActivityId : null;
+                var quotationId = activityId.HasValue && item.QuotationId > 0 ? item.QuotationId : null;
+                if (activityId == null && (string.IsNullOrWhiteSpace(item.DsnNo) || string.IsNullOrWhiteSpace(item.PartNo)))
+                {
+                    throw new InvalidOperationException("Each line that is not linked to an activity needs a DSN No and a Part No.");
+                }
+
+                if (item.Quantity < 0 || item.UnitPrice < 0 || item.TotalPrice < 0)
+                {
+                    throw new InvalidOperationException("Purchase order amounts must be zero or more.");
+                }
+
+                using var insert = new SqlCommand(@"
+DECLARE @HeaderCurrencyId INT;
+DECLARE @BaseCurrencyId INT;
+SELECT @HeaderCurrencyId = CurrencyId FROM projects.PurchaseOrders WHERE Id = @PurchaseOrderId;
+SELECT @BaseCurrencyId = Id FROM dbo.Currencies WHERE IsDefault = 1;
+DECLARE @LineCurrencyId INT = ISNULL(@CurrencyId, @HeaderCurrencyId);
+IF NOT EXISTS (SELECT 1 FROM dbo.Currencies WHERE Id = @LineCurrencyId AND IsActive = 1)
+BEGIN
+    SET @LineCurrencyId = @HeaderCurrencyId;
+END
+DECLARE @Rate DECIMAL(18, 6) = 1.0;
+IF @LineCurrencyId <> @BaseCurrencyId
+BEGIN
+    SELECT TOP (1) @Rate = Rate
+    FROM dbo.ExchangeRates
+    WHERE FromCurrencyId = @LineCurrencyId
+      AND ToCurrencyId = @BaseCurrencyId
+      AND EffectiveDate <= CONVERT(DATE, GETDATE())
+    ORDER BY EffectiveDate DESC, ExchangeRateId DESC;
+END
+
+INSERT INTO projects.PurchaseOrderItems (
+    PurchaseOrderId, ActivityId, QuotationId, DsnNo, PartNo, PartDescription, Condition, Unit, LeadTime,
+    Quantity, UnitPrice, TotalPrice, CurrencyId, ExchangeRate, BaseUnitPrice, BaseTotalPrice, SortOrder)
+SELECT @PurchaseOrderId,
+       A.Id,
+       CASE WHEN A.Id IS NULL THEN NULL ELSE Q.Id END,
+       NULLIF(LTRIM(RTRIM(@DsnNo)), N''),
+       NULLIF(LTRIM(RTRIM(@PartNo)), N''),
+       NULLIF(LTRIM(RTRIM(@Description)), N''),
+       NULLIF(LTRIM(RTRIM(@Condition)), N''),
+       NULLIF(LTRIM(RTRIM(@Unit)), N''),
+       NULLIF(LTRIM(RTRIM(@LeadTime)), N''),
+       @Quantity, @UnitPrice, @TotalPrice, @LineCurrencyId, @Rate,
+       ROUND(@UnitPrice * @Rate, 2), ROUND(@TotalPrice * @Rate, 2), @SortOrder
+FROM (SELECT 1 AS Anchor) AS Anchor
+LEFT JOIN projects.Activities A
+    ON A.Id = @ActivityId
+   AND A.ProjectId = @ProjectId
+   AND A.IsDeleted = 0
+LEFT JOIN projects.Quotations Q
+    ON Q.Id = @QuotationId
+   AND Q.IsDeleted = 0
+WHERE (@ActivityId IS NULL AND NULLIF(LTRIM(RTRIM(@DsnNo)), N'') IS NOT NULL AND NULLIF(LTRIM(RTRIM(@PartNo)), N'') IS NOT NULL)
+   OR (A.Id IS NOT NULL AND (@QuotationId IS NULL OR Q.Id IS NOT NULL));", _connection, transaction);
+                insert.Parameters.AddInt("PurchaseOrderId", purchaseOrderId);
+                insert.Parameters.AddInt("ProjectId", projectId);
+                insert.Parameters.AddNullableInt("ActivityId", activityId);
+                insert.Parameters.AddNullableInt("QuotationId", quotationId);
+                insert.Parameters.AddNullableInt("CurrencyId", item.CurrencyId);
+                insert.Parameters.AddNVarChar("DsnNo", item.DsnNo ?? string.Empty, 100);
+                insert.Parameters.AddNVarChar("PartNo", TrimPart(item.PartNo), 200);
+                insert.Parameters.AddNVarChar("Description", item.PartDescription ?? string.Empty, 500);
+                insert.Parameters.AddNVarChar("Condition", item.Condition ?? string.Empty, 100);
+                insert.Parameters.AddNVarChar("Unit", item.Unit ?? string.Empty, 100);
+                insert.Parameters.AddNVarChar("LeadTime", item.LeadTime ?? string.Empty, 100);
+                insert.Parameters.AddNullableDecimal("Quantity", item.Quantity, 18, 2);
+                insert.Parameters.AddNullableDecimal("UnitPrice", item.UnitPrice, 18, 2);
+                insert.Parameters.AddNullableDecimal("TotalPrice", item.TotalPrice, 18, 2);
+                insert.Parameters.AddInt("SortOrder", sort++);
+                var saved = await insert.ExecuteNonQueryAsync(cancellationToken);
+                if (saved == 0)
+                {
+                    throw new InvalidOperationException(activityId == null
+                        ? "Each custom purchase order line needs a DSN No and a Part No."
+                        : "Each linked purchase order line needs an activity on this project. A quotation, when set, must still exist.");
+                }
+            }
+        }
+
+        private async Task ReplaceChargesAsync(int purchaseOrderId, IReadOnlyList<PurchaseOrderChargeWrite> charges, SqlTransaction transaction, CancellationToken cancellationToken)
+        {
+            if (charges != null)
+            {
+                using (var delete = new SqlCommand("DELETE FROM projects.PurchaseOrderCharges WHERE PurchaseOrderId = @PurchaseOrderId", _connection, transaction))
+                {
+                    delete.Parameters.AddInt("PurchaseOrderId", purchaseOrderId);
+                    await delete.ExecuteNonQueryAsync(cancellationToken);
+                }
+
+                foreach (var charge in charges.Where(item => item != null && !string.IsNullOrWhiteSpace(item.Name)))
+                {
+                    using var insert = new SqlCommand(@"
+INSERT INTO projects.PurchaseOrderCharges (PurchaseOrderId, Name, Basis, Amount, Rate, BaseAmount, SortOrder)
+SELECT @PurchaseOrderId, @Name, N'Amount', @Amount, NULL, ROUND(@Amount * P.ExchangeRate, 2), @SortOrder
+FROM projects.PurchaseOrders P
+WHERE P.Id = @PurchaseOrderId;", _connection, transaction);
+                    insert.Parameters.AddInt("PurchaseOrderId", purchaseOrderId);
+                    insert.Parameters.AddNVarChar("Name", charge.Name.Trim(), 200, false);
+                    insert.Parameters.AddNullableDecimal("Amount", charge.Amount, 18, 2);
+                    insert.Parameters.AddInt("SortOrder", charge.SortOrder);
+                    await insert.ExecuteNonQueryAsync(cancellationToken);
+                }
+            }
+
+            using var update = new SqlCommand(@"
+UPDATE P
+SET BaseSubTotal = ROUND(ISNULL((SELECT SUM(BaseTotalPrice) FROM projects.PurchaseOrderItems WHERE PurchaseOrderId = P.Id), 0), 2),
+    SubTotal = ROUND(CASE
+        WHEN P.ExchangeRate = 0 THEN 0
+        ELSE ISNULL((SELECT SUM(BaseTotalPrice) FROM projects.PurchaseOrderItems WHERE PurchaseOrderId = P.Id), 0) / P.ExchangeRate
+    END, 2)
+FROM projects.PurchaseOrders P
+WHERE P.Id = @PurchaseOrderId;
+
+UPDATE P
+SET BaseTotalAmount = ROUND(P.BaseSubTotal + ISNULL((SELECT SUM(BaseAmount) FROM projects.PurchaseOrderCharges WHERE PurchaseOrderId = P.Id), 0), 2),
+    Total = ROUND(P.SubTotal + ISNULL((SELECT SUM(Amount) FROM projects.PurchaseOrderCharges WHERE PurchaseOrderId = P.Id), 0), 2)
+FROM projects.PurchaseOrders P
+WHERE P.Id = @PurchaseOrderId;", _connection, transaction);
+            update.Parameters.AddInt("PurchaseOrderId", purchaseOrderId);
+            await update.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        private async Task<PurchaseOrderDocumentResult> InsertDocumentAsync(CreatePurchaseOrderDocumentArgs args, SqlTransaction transaction, CancellationToken cancellationToken)
+        {
+            using var command = new SqlCommand(@"
+IF NOT EXISTS (
+    SELECT 1
+    FROM projects.PurchaseOrders P
+    INNER JOIN projects.PurchaseOrderProjects PP ON PP.PurchaseOrderId = P.Id
+    WHERE P.Id = @PurchaseOrderId AND PP.ProjectId = @ProjectId AND P.IsDeleted = 0
+)
+BEGIN
+    ;THROW 50023, N'Purchase order was not found on this project.', 1;
+END
+
+DELETE FROM projects.PurchaseOrderDocuments WHERE PurchaseOrderId = @PurchaseOrderId;
+
+INSERT INTO projects.PurchaseOrderDocuments (PurchaseOrderId, FileName, FileType, GoogleDriveFileId, WebViewLink)
+VALUES (@PurchaseOrderId, @FileName, @FileType, @GoogleDriveFileId, @WebViewLink);
+
+SELECT D.DocumentId, D.PurchaseOrderId, D.FileName, D.FileType, D.GoogleDriveFileId, D.WebViewLink, D.UploadedAt
+FROM projects.PurchaseOrderDocuments D
+WHERE D.DocumentId = CAST(SCOPE_IDENTITY() AS INT);", _connection, transaction);
+            command.Parameters.AddInt("ProjectId", args.ProjectId);
+            command.Parameters.AddInt("PurchaseOrderId", args.PurchaseOrderId);
+            command.Parameters.AddNVarChar("FileName", args.FileName, 260, false);
+            command.Parameters.AddNVarChar("FileType", args.FileType, 100, false);
+            command.Parameters.AddNVarChar("GoogleDriveFileId", args.GoogleDriveFileId, 128, false);
+            command.Parameters.AddNVarChar("WebViewLink", args.WebViewLink ?? string.Empty, 1000, false);
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                return null;
+            }
+
+            return ReadDocument(reader);
+        }
+
+        private static PurchaseOrderListItem ReadListItem(SqlDataReader reader)
+        {
+            return new PurchaseOrderListItem
+            {
+                Id = reader.ReadIntValue("Id"),
+                SupplierId = reader.ReadIntValue("SupplierId"),
+                SupplierName = reader.ReadNullableStringValue("SupplierName"),
+                Code = reader.ReadNullableStringValue("Code"),
+                PoDate = reader.ReadNullableDateTimeValue("PoDate"),
+                ShipToAddress = reader.ReadNullableStringValue("ShipToAddress"),
+                ItemCount = reader.ReadIntValue("ItemCount"),
+                CurrencyId = reader.ReadIntValue("CurrencyId"),
+                CurrencyCode = reader.ReadNullableStringValue("CurrencyCode"),
+                CurrencySymbol = reader.ReadNullableStringValue("CurrencySymbol"),
+                ExchangeRate = reader.ReadDecimalValue("ExchangeRate"),
+                SubTotal = reader.ReadDecimalValue("SubTotal"),
+                BaseSubTotal = reader.ReadDecimalValue("BaseSubTotal"),
+                Total = reader.ReadDecimalValue("Total"),
+                BaseTotalAmount = reader.ReadDecimalValue("BaseTotalAmount"),
+            };
+        }
+
+        private static void CopyListItem(PurchaseOrderListItem source, PurchaseOrderDetailResult target)
+        {
+            target.Id = source.Id;
+            target.SupplierId = source.SupplierId;
+            target.SupplierName = source.SupplierName;
+            target.Code = source.Code;
+            target.PoDate = source.PoDate;
+            target.ShipToAddress = source.ShipToAddress;
+            target.ItemCount = source.ItemCount;
+            target.CurrencyId = source.CurrencyId;
+            target.CurrencyCode = source.CurrencyCode;
+            target.CurrencySymbol = source.CurrencySymbol;
+            target.ExchangeRate = source.ExchangeRate;
+            target.SubTotal = source.SubTotal;
+            target.BaseSubTotal = source.BaseSubTotal;
+            target.Total = source.Total;
+            target.BaseTotalAmount = source.BaseTotalAmount;
+        }
+
+        private static PurchaseOrderDocumentResult ReadDocument(SqlDataReader reader)
+        {
+            return new PurchaseOrderDocumentResult
+            {
+                DocumentId = reader.ReadIntValue("DocumentId"),
+                PurchaseOrderId = reader.ReadIntValue("PurchaseOrderId"),
+                FileName = reader.ReadNullableStringValue("FileName"),
+                FileType = reader.ReadNullableStringValue("FileType"),
+                GoogleDriveFileId = reader.ReadNullableStringValue("GoogleDriveFileId"),
+                WebViewLink = reader.ReadNullableStringValue("WebViewLink"),
+                UploadedAt = reader.ReadNullableDateTimeValue("UploadedAt"),
+            };
+        }
+
+        private static string TrimPart(string value)
+        {
+            var text = (value ?? string.Empty).Trim();
+            return text.Length <= 200 ? text : text.Substring(0, 200);
+        }
+    }
+}

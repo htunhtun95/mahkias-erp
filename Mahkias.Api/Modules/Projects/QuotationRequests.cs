@@ -20,6 +20,8 @@ namespace Mahkias.Api.Modules.Projects
 
         public string Condition { get; set; }
 
+        public string Unit { get; set; }
+
         public string LeadTime { get; set; }
 
         public int? MinimumQty { get; set; }
@@ -37,6 +39,13 @@ namespace Mahkias.Api.Modules.Projects
         public int? ActivityGroupId { get; set; }
 
         public int? CurrencyId { get; set; }
+    }
+
+    public class QuotationChargeRequest
+    {
+        public string Name { get; set; }
+
+        public decimal? Amount { get; set; }
     }
 
     public class CreateQuotationRequest
@@ -57,6 +66,8 @@ namespace Mahkias.Api.Modules.Projects
 
         public List<QuotationItemRequest> Items { get; set; } = new List<QuotationItemRequest>();
 
+        public List<QuotationChargeRequest> Charges { get; set; }
+
         public string DuplicateHandling { get; set; }
     }
 
@@ -74,6 +85,8 @@ namespace Mahkias.Api.Modules.Projects
 
         public string Items { get; set; }
 
+        public string Charges { get; set; }
+
         public IFormFile File { get; set; }
 
         public int DocumentId { get; set; }
@@ -90,6 +103,8 @@ namespace Mahkias.Api.Modules.Projects
         public string DescriptionColumn { get; set; }
 
         public string ConditionColumn { get; set; }
+
+        public string UnitColumn { get; set; }
 
         public string LeadTimeColumn { get; set; }
 
@@ -114,6 +129,8 @@ namespace Mahkias.Api.Modules.Projects
         public string DefaultDescription { get; set; }
 
         public string DefaultCondition { get; set; }
+
+        public string DefaultUnit { get; set; }
 
         public string DefaultLeadTime { get; set; }
 

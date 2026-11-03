@@ -11,14 +11,37 @@
     }
   </div>
 
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+
   <div class="table">
     <div class="row heading">
       <span>PO no</span>
       <span>Supplier</span>
-      <span>Items count</span>
-      <span>Delivery status</span>
-      <span>Total cost</span>
+      <span>PO date</span>
+      <span>Items</span>
+      <span>Total</span>
+      <span></span>
     </div>
-    <div class="empty-row">No purchase orders yet. New orders will be tracked here.</div>
+    @if (loading) {
+      <div class="empty-row">Loading purchase orders…</div>
+    } @else if (orders.length === 0) {
+      <div class="empty-row">No purchase orders yet.</div>
+    } @else {
+      @for (order of orders; track order.id) {
+        <div class="row">
+          <span>{{ order.code }}</span>
+          <span>{{ order.supplierName }}</span>
+          <span>{{ when(order.poDate) }}</span>
+          <span>{{ order.itemCount }}</span>
+          <span>{{ money(order) }}</span>
+          <span class="actions">
+            <button class="text-btn" type="button" (click)="edit(order)" [disabled]="deletingId != null">Edit</button>
+            <button class="text-btn" type="button" (click)="remove(order)" [disabled]="deletingId != null">Delete</button>
+          </span>
+        </div>
+      }
+    }
   </div>
 </section>

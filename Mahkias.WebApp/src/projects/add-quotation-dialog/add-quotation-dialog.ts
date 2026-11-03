@@ -24,6 +24,9 @@ import { directActivityId } from '../quotation-map';
 import { activityHasLabel } from '../project/tabs/project-activities-tab/activity-structure';
 import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-date-field';
 import { dateInputValue } from '../quotation-terms';
+import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
+import { LookupValue, canonicalCondition, canonicalUnit } from '../quotation-lookups';
+import { QuotationChargeRow, QuotationChargesComponent, readQuotationCharges } from '../quotation-charges/quotation-charges';
 
 interface QuoteRow {
   key: string;
@@ -32,6 +35,7 @@ interface QuoteRow {
   partNo: string;
   description: string;
   condition: string;
+  unitCode: string;
   leadTime: string;
   minimumQty: string;
   unitPrice: string;
@@ -46,7 +50,7 @@ interface QuoteRow {
 @Component({
   selector: 'app-create-quotation-dialog',
   standalone: true,
-  imports: [FormsModule, MaterialModule, TextFieldModule, DriveUploadCardComponent, QuotationDateFieldComponent],
+  imports: [FormsModule, MaterialModule, TextFieldModule, DriveUploadCardComponent, QuotationDateFieldComponent, LookupComboboxComponent, QuotationChargesComponent],
   templateUrl: './add-quotation-dialog.html',
   styleUrl: './add-quotation-dialog.css',
 })
@@ -67,6 +71,8 @@ export class CreateQuotationDialogComponent {
   labelId: number | null = null;
   private labels: ActivityLabel[] = [];
   currencies: Currency[] = [];
+  units: LookupValue[] = [];
+  conditions: LookupValue[] = [];
   currencyId: number | null = this.data.quotation?.currencyId ?? null;
 
   supplierQuotationRef = this.data.quotation?.supplierReference ?? '';
@@ -74,6 +80,11 @@ export class CreateQuotationDialogComponent {
   validUntil = dateInputValue(this.data.quotation?.validUntil);
   supplierQuery = this.data.quotation?.supplierName ?? '';
   supplierId: number | null = this.data.quotation?.supplierId ?? null;
+  charges: QuotationChargeRow[] = (this.data.quotation?.charges ?? []).map((charge) => ({
+    key: crypto.randomUUID(),
+    name: charge.name ?? '',
+    amount: charge.amount == null ? '' : String(charge.amount),
+  }));
   suppliers: Supplier[] = [];
   supplierOpen = false;
   creatingSupplier = false;
@@ -88,6 +99,16 @@ export class CreateQuotationDialogComponent {
     this.api.suppliers().subscribe({
       next: (suppliers) => {
         this.suppliers = suppliers;
+      },
+    });
+    this.api.units().subscribe({
+      next: (units) => {
+        this.units = units ?? [];
+      },
+    });
+    this.api.conditions().subscribe({
+      next: (conditions) => {
+        this.conditions = conditions ?? [];
       },
     });
     this.api.currencies().subscribe({
@@ -290,6 +311,26 @@ export class CreateQuotationDialogComponent {
     return currency?.symbol || currency?.code || '$';
   }
 
+  get chargeSymbol(): string {
+    return this.currencyMark(this.currencyId);
+  }
+
+  get conditionNames(): string[] {
+    return this.conditions.map((condition) => condition.name);
+  }
+
+  get unitNames(): string[] {
+    return this.units.map((unit) => unit.name);
+  }
+
+  normalizeUnit(row: QuoteRow) {
+    row.unitCode = canonicalUnit(row.unitCode, this.units);
+  }
+
+  normalizeCondition(row: QuoteRow) {
+    row.condition = canonicalCondition(row.condition, this.conditions);
+  }
+
   cancel() {
     if (!this.isSaving) {
       this.dialogRef.close(false);
@@ -327,12 +368,18 @@ export class CreateQuotationDialogComponent {
     if (this.dateOrderError) {
       return;
     }
+    const charges = readQuotationCharges(this.charges);
+    if (charges.error) {
+      this.error = charges.error;
+      return;
+    }
 
     const items: QuotationItemInput[] = filled.map((row) => ({
       dsnNo: row.dsnNo.trim(),
       partNo: row.partNo.trim(),
       description: row.description.trim(),
       condition: row.condition.trim(),
+      unit: row.unitCode.trim(),
       leadTime: row.leadTime.trim(),
       minimumQty: this.optionalQuantity(row.minimumQty),
       unitPrice: this.money(row.unitPrice),
@@ -359,6 +406,7 @@ export class CreateQuotationDialogComponent {
             quotedDate: this.quotedDate || null,
             validUntil: this.validUntil || null,
             items,
+            charges: charges.charges,
           };
           if (!this.quotationId) {
             return this.api.importQuotation(this.data.projectId, body, file);
@@ -541,6 +589,7 @@ export class CreateQuotationDialogComponent {
       partNo: item?.partNo?.trim() || (activity.mainPartNo || activity.partNo || '').trim(),
       description: item?.description?.trim() || (activity.description ?? '').trim(),
       condition: item?.condition?.trim() || '',
+      unitCode: item?.unit?.trim() || '',
       leadTime: item?.leadTime?.trim() || '',
       minimumQty: item?.minimumQty ? String(item.minimumQty) : '',
       quantity: item ? String(item.quantity || 1) : this.activityQuantity(activity),
@@ -560,6 +609,7 @@ export class CreateQuotationDialogComponent {
       partNo: item.partNo ?? '',
       description: item.description ?? '',
       condition: item.condition ?? '',
+      unitCode: item.unit?.trim() || '',
       leadTime: item.leadTime ?? '',
       minimumQty: item.minimumQty ? String(item.minimumQty) : '',
       quantity: String(item.quantity || 1),

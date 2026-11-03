@@ -63,7 +63,7 @@ FROM projects.Suppliers S
 WHERE S.Id = @Id
   AND S.IsDeleted = 0;
 
-SELECT Q.Id, Q.Code, Q.CreatedAt, Q.QuotedDate, Q.ValidUntil,
+SELECT Q.Id, Q.Code, Q.SupplierReference, Q.CreatedAt, Q.QuotedDate, Q.ValidUntil,
        (SELECT COUNT(*) FROM projects.QuotationItems I WHERE I.QuotationId = Q.Id) AS ItemCount,
        (SELECT STRING_AGG(P.Name, N', ') WITHIN GROUP (ORDER BY P.Name)
         FROM projects.QuotationProjects QP
@@ -109,6 +109,7 @@ ORDER BY P.Name, P.Id");
                         {
                             Id = reader.ReadIntValue("Id"),
                             Code = reader.ReadStringValue("Code"),
+                            SupplierReference = reader.ReadStringValue("SupplierReference"),
                             CreatedAt = reader.ReadDateTimeValue("CreatedAt"),
                             QuotedDate = reader.ReadNullableDateTimeValue("QuotedDate"),
                             ValidUntil = reader.ReadNullableDateTimeValue("ValidUntil"),
