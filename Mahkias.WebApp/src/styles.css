@@ -638,6 +638,22 @@ a.menu-text-left.active-menu .mat-icon {
   border-radius: 16px;
 }
 
+.cdk-overlay-pane.quotation-dialog-panel.po-detail-panel {
+  min-height: 0;
+}
+
+.cdk-overlay-pane.quotation-dialog-panel.po-detail-panel .mat-dialog-container,
+.cdk-overlay-pane.quotation-dialog-panel.po-detail-panel .mat-mdc-dialog-container,
+.cdk-overlay-pane.quotation-dialog-panel.po-detail-panel .mat-mdc-dialog-inner-container,
+.cdk-overlay-pane.quotation-dialog-panel.po-detail-panel .mat-mdc-dialog-surface,
+.cdk-overlay-pane.quotation-dialog-panel.po-detail-panel .mat-mdc-dialog-component-host,
+.cdk-overlay-pane.quotation-dialog-panel.po-detail-panel .quotation-dialog-container,
+.cdk-overlay-pane.quotation-dialog-panel.po-detail-panel app-purchase-order-detail-dialog {
+  height: auto;
+  min-height: 0;
+  max-height: none;
+}
+
 .app-dialog-container {
   display: flex;
   flex-direction: column;

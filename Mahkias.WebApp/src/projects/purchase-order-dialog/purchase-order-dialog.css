@@ -302,12 +302,13 @@ textarea {
 
 .ship-to textarea {
   display: block;
-  box-sizing: content-box;
-  width: calc(100% - 26px);
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 36px !important;
   resize: none;
-  overflow: auto;
-  line-height: 20px;
+  overflow: hidden;
   padding: 0 12px;
+  line-height: 34px;
 }
 
 .sheet-tools {

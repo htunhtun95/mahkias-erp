@@ -34,7 +34,10 @@ import { ActivitySuggestion, activitySuggestions } from '../quotation-map';
             (mousedown)="$event.preventDefault()"
             (click)="choose(suggestion)"
           >
-            {{ suggestion.label }}
+            <span class="option-label">{{ suggestion.label }}</span>
+            @if (suggestion.role === 'alternate') {
+              <span class="option-badge">Alt</span>
+            }
           </button>
         }
       </div>
@@ -71,7 +74,9 @@ import { ActivitySuggestion, activitySuggestions } from '../quotation-map';
       box-shadow: 0 8px 24px rgba(32, 33, 36, 0.18);
     }
     .activity-menu button {
-      display: block;
+      display: flex;
+      align-items: center;
+      gap: 8px;
       width: 100%;
       min-height: 36px;
       margin: 0;
@@ -87,6 +92,24 @@ import { ActivitySuggestion, activitySuggestions } from '../quotation-map';
     }
     .activity-menu button.active,
     .activity-menu button:hover { background: #e8f0fe; }
+    .option-label {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .option-badge {
+      flex: 0 0 auto;
+      margin-left: auto;
+      padding: 1px 7px;
+      border-radius: 999px;
+      background: #f1f3f4;
+      color: #5f6368;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 16px;
+      letter-spacing: 0.02em;
+    }
   `,
 })
 export class ActivitySuggestComponent implements OnChanges, OnDestroy {

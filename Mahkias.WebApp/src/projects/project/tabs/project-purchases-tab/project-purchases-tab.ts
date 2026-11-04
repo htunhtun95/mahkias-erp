@@ -4,10 +4,11 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { forkJoin, Subscription } from 'rxjs';
 import { MaterialModule } from '../../../../app/material-module';
-import { Project, ProjectApiService, PurchaseOrderDetail, PurchaseOrderDocument, PurchaseOrderHistoryEntry, PurchaseOrderLine, PurchaseOrderListItem, QuotationCharge } from '../../../../core/services/project-api.service';
+import { Project, ProjectApiService, PurchaseOrderDetail, PurchaseOrderDocument, PurchaseOrderLine, PurchaseOrderListItem, QuotationCharge } from '../../../../core/services/project-api.service';
 import { formatMoney } from '../../../money-format';
 import { ConfirmDialog } from '../../../confirm-dialog/confirm-dialog';
 import { PurchaseOrderDialogComponent } from '../../../purchase-order-dialog/purchase-order-dialog';
+import { PurchaseOrderDetailDialog } from './purchase-order-detail-dialog';
 import { ProcurementTrace } from '../../../procurement-trace';
 import { PurchaseOrderSync } from '../../../purchase-order-sync';
 
@@ -216,6 +217,26 @@ export class ProjectPurchasesTabComponent implements OnChanges, OnDestroy {
     });
   }
 
+  openDetails(order: PurchaseOrderListItem) {
+    if (!this.project || this.deletingId != null) {
+      return;
+    }
+    this.dialog.open(PurchaseOrderDetailDialog, {
+      disableClose: true,
+      width: '95vw',
+      maxWidth: '95vw',
+      minWidth: 'min(720px, 95vw)',
+      maxHeight: 'none',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-detail-panel', 'app-dialog-pane'],
+      backdropClass: 'add-project-dialog-backdrop',
+      autoFocus: 'first-tabbable',
+      data: {
+        projectId: this.project.id,
+        order,
+      },
+    });
+  }
+
   edit(order: PurchaseOrderListItem) {
     if (!this.project || this.deletingId != null) {
       return;
@@ -291,47 +312,6 @@ export class ProjectPurchasesTabComponent implements OnChanges, OnDestroy {
       return '';
     }
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  }
-
-  whenStamp(value?: string | null): string {
-    if (!value) {
-      return '';
-    }
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-      return '';
-    }
-    return date.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-  }
-
-  historyFor(id: number): PurchaseOrderHistoryEntry[] {
-    return this.orderDetail(id)?.history ?? [];
-  }
-
-  historyLabel(action: string): string {
-    switch (action) {
-      case 'StatusChanged':
-        return 'Status changed';
-      case 'Created':
-        return 'Created';
-      case 'Edited':
-        return 'Edited';
-      case 'Revised':
-        return 'Revised';
-      case 'Deleted':
-        return 'Deleted';
-      default:
-        return action || 'Updated';
-    }
-  }
-
-  historyActor(entry: PurchaseOrderHistoryEntry): string {
-    const name = entry.actorName?.trim();
-    const email = entry.actorEmail?.trim();
-    if (name && email) {
-      return `${name} · ${email}`;
-    }
-    return name || email || 'Unknown user';
   }
 
   statusClass(code?: string | null): string {

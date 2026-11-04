@@ -57,6 +57,10 @@
                 }
               </button>
               <mat-menu #orderMenu="matMenu" class="activity-row-menu">
+                <button mat-menu-item type="button" (click)="openDetails(order)" [disabled]="deletingId != null">
+                  <mat-icon>visibility</mat-icon>
+                  <span>View details</span>
+                </button>
                 <button mat-menu-item type="button" (click)="edit(order)" [disabled]="deletingId != null">
                   <mat-icon>edit</mat-icon>
                   <span>Edit</span>
@@ -155,21 +159,6 @@
                     </div>
                   }
                 </div>
-                <section class="history" aria-label="Purchase order history">
-                  <h3>History</h3>
-                  @if (!historyFor(order.id).length) {
-                    <p class="history-meta">No history recorded yet.</p>
-                  }
-                  @for (entry of historyFor(order.id); track entry.id) {
-                    <div class="history-item">
-                      <div class="history-title">
-                        <span class="history-action">{{ historyLabel(entry.action) }}</span>
-                        <span>{{ entry.summary }}</span>
-                      </div>
-                      <p class="history-meta">{{ historyActor(entry) }} · {{ whenStamp(entry.createdAt) }}</p>
-                    </div>
-                  }
-                </section>
               }
             </div>
           }

@@ -28,6 +28,8 @@ export interface ActivitySuggestion {
   dsnNo: string;
   partNo: string;
   label: string;
+  role: 'primary' | 'alternate';
+  description: string;
 }
 
 export function activitySuggestions(query: string, activities: Activity[]): ActivitySuggestion[] {
@@ -36,42 +38,60 @@ export function activitySuggestions(query: string, activities: Activity[]): Acti
   const seen = new Set<string>();
   for (const activity of activities ?? []) {
     const dsn = (activity.dsnNo ?? '').trim();
-    const parts = suggestionParts(activity);
-    for (const part of parts) {
-      const key = `${activity.id}|${part.toLowerCase()}`;
+    const description = (activity.description ?? '').trim();
+    for (const entry of suggestionPartEntries(activity)) {
+      const key = `${activity.id}|${entry.part.toLowerCase()}`;
       if (seen.has(key)) {
         continue;
       }
       seen.add(key);
-      const label = [dsn, part].filter((value) => value.length > 0).join(' - ');
-      const haystack = `${dsn} ${part} ${label}`.toLowerCase();
+      const label = [dsn, entry.part].filter((value) => value.length > 0).join(' - ');
+      const haystack = `${dsn} ${entry.part} ${description} ${label}`.toLowerCase();
       if (text && !haystack.includes(text)) {
         continue;
       }
-      items.push({ activityId: activity.id, dsnNo: dsn, partNo: part, label });
+      items.push({
+        activityId: activity.id,
+        dsnNo: dsn,
+        partNo: entry.part,
+        label,
+        role: entry.role,
+        description,
+      });
     }
   }
-  items.sort((left, right) => left.label.localeCompare(right.label, undefined, { numeric: true, sensitivity: 'base' }));
+  items.sort((left, right) => {
+    const dsn = left.dsnNo.localeCompare(right.dsnNo, undefined, { numeric: true, sensitivity: 'base' });
+    if (dsn !== 0) {
+      return dsn;
+    }
+    if (left.role !== right.role) {
+      return left.role === 'primary' ? -1 : 1;
+    }
+    return left.partNo.localeCompare(right.partNo, undefined, { numeric: true, sensitivity: 'base' });
+  });
   return items.slice(0, 12);
 }
 
-function suggestionParts(activity: Activity): string[] {
-  const main = (activity.mainPartNo ?? '').trim();
-  const alternatives = (activity.alternativePartNos ?? []).map((value) => (value ?? '').trim()).filter((value) => value.length > 0);
-  const parts = [main, ...alternatives].filter((value) => value.length > 0);
-  if (!parts.length) {
-    const display = (activity.partNo ?? '').trim();
-    if (display) {
-      parts.push(display);
+function suggestionPartEntries(activity: Activity): { part: string; role: 'primary' | 'alternate' }[] {
+  const entries: { part: string; role: 'primary' | 'alternate' }[] = [];
+  const seen = new Set<string>();
+  const add = (part: string, role: 'primary' | 'alternate') => {
+    const key = part.toLowerCase();
+    if (!part || seen.has(key)) {
+      return;
     }
+    seen.add(key);
+    entries.push({ part, role });
+  };
+  add((activity.mainPartNo ?? '').trim(), 'primary');
+  for (const value of activity.alternativePartNos ?? []) {
+    add((value ?? '').trim(), 'alternate');
   }
-  const unique: string[] = [];
-  for (const part of parts) {
-    if (!unique.some((value) => value.toLowerCase() === part.toLowerCase())) {
-      unique.push(part);
-    }
+  if (!entries.length) {
+    add((activity.partNo ?? '').trim(), 'primary');
   }
-  return unique;
+  return entries;
 }
 
 export function partSuggestions(query: string, activities: Activity[], groups: ActivityGroup[]): PartSuggestion[] {

@@ -35,7 +35,6 @@
             (focus)="supplierOpen = true"
             (blur)="closeSuppliers()"
             name="supplier"
-            placeholder="Search suppliers"
             autocomplete="off"
           />
           @if (supplierQuery.trim()) {
@@ -83,13 +82,11 @@
         <span>Ship to</span>
         <textarea
           cdkTextareaAutosize
-          cdkAutosizeMinRows="5"
-          cdkAutosizeMaxRows="8"
-          rows="5"
+          cdkAutosizeMinRows="1"
+          rows="1"
           [(ngModel)]="shipToAddress"
           maxlength="500"
           [disabled]="loading || saving"
-          placeholder="Ship-to address"
         ></textarea>
       </label>
     </div>

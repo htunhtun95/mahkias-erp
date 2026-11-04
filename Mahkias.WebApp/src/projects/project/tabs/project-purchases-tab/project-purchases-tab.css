@@ -435,38 +435,6 @@
   color: #c5221f;
 }
 
-.history {
-  margin-top: 16px;
-}
-
-.history h3 {
-  margin: 0 0 4px;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.history-item {
-  padding: 10px 0;
-  border-top: 1px solid #e8eaed;
-}
-
-.history-title {
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
-}
-
-.history-action {
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.history-meta {
-  margin: 2px 0 0;
-  color: #5f6368;
-  font-size: 12px;
-}
-
 @media (max-width: 800px) {
   .summary {
     flex-direction: column;
