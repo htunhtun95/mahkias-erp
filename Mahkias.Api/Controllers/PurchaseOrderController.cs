@@ -35,6 +35,12 @@ namespace Mahkias.Api.Controllers
             _folders = folders;
         }
 
+        [HttpGet("/api/purchase-order-statuses")]
+        public async Task<IActionResult> Statuses()
+        {
+            return Ok(await _uow.PurchaseOrders.GetStatusesAsync());
+        }
+
         [HttpGet("/api/projects/{projectId:int}/purchase-orders")]
         public async Task<IActionResult> List(int projectId)
         {
@@ -118,7 +124,7 @@ namespace Mahkias.Api.Controllers
         [HttpDelete("/api/purchase-orders/{id:int}")]
         public async Task<IActionResult> Delete(int id)
         {
-            return await _uow.PurchaseOrders.DeleteAsync(id) ? NoContent() : NotFound();
+            return await _uow.PurchaseOrders.DeleteAsync(id, ActorName(), ActorEmail(), null) ? NoContent() : NotFound();
         }
 
         [HttpPost("/api/projects/{projectId:int}/purchase-orders/import")]
@@ -417,6 +423,7 @@ namespace Mahkias.Api.Controllers
                 PoDate = poDate,
                 ShipToAddress = form.ShipToAddress,
                 CurrencyId = form.CurrencyId,
+                Status = form.Status,
                 ProjectIds = new List<int> { projectId },
                 Items = items,
                 Charges = charges.Charges,
@@ -479,6 +486,12 @@ namespace Mahkias.Api.Controllers
                 return (BadRequest(new { message = charges.Error }), null);
             }
 
+            var status = (request.Status ?? string.Empty).Trim();
+            if (status.Length > 50)
+            {
+                return (BadRequest(new { message = "Choose a purchase order status." }), null);
+            }
+
             return (null, new CreatePurchaseOrderArgs
             {
                 Code = code,
@@ -486,10 +499,54 @@ namespace Mahkias.Api.Controllers
                 PoDate = request.PoDate?.Date,
                 ShipToAddress = shipTo,
                 CurrencyId = request.CurrencyId,
+                StatusCode = status,
+                ActorName = ActorName(),
+                ActorEmail = ActorEmail(),
                 ProjectIds = projectIds,
                 Items = writes,
                 Charges = charges.Charges,
             });
+        }
+
+        private string ActorName()
+        {
+            return ActorHeader("X-User-Name", 200);
+        }
+
+        private string ActorEmail()
+        {
+            return ActorHeader("X-User-Email", 320);
+        }
+
+        private string ActorHeader(string name, int maxLength)
+        {
+            if (!Request.Headers.TryGetValue(name, out var values))
+            {
+                return null;
+            }
+
+            var raw = values.ToString();
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return null;
+            }
+
+            string decoded;
+            try
+            {
+                decoded = Uri.UnescapeDataString(raw.Trim());
+            }
+            catch (UriFormatException)
+            {
+                decoded = raw.Trim();
+            }
+
+            if (string.IsNullOrWhiteSpace(decoded))
+            {
+                return null;
+            }
+
+            return decoded.Length <= maxLength ? decoded : decoded.Substring(0, maxLength);
         }
 
         private static string AppendItem(List<PurchaseOrderItemWrite> writes, PurchaseOrderItemRequest item)

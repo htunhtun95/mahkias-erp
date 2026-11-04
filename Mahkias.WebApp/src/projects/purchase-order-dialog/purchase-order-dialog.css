@@ -113,6 +113,44 @@ h2 {
   align-items: start;
 }
 
+.status-note {
+  margin: 10px 0 0;
+  color: #b06000;
+  font-size: 13px;
+}
+
+.history {
+  margin-top: 18px;
+}
+
+.history h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.history-item {
+  padding: 10px 0;
+  border-top: 1px solid #e8eaed;
+}
+
+.history-title {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.history-action {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.history-meta {
+  margin: 2px 0 0;
+  color: #5f6368;
+  font-size: 12px;
+}
+
 .header-fields > label,
 .header-fields > app-quotation-date-field {
   display: flex;
@@ -255,8 +293,21 @@ textarea {
   resize: vertical;
 }
 
-.ship-to {
-  margin-top: 12px;
+.header-fields .ship-to {
+  grid-column: 2;
+  grid-row: 2;
+  margin-top: 0;
+  align-self: start;
+}
+
+.ship-to textarea {
+  display: block;
+  box-sizing: content-box;
+  width: calc(100% - 26px);
+  resize: none;
+  overflow: auto;
+  line-height: 20px;
+  padding: 0 12px;
 }
 
 .sheet-tools {

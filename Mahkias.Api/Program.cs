@@ -13,7 +13,11 @@ using Microsoft.OpenApi;
 string MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 var builder = WebApplication.CreateBuilder(args);
 
-var corsOrigins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? Array.Empty<string>();
+var corsOrigins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>()?
+    .Select(origin => origin.Trim().TrimEnd('/'))
+    .Where(origin => origin.Length > 0)
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray() ?? Array.Empty<string>();
 if (corsOrigins.Length == 0)
 {
     throw new InvalidOperationException("Cors:Origins is not configured.");

@@ -116,7 +116,7 @@
                 <button class="trace-link" type="button" (click)="openOrder(line)">{{ line.code }}</button>
                 <span>{{ line.supplierName }}</span>
                 <span>{{ when(line.poDate) }}</span>
-                <span class="status-pill">{{ poStatus() }}</span>
+                <span class="status-pill">{{ line.statusName || 'Draft' }}</span>
                 <span>{{ line.quantity }}</span>
                 <span>{{ money(line.unitPrice, line.currencySymbol, line.currencyCode) }}</span>
                 <span>{{ money(line.totalPrice, line.currencySymbol, line.currencyCode) }}</span>
@@ -154,7 +154,7 @@
                 <button class="trace-link" type="button" (click)="openOrder(line)">{{ line.code }}</button>
                 <span>{{ line.supplierName }}</span>
                 <span>{{ when(line.poDate) }}</span>
-                <span class="status-pill">{{ poStatus() }}</span>
+                <span class="status-pill">{{ line.statusName || 'Draft' }}</span>
                 <span>{{ line.partNo || '—' }}</span>
                 <span>{{ line.quantity }}</span>
                 <span>{{ money(line.unitPrice, line.currencySymbol, line.currencyCode) }}</span>

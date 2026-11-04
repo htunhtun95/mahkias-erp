@@ -354,6 +354,9 @@ export interface PurchaseOrderListItem {
   baseSubTotal: number;
   total: number;
   baseTotalAmount: number;
+  statusId: number;
+  statusCode?: string | null;
+  statusName?: string | null;
 }
 
 export interface PurchaseOrderLine {
@@ -395,11 +398,26 @@ export interface PurchaseOrderTraceLine {
   totalPrice: number;
   currencyCode?: string | null;
   currencySymbol?: string | null;
+  statusCode?: string | null;
+  statusName?: string | null;
+}
+
+export interface PurchaseOrderHistoryEntry {
+  id: number;
+  action: string;
+  summary: string;
+  statusCode?: string | null;
+  statusName?: string | null;
+  actorName?: string | null;
+  actorEmail?: string | null;
+  userId?: number | null;
+  createdAt?: string | null;
 }
 
 export interface PurchaseOrderDetail extends PurchaseOrderListItem {
   items: PurchaseOrderLine[];
   charges: QuotationCharge[];
+  history: PurchaseOrderHistoryEntry[];
 }
 
 export interface PurchaseOrderItemInput {
@@ -422,6 +440,7 @@ export interface PurchaseOrderWrite {
   poDate?: string | null;
   shipToAddress?: string | null;
   currencyId?: number | null;
+  status?: string | null;
   projectIds: number[];
   items: PurchaseOrderItemInput[];
   charges?: QuotationChargeInput[];
@@ -779,6 +798,10 @@ export class ProjectApiService {
     return this.cached('conditions', () => this.http.get<LookupValue[]>(`${this.baseUrl}/conditions`));
   }
 
+  purchaseOrderStatuses() {
+    return this.cached('purchase-order-statuses', () => this.http.get<LookupValue[]>(`${this.baseUrl}/purchase-order-statuses`));
+  }
+
   quotation(id: number) {
     return this.http.get<QuotationDetail>(`${this.baseUrl}/quotations/${id}`);
   }
@@ -1046,6 +1069,7 @@ function purchaseOrderForm(body: PurchaseOrderWrite, file?: File | null): FormDa
   form.append('supplierId', String(body.supplierId));
   form.append('poDate', body.poDate ?? '');
   form.append('shipToAddress', body.shipToAddress ?? '');
+  form.append('status', body.status ?? '');
   if (body.currencyId != null) {
     form.append('currencyId', String(body.currencyId));
   }

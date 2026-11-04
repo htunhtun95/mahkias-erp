@@ -31,6 +31,12 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
         public decimal Total { get; set; }
 
         public decimal BaseTotalAmount { get; set; }
+
+        public int StatusId { get; set; }
+
+        public string StatusCode { get; set; }
+
+        public string StatusName { get; set; }
     }
 
     public class PurchaseOrderItemResult
@@ -115,6 +121,40 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
         public List<PurchaseOrderItemResult> Items { get; set; } = new();
 
         public List<PurchaseOrderChargeResult> Charges { get; set; } = new();
+
+        public List<PurchaseOrderHistoryResult> History { get; set; } = new();
+    }
+
+    public class PurchaseOrderStatusResult
+    {
+        public int Id { get; set; }
+
+        public string Name { get; set; }
+
+        public string Code { get; set; }
+
+        public int SortOrder { get; set; }
+    }
+
+    public class PurchaseOrderHistoryResult
+    {
+        public int Id { get; set; }
+
+        public string Action { get; set; }
+
+        public string Summary { get; set; }
+
+        public string StatusCode { get; set; }
+
+        public string StatusName { get; set; }
+
+        public string ActorName { get; set; }
+
+        public string ActorEmail { get; set; }
+
+        public int? UserId { get; set; }
+
+        public DateTime CreatedAt { get; set; }
     }
 
     public class PurchaseOrderActivityMatch
@@ -167,5 +207,9 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
         public string CurrencyCode { get; set; }
 
         public string CurrencySymbol { get; set; }
+
+        public string StatusCode { get; set; }
+
+        public string StatusName { get; set; }
     }
 }

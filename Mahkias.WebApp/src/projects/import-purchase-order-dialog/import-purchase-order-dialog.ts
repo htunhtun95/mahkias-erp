@@ -1,3 +1,4 @@
+import { TextFieldModule } from '@angular/cdk/text-field';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, ElementRef, OnInit, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -48,7 +49,7 @@ interface PreviewLine {
 @Component({
   selector: 'app-import-purchase-order-dialog',
   standalone: true,
-  imports: [FormsModule, MaterialModule, QuotationDateFieldComponent, QuotationChargesComponent, DriveUploadCardComponent, LookupComboboxComponent],
+  imports: [FormsModule, TextFieldModule, MaterialModule, QuotationDateFieldComponent, QuotationChargesComponent, DriveUploadCardComponent, LookupComboboxComponent],
   templateUrl: './import-purchase-order-dialog.html',
   styleUrls: ['../purchase-order-dialog/purchase-order-dialog.css'],
 })
@@ -66,6 +67,8 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
   supplierOpen = false;
   @ViewChild('supplierInput') supplierInput?: ElementRef<HTMLInputElement>;
   currencyId: number | null = null;
+  statuses: LookupValue[] = [];
+  statusCode = 'Draft';
   poDate = todayIso();
   code = '';
   shipToAddress = '';
@@ -105,12 +108,15 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
       currencies: this.api.currencies(),
       units: this.api.units(),
       conditions: this.api.conditions(),
+      statuses: this.api.purchaseOrderStatuses(),
     }).subscribe({
       next: (result) => {
         this.suppliers = result.suppliers;
         this.currencies = result.currencies;
         this.units = result.units;
         this.conditions = result.conditions;
+        this.statuses = result.statuses ?? [];
+        this.statusCode = 'Draft';
         this.currencyId = result.currencies.find((currency) => currency.isDefault)?.id ?? result.currencies[0]?.id ?? null;
         for (const line of this.lines) {
           this.linkLine(line);
@@ -648,6 +654,7 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
       poDate: isoDate(this.poDate),
       shipToAddress: this.shipToAddress.trim(),
       currencyId: this.currencyId,
+      status: this.statusCode || 'Draft',
       projectIds: [this.data.projectId],
       items: this.lineItems(),
       charges: charges.charges,

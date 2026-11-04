@@ -71,11 +71,28 @@
           }
         </select>
       </label>
+      <label>
+        <span>Status</span>
+        <select [(ngModel)]="statusCode" [disabled]="saving">
+          @for (status of statuses; track status.id) {
+            <option [value]="status.code">{{ status.name }}</option>
+          }
+        </select>
+      </label>
+      <label class="ship-to">
+        <span>Ship to</span>
+        <textarea
+          cdkTextareaAutosize
+          cdkAutosizeMinRows="5"
+          cdkAutosizeMaxRows="8"
+          rows="5"
+          [(ngModel)]="shipToAddress"
+          maxlength="500"
+          [disabled]="saving"
+          placeholder="Ship-to address"
+        ></textarea>
+      </label>
     </div>
-    <label class="ship-to">
-      <span>Ship to</span>
-      <textarea [(ngModel)]="shipToAddress" rows="2" maxlength="500" [disabled]="saving" placeholder="Ship-to address"></textarea>
-    </label>
   </header>
 
   <div class="quotation-dialog-body">

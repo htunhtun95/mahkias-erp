@@ -12,6 +12,36 @@ namespace Mahkias.Data.Modules.Projects.Repositories
         {
         }
 
+        public async Task<IReadOnlyList<PurchaseOrderStatusResult>> GetStatusesAsync()
+        {
+            var items = new List<PurchaseOrderStatusResult>();
+            using var command = new SqlCommand(@"
+SELECT Id, Name, Code, SortOrder
+FROM dbo.PurchaseOrderStatuses
+ORDER BY SortOrder, Id;", _connection);
+            _connection.Open();
+            try
+            {
+                using var reader = await command.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    items.Add(new PurchaseOrderStatusResult
+                    {
+                        Id = reader.ReadIntValue("Id"),
+                        Name = reader.ReadNullableStringValue("Name"),
+                        Code = reader.ReadNullableStringValue("Code"),
+                        SortOrder = reader.ReadIntValue("SortOrder"),
+                    });
+                }
+            }
+            finally
+            {
+                _connection.Close();
+            }
+
+            return items;
+        }
+
         public async Task<IReadOnlyList<PurchaseOrderListItem>> GetByProjectAsync(int projectId)
         {
             var items = new List<PurchaseOrderListItem>();
@@ -19,18 +49,21 @@ namespace Mahkias.Data.Modules.Projects.Repositories
 SELECT P.Id, P.SupplierId, S.Name AS SupplierName, P.Code, P.PoDate, P.ShipToAddress,
        P.CurrencyId, C.Code AS CurrencyCode, C.Symbol AS CurrencySymbol, P.ExchangeRate,
        P.SubTotal, P.BaseSubTotal, P.Total, P.BaseTotalAmount,
+       ST.Id AS StatusId, ST.Code AS StatusCode, ST.Name AS StatusName,
        COUNT(I.Id) AS ItemCount
 FROM projects.PurchaseOrders P
 INNER JOIN projects.PurchaseOrderProjects PP ON PP.PurchaseOrderId = P.Id
 INNER JOIN projects.Suppliers S ON S.Id = P.SupplierId
 INNER JOIN dbo.Currencies C ON C.Id = P.CurrencyId
+INNER JOIN dbo.PurchaseOrderStatuses ST ON ST.Id = P.StatusId
 LEFT JOIN projects.PurchaseOrderItems I ON I.PurchaseOrderId = P.Id
 WHERE PP.ProjectId = @ProjectId
   AND P.IsDeleted = 0
   AND S.IsDeleted = 0
 GROUP BY P.Id, P.SupplierId, S.Name, P.Code, P.PoDate, P.ShipToAddress,
          P.CurrencyId, C.Code, C.Symbol, P.ExchangeRate,
-         P.SubTotal, P.BaseSubTotal, P.Total, P.BaseTotalAmount
+         P.SubTotal, P.BaseSubTotal, P.Total, P.BaseTotalAmount,
+         ST.Id, ST.Code, ST.Name
 ORDER BY P.Id DESC;", _connection);
             command.Parameters.AddInt("ProjectId", projectId);
             _connection.Open();
@@ -55,6 +88,7 @@ ORDER BY P.Id DESC;", _connection);
             var items = new List<PurchaseOrderTraceLine>();
             using var command = new SqlCommand(@"
 SELECT P.Id AS PurchaseOrderId, P.Code, P.PoDate, S.Name AS SupplierName,
+       ST.Code AS StatusCode, ST.Name AS StatusName,
        I.Id AS LineId, I.ActivityId, I.QuotationId, Q.Code AS QuotationCode,
        I.DsnNo, I.PartNo, I.PartDescription, I.Condition, I.Unit, I.LeadTime,
        I.Quantity, I.UnitPrice, I.TotalPrice, C.Code AS CurrencyCode, C.Symbol AS CurrencySymbol
@@ -63,6 +97,7 @@ INNER JOIN projects.PurchaseOrders P ON P.Id = I.PurchaseOrderId
 INNER JOIN projects.PurchaseOrderProjects PP ON PP.PurchaseOrderId = P.Id
 INNER JOIN projects.Suppliers S ON S.Id = P.SupplierId
 INNER JOIN dbo.Currencies C ON C.Id = I.CurrencyId
+INNER JOIN dbo.PurchaseOrderStatuses ST ON ST.Id = P.StatusId
 LEFT JOIN projects.Quotations Q ON Q.Id = I.QuotationId AND Q.IsDeleted = 0
 WHERE PP.ProjectId = @ProjectId
   AND P.IsDeleted = 0
@@ -96,6 +131,8 @@ ORDER BY P.Id DESC, I.SortOrder, I.Id;", _connection);
                         TotalPrice = reader.ReadDecimalValue("TotalPrice"),
                         CurrencyCode = reader.ReadNullableStringValue("CurrencyCode"),
                         CurrencySymbol = reader.ReadNullableStringValue("CurrencySymbol"),
+                        StatusCode = reader.ReadNullableStringValue("StatusCode"),
+                        StatusName = reader.ReadNullableStringValue("StatusName"),
                     });
                 }
             }
@@ -113,10 +150,12 @@ ORDER BY P.Id DESC, I.SortOrder, I.Id;", _connection);
 SELECT P.Id, P.SupplierId, S.Name AS SupplierName, P.Code, P.PoDate, P.ShipToAddress,
        P.CurrencyId, C.Code AS CurrencyCode, C.Symbol AS CurrencySymbol, P.ExchangeRate,
        P.SubTotal, P.BaseSubTotal, P.Total, P.BaseTotalAmount,
+       ST.Id AS StatusId, ST.Code AS StatusCode, ST.Name AS StatusName,
        (SELECT COUNT(*) FROM projects.PurchaseOrderItems I WHERE I.PurchaseOrderId = P.Id) AS ItemCount
 FROM projects.PurchaseOrders P
 INNER JOIN projects.Suppliers S ON S.Id = P.SupplierId
 INNER JOIN dbo.Currencies C ON C.Id = P.CurrencyId
+INNER JOIN dbo.PurchaseOrderStatuses ST ON ST.Id = P.StatusId
 WHERE P.Id = @Id AND P.IsDeleted = 0;
 
 SELECT I.Id, I.ActivityId, I.QuotationId, Q.Code AS QuotationCode, I.DsnNo, I.PartNo, I.PartDescription,
@@ -132,7 +171,14 @@ ORDER BY I.SortOrder, I.Id;
 SELECT Id, Name, Basis, Amount, Rate, BaseAmount, SortOrder
 FROM projects.PurchaseOrderCharges
 WHERE PurchaseOrderId = @Id
-ORDER BY SortOrder, Id;", _connection);
+ORDER BY SortOrder, Id;
+
+SELECT H.Id, H.Action, H.Summary, H.ActorName, H.ActorEmail, H.UserId, H.CreatedAt,
+       ST.Code AS StatusCode, ST.Name AS StatusName
+FROM projects.PurchaseOrderHistory H
+LEFT JOIN dbo.PurchaseOrderStatuses ST ON ST.Id = H.StatusId
+WHERE H.PurchaseOrderId = @Id
+ORDER BY H.CreatedAt DESC, H.Id DESC;", _connection);
             command.Parameters.AddInt("Id", purchaseOrderId);
             _connection.Open();
             try
@@ -188,6 +234,23 @@ ORDER BY SortOrder, Id;", _connection);
                     });
                 }
 
+                await reader.NextResultAsync();
+                while (await reader.ReadAsync())
+                {
+                    detail.History.Add(new PurchaseOrderHistoryResult
+                    {
+                        Id = reader.ReadIntValue("Id"),
+                        Action = reader.ReadNullableStringValue("Action"),
+                        Summary = reader.ReadNullableStringValue("Summary"),
+                        StatusCode = reader.ReadNullableStringValue("StatusCode"),
+                        StatusName = reader.ReadNullableStringValue("StatusName"),
+                        ActorName = reader.ReadNullableStringValue("ActorName"),
+                        ActorEmail = reader.ReadNullableStringValue("ActorEmail"),
+                        UserId = reader.ReadNullableIntValue("UserId"),
+                        CreatedAt = reader.ReadDateTimeValue("CreatedAt"),
+                    });
+                }
+
                 return detail;
             }
             finally
@@ -231,7 +294,7 @@ WHERE ProjectId = @ProjectId AND IsDeleted = 0;", _connection);
         {
             return await RunAsync(async (transaction, cancellationToken) =>
             {
-                var id = await InsertHeaderAsync(args, transaction, cancellationToken);
+                var id = await InsertNewAsync(args, transaction, cancellationToken);
                 await ReplaceItemsAsync(id, ProjectId(args), args.Items, transaction, cancellationToken);
                 await ReplaceChargesAsync(id, args.Charges, transaction, cancellationToken);
                 return id;
@@ -242,7 +305,7 @@ WHERE ProjectId = @ProjectId AND IsDeleted = 0;", _connection);
         {
             return await RunAsync(async (transaction, token) =>
             {
-                var id = await InsertHeaderAsync(args, transaction, token);
+                var id = await InsertNewAsync(args, transaction, token);
                 await ReplaceItemsAsync(id, ProjectId(args), args.Items, transaction, token);
                 await ReplaceChargesAsync(id, args.Charges, transaction, token);
                 if (attachFile != null)
@@ -263,12 +326,14 @@ WHERE ProjectId = @ProjectId AND IsDeleted = 0;", _connection);
         {
             await RunAsync(async (transaction, token) =>
             {
-                var updated = await UpdateHeaderAsync(purchaseOrderId, args, transaction, token);
+                var status = await ResolveUpdateStatusAsync(purchaseOrderId, args, transaction, token);
+                var updated = await UpdateHeaderAsync(purchaseOrderId, args, status.Id, transaction, token);
                 if (!updated)
                 {
                     throw new InvalidOperationException("The purchase order could not be saved.");
                 }
 
+                await InsertHistoryAsync(purchaseOrderId, status, args, transaction, token);
                 await ReplaceItemsAsync(purchaseOrderId, ProjectId(args), args.Items, transaction, token);
                 await ReplaceChargesAsync(purchaseOrderId, args.Charges, transaction, token);
                 if (attachFile != null)
@@ -285,22 +350,32 @@ WHERE ProjectId = @ProjectId AND IsDeleted = 0;", _connection);
             }, cancellationToken);
         }
 
-        public async Task<bool> DeleteAsync(int purchaseOrderId)
+        public async Task<bool> DeleteAsync(int purchaseOrderId, string actorName, string actorEmail, int? actorUserId)
         {
-            using var command = new SqlCommand(@"
+            return await RunAsync(async (transaction, token) =>
+            {
+                var current = await CurrentStatusAsync(purchaseOrderId, transaction, token);
+                if (current == null)
+                {
+                    return false;
+                }
+
+                await InsertHistoryAsync(purchaseOrderId, new PurchaseOrderStatusChoice
+                {
+                    Id = current.Id,
+                    Code = current.Code,
+                    Name = current.Name,
+                    Action = "Deleted",
+                    Summary = "Purchase order deleted.",
+                }, actorName, actorEmail, actorUserId, transaction, token);
+
+                using var command = new SqlCommand(@"
 UPDATE projects.PurchaseOrders
 SET IsDeleted = 1, DeletedAt = SYSUTCDATETIME(), ModifiedAt = GETDATE()
-WHERE Id = @Id AND IsDeleted = 0;", _connection);
-            command.Parameters.AddInt("Id", purchaseOrderId);
-            _connection.Open();
-            try
-            {
-                return await command.ExecuteNonQueryAsync() > 0;
-            }
-            finally
-            {
-                _connection.Close();
-            }
+WHERE Id = @Id AND IsDeleted = 0;", _connection, transaction);
+                command.Parameters.AddInt("Id", purchaseOrderId);
+                return await command.ExecuteNonQueryAsync(token) > 0;
+            }, CancellationToken.None);
         }
 
         public async Task<string> NextCodeAsync()
@@ -448,7 +523,7 @@ WHERE D.DocumentId = @DocumentId
             return projectId;
         }
 
-        private async Task<int> InsertHeaderAsync(CreatePurchaseOrderArgs args, SqlTransaction transaction, CancellationToken cancellationToken)
+        private async Task<int> InsertHeaderAsync(CreatePurchaseOrderArgs args, int statusId, SqlTransaction transaction, CancellationToken cancellationToken)
         {
             if (args.SupplierId <= 0)
             {
@@ -504,14 +579,15 @@ BEGIN
     ;THROW 50024, N'That PO number is already in use.', 1;
 END
 
-INSERT INTO projects.PurchaseOrders (SupplierId, Code, PoDate, ShipToAddress, CurrencyId, ExchangeRate)
+INSERT INTO projects.PurchaseOrders (SupplierId, Code, PoDate, ShipToAddress, CurrencyId, ExchangeRate, StatusId)
 VALUES (
     @SupplierId,
     COALESCE(@Code, N'T' + REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N'')),
     @PoDate,
     NULLIF(LTRIM(RTRIM(@ShipToAddress)), N''),
     @CurrencyId,
-    @Rate
+    @Rate,
+    @StatusId
 );
 
 DECLARE @Id INT = CAST(SCOPE_IDENTITY() AS INT);
@@ -535,6 +611,7 @@ SELECT @Id;", _connection, transaction);
             command.Parameters.AddInt("ProjectId", projectId);
             command.Parameters.AddNullableDateTime("PoDate", args.PoDate);
             command.Parameters.AddNVarChar("ShipToAddress", args.ShipToAddress ?? string.Empty, 500);
+            command.Parameters.AddInt("StatusId", statusId);
             var id = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
             if (id <= 0)
             {
@@ -544,7 +621,7 @@ SELECT @Id;", _connection, transaction);
             return id;
         }
 
-        private async Task<bool> UpdateHeaderAsync(int purchaseOrderId, CreatePurchaseOrderArgs args, SqlTransaction transaction, CancellationToken cancellationToken)
+        private async Task<bool> UpdateHeaderAsync(int purchaseOrderId, CreatePurchaseOrderArgs args, int statusId, SqlTransaction transaction, CancellationToken cancellationToken)
         {
             if (args.SupplierId <= 0)
             {
@@ -590,6 +667,7 @@ SET SupplierId = @SupplierId,
     ShipToAddress = NULLIF(LTRIM(RTRIM(@ShipToAddress)), N''),
     CurrencyId = @CurrencyId,
     ExchangeRate = @Rate,
+    StatusId = @StatusId,
     ModifiedAt = GETDATE()
 WHERE Id = @Id AND IsDeleted = 0;", _connection, transaction);
             command.Parameters.AddInt("Id", purchaseOrderId);
@@ -598,6 +676,7 @@ WHERE Id = @Id AND IsDeleted = 0;", _connection, transaction);
             command.Parameters.AddNullableInt("RequestedCurrencyId", args.CurrencyId);
             command.Parameters.AddNullableDateTime("PoDate", args.PoDate);
             command.Parameters.AddNVarChar("ShipToAddress", args.ShipToAddress ?? string.Empty, 500);
+            command.Parameters.AddInt("StatusId", statusId);
             return await command.ExecuteNonQueryAsync(cancellationToken) > 0;
         }
 
@@ -793,6 +872,9 @@ WHERE D.DocumentId = CAST(SCOPE_IDENTITY() AS INT);", _connection, transaction);
                 BaseSubTotal = reader.ReadDecimalValue("BaseSubTotal"),
                 Total = reader.ReadDecimalValue("Total"),
                 BaseTotalAmount = reader.ReadDecimalValue("BaseTotalAmount"),
+                StatusId = reader.ReadIntValue("StatusId"),
+                StatusCode = reader.ReadNullableStringValue("StatusCode"),
+                StatusName = reader.ReadNullableStringValue("StatusName"),
             };
         }
 
@@ -813,6 +895,9 @@ WHERE D.DocumentId = CAST(SCOPE_IDENTITY() AS INT);", _connection, transaction);
             target.BaseSubTotal = source.BaseSubTotal;
             target.Total = source.Total;
             target.BaseTotalAmount = source.BaseTotalAmount;
+            target.StatusId = source.StatusId;
+            target.StatusCode = source.StatusCode;
+            target.StatusName = source.StatusName;
         }
 
         private static PurchaseOrderDocumentResult ReadDocument(SqlDataReader reader)
@@ -827,6 +912,155 @@ WHERE D.DocumentId = CAST(SCOPE_IDENTITY() AS INT);", _connection, transaction);
                 WebViewLink = reader.ReadNullableStringValue("WebViewLink"),
                 UploadedAt = reader.ReadNullableDateTimeValue("UploadedAt"),
             };
+        }
+
+        private async Task<int> InsertNewAsync(CreatePurchaseOrderArgs args, SqlTransaction transaction, CancellationToken cancellationToken)
+        {
+            var status = await ResolveCreateStatusAsync(args, transaction, cancellationToken);
+            var id = await InsertHeaderAsync(args, status.Id, transaction, cancellationToken);
+            await InsertHistoryAsync(id, status, args, transaction, cancellationToken);
+            return id;
+        }
+
+        private async Task<PurchaseOrderStatusChoice> ResolveCreateStatusAsync(CreatePurchaseOrderArgs args, SqlTransaction transaction, CancellationToken cancellationToken)
+        {
+            var code = string.IsNullOrWhiteSpace(args.StatusCode) ? "Draft" : args.StatusCode.Trim();
+            var status = await FindStatusAsync(code, transaction, cancellationToken);
+            return new PurchaseOrderStatusChoice
+            {
+                Id = status.Id,
+                Code = status.Code,
+                Name = status.Name,
+                Action = "Created",
+                Summary = "Created as " + status.Name + ".",
+            };
+        }
+
+        private async Task<PurchaseOrderStatusChoice> ResolveUpdateStatusAsync(int purchaseOrderId, CreatePurchaseOrderArgs args, SqlTransaction transaction, CancellationToken cancellationToken)
+        {
+            var current = await CurrentStatusAsync(purchaseOrderId, transaction, cancellationToken);
+            if (current == null)
+            {
+                throw new InvalidOperationException("The purchase order could not be saved.");
+            }
+
+            var requestedCode = string.IsNullOrWhiteSpace(args.StatusCode) ? current.Code : args.StatusCode.Trim();
+            var requested = await FindStatusAsync(requestedCode, transaction, cancellationToken);
+            if (string.Equals(current.Code, "Sent", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(requested.Code, "Sent", StringComparison.OrdinalIgnoreCase))
+            {
+                var revised = await FindStatusAsync("Revised", transaction, cancellationToken);
+                return new PurchaseOrderStatusChoice
+                {
+                    Id = revised.Id,
+                    Code = revised.Code,
+                    Name = revised.Name,
+                    Action = "Revised",
+                    Summary = "Edited while the status was Sent, so it changed to Revised.",
+                };
+            }
+
+            if (!string.Equals(current.Code, requested.Code, StringComparison.OrdinalIgnoreCase))
+            {
+                return new PurchaseOrderStatusChoice
+                {
+                    Id = requested.Id,
+                    Code = requested.Code,
+                    Name = requested.Name,
+                    Action = "StatusChanged",
+                    Summary = "Status changed from " + current.Name + " to " + requested.Name + ".",
+                };
+            }
+
+            return new PurchaseOrderStatusChoice
+            {
+                Id = requested.Id,
+                Code = requested.Code,
+                Name = requested.Name,
+                Action = "Edited",
+                Summary = "Purchase order updated.",
+            };
+        }
+
+        private async Task<PurchaseOrderStatusChoice> CurrentStatusAsync(int purchaseOrderId, SqlTransaction transaction, CancellationToken cancellationToken)
+        {
+            using var command = new SqlCommand(@"
+SELECT ST.Id, ST.Code, ST.Name
+FROM projects.PurchaseOrders P
+INNER JOIN dbo.PurchaseOrderStatuses ST ON ST.Id = P.StatusId
+WHERE P.Id = @Id AND P.IsDeleted = 0;", _connection, transaction);
+            command.Parameters.AddInt("Id", purchaseOrderId);
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                return null;
+            }
+
+            return new PurchaseOrderStatusChoice
+            {
+                Id = reader.ReadIntValue("Id"),
+                Code = reader.ReadNullableStringValue("Code"),
+                Name = reader.ReadNullableStringValue("Name"),
+            };
+        }
+
+        private async Task<PurchaseOrderStatusChoice> FindStatusAsync(string code, SqlTransaction transaction, CancellationToken cancellationToken)
+        {
+            using var command = new SqlCommand(@"
+SELECT Id, Code, Name
+FROM dbo.PurchaseOrderStatuses
+WHERE Code = @Code;", _connection, transaction);
+            command.Parameters.AddNVarChar("Code", code ?? string.Empty, 50);
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                throw new InvalidOperationException("Choose a purchase order status.");
+            }
+
+            return new PurchaseOrderStatusChoice
+            {
+                Id = reader.ReadIntValue("Id"),
+                Code = reader.ReadNullableStringValue("Code"),
+                Name = reader.ReadNullableStringValue("Name"),
+            };
+        }
+
+        private async Task InsertHistoryAsync(int purchaseOrderId, PurchaseOrderStatusChoice status, CreatePurchaseOrderArgs args, SqlTransaction transaction, CancellationToken cancellationToken)
+        {
+            await InsertHistoryAsync(purchaseOrderId, status, args?.ActorName, args?.ActorEmail, args?.ActorUserId, transaction, cancellationToken);
+        }
+
+        private async Task InsertHistoryAsync(int purchaseOrderId, PurchaseOrderStatusChoice status, string actorName, string actorEmail, int? actorUserId, SqlTransaction transaction, CancellationToken cancellationToken)
+        {
+            using var command = new SqlCommand(@"
+INSERT INTO projects.PurchaseOrderHistory
+    (PurchaseOrderId, Action, Summary, StatusId, ActorName, ActorEmail, UserId)
+VALUES
+    (@PurchaseOrderId, @Action, @Summary, @StatusId,
+     NULLIF(LTRIM(RTRIM(@ActorName)), N''),
+     NULLIF(LTRIM(RTRIM(@ActorEmail)), N''),
+     @UserId);", _connection, transaction);
+            command.Parameters.AddInt("PurchaseOrderId", purchaseOrderId);
+            command.Parameters.AddNVarChar("Action", status.Action ?? string.Empty, 40);
+            command.Parameters.AddNVarChar("Summary", status.Summary ?? string.Empty, 400);
+            command.Parameters.AddInt("StatusId", status.Id);
+            command.Parameters.AddNVarChar("ActorName", actorName ?? string.Empty, 200);
+            command.Parameters.AddNVarChar("ActorEmail", actorEmail ?? string.Empty, 320);
+            command.Parameters.AddNullableInt("UserId", actorUserId);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        private sealed class PurchaseOrderStatusChoice
+        {
+            public int Id { get; set; }
+
+            public string Code { get; set; }
+
+            public string Name { get; set; }
+
+            public string Action { get; set; }
+
+            public string Summary { get; set; }
         }
 
         private static string TrimPart(string value)

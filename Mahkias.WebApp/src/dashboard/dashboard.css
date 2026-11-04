@@ -210,6 +210,16 @@ h1 {
   background: #fff;
   box-shadow: 0 1px 2px rgba(60, 64, 67, 0.08);
   cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+:host ::ng-deep .created-filter:not(.mat-focused):hover .mat-mdc-text-field-wrapper {
+  border-color: var(--field-border-hover);
+}
+
+:host ::ng-deep .created-filter.mat-focused .mat-mdc-text-field-wrapper {
+  border-color: var(--field-focus);
+  box-shadow: var(--field-focus-ring);
 }
 
 :host ::ng-deep .created-filter .mdc-notched-outline,
@@ -295,6 +305,16 @@ h1 {
   background: #fff;
   box-shadow: 0 1px 2px rgba(60, 64, 67, 0.08);
   cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+:host ::ng-deep .date-pill:not(.mat-focused):not(.mat-form-field-disabled):hover .mat-mdc-text-field-wrapper {
+  border-color: var(--field-border-hover);
+}
+
+:host ::ng-deep .date-pill.mat-focused .mat-mdc-text-field-wrapper {
+  border-color: var(--field-focus);
+  box-shadow: var(--field-focus-ring);
 }
 
 :host ::ng-deep .date-pill .mdc-notched-outline,

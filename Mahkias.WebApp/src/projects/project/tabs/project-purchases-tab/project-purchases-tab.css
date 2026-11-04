@@ -11,7 +11,7 @@
 
 .trackers {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -33,16 +33,20 @@
   flex-shrink: 0;
 }
 
+.draft-count .dot {
+  background: #9aa0a6;
+}
+
 .sent .dot {
   background: #1a73e8;
 }
 
-.transit .dot {
+.revised .dot {
   background: #f9ab00;
 }
 
-.received .dot {
-  background: #188038;
+.cancelled .dot {
+  background: #d93025;
 }
 
 .tracker-label {
@@ -70,7 +74,7 @@
 
 .row {
   display: grid;
-  grid-template-columns: 36px 140px minmax(160px, 1.4fr) 140px 80px 140px 150px;
+  grid-template-columns: 36px 130px minmax(140px, 1.2fr) 110px 130px 70px 130px 120px;
   gap: 12px;
   align-items: center;
   min-height: 44px;
@@ -402,6 +406,65 @@
 .error {
   margin: 0;
   color: #c5221f;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f1f3f4;
+  color: #3c4043;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-pill.sent {
+  background: #e8f0fe;
+  color: #1967d2;
+}
+
+.status-pill.revised {
+  background: #fef7e0;
+  color: #b06000;
+}
+
+.status-pill.cancelled {
+  background: #fce8e6;
+  color: #c5221f;
+}
+
+.history {
+  margin-top: 16px;
+}
+
+.history h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.history-item {
+  padding: 10px 0;
+  border-top: 1px solid #e8eaed;
+}
+
+.history-title {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.history-action {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.history-meta {
+  margin: 2px 0 0;
+  color: #5f6368;
+  font-size: 12px;
 }
 
 @media (max-width: 800px) {

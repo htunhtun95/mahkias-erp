@@ -32,6 +32,199 @@ html, body {
   background-color: rgba(0, 0, 0, 0.35);
 }
 
+:root {
+  --field-border: #dadce0;
+  --field-border-hover: #bdc1c6;
+  --field-radius: 8px;
+  --field-bg: #fff;
+  --field-color: #202124;
+  --field-focus: #1a73e8;
+  --field-focus-ring: 0 0 0 3px rgba(26, 115, 232, 0.16);
+  --field-invalid: #d93025;
+  --field-invalid-ring: 0 0 0 3px rgba(217, 48, 37, 0.16);
+}
+
+/* Shared text fields. Table cells and Material inputs keep their own chrome. */
+:where(
+  .field-control,
+  input:not(
+    [type="checkbox"],
+    [type="radio"],
+    [type="file"],
+    [type="hidden"],
+    [type="range"],
+    [type="button"],
+    [type="submit"],
+    [type="reset"],
+    [type="color"],
+    [type="image"]
+  ),
+  textarea,
+  select
+):not(.mat-mdc-input-element) {
+  box-sizing: border-box;
+  border: 1px solid var(--field-border);
+  border-radius: var(--field-radius);
+  background: var(--field-bg);
+  color: var(--field-color);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+:where(
+  .field-control,
+  input:not(
+    [type="checkbox"],
+    [type="radio"],
+    [type="file"],
+    [type="hidden"],
+    [type="range"],
+    [type="button"],
+    [type="submit"],
+    [type="reset"],
+    [type="color"],
+    [type="image"]
+  ),
+  textarea,
+  select
+):not(.mat-mdc-input-element):hover:not(:focus):where(:not(:disabled, [disabled])) {
+  border-color: var(--field-border-hover);
+}
+
+:where(
+  .field-control,
+  input:not(
+    [type="checkbox"],
+    [type="radio"],
+    [type="file"],
+    [type="hidden"],
+    [type="range"],
+    [type="button"],
+    [type="submit"],
+    [type="reset"],
+    [type="color"],
+    [type="image"]
+  ),
+  textarea,
+  select
+):not(.mat-mdc-input-element):focus,
+:where(
+  .field-control,
+  input:not(
+    [type="checkbox"],
+    [type="radio"],
+    [type="file"],
+    [type="hidden"],
+    [type="range"],
+    [type="button"],
+    [type="submit"],
+    [type="reset"],
+    [type="color"],
+    [type="image"]
+  ),
+  textarea,
+  select
+):not(.mat-mdc-input-element):focus-visible {
+  border-color: var(--field-focus);
+  box-shadow: var(--field-focus-ring);
+  outline: none;
+}
+
+:where(
+  .field-control,
+  input:not(
+    [type="checkbox"],
+    [type="radio"],
+    [type="file"],
+    [type="hidden"],
+    [type="range"],
+    [type="button"],
+    [type="submit"],
+    [type="reset"],
+    [type="color"],
+    [type="image"]
+  ),
+  textarea,
+  select
+):not(.mat-mdc-input-element):disabled,
+:where(
+  .field-control,
+  input:not(
+    [type="checkbox"],
+    [type="radio"],
+    [type="file"],
+    [type="hidden"],
+    [type="range"],
+    [type="button"],
+    [type="submit"],
+    [type="reset"],
+    [type="color"],
+    [type="image"]
+  ),
+  textarea,
+  select
+):not(.mat-mdc-input-element)[disabled] {
+  border-color: var(--field-border);
+  background: #f8f9fa;
+  color: #80868b;
+  box-shadow: none;
+}
+
+:is(label.invalid, .field.invalid, .invalid) :is(input, select, textarea):focus,
+:is(input, select, textarea).invalid:focus {
+  border-color: var(--field-invalid);
+  box-shadow: var(--field-invalid-ring);
+}
+
+.control :is(input, textarea, select),
+td :is(input, textarea, select),
+.mat-mdc-form-field :is(input, textarea, select) {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+.control :is(input, textarea, select):hover,
+.control :is(input, textarea, select):focus,
+td :is(input, textarea, select):hover,
+td :is(input, textarea, select):focus,
+.mat-mdc-form-field :is(input, textarea, select):hover,
+.mat-mdc-form-field :is(input, textarea, select):focus {
+  border-color: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+.mat-mdc-form-field {
+  --mdc-outlined-text-field-outline-color: var(--field-border);
+  --mdc-outlined-text-field-hover-outline-color: var(--field-border-hover);
+  --mdc-outlined-text-field-focus-outline-color: var(--field-focus);
+  --mdc-outlined-text-field-outline-width: 1px;
+  --mdc-outlined-text-field-focus-outline-width: 1px;
+  --mdc-outlined-text-field-container-shape: var(--field-radius);
+}
+
+.mat-mdc-form-field.mat-focused {
+  --mdc-outlined-text-field-hover-outline-color: var(--field-focus);
+}
+
+.mat-mdc-form-field.mat-form-field-invalid {
+  --mdc-outlined-text-field-outline-color: var(--field-invalid);
+  --mdc-outlined-text-field-hover-outline-color: var(--field-invalid);
+  --mdc-outlined-text-field-focus-outline-color: var(--field-invalid);
+}
+
+.mat-mdc-form-field.mat-focused:not(.quote-date-field, .quote-status-filter, .created-filter, .date-pill) .mat-mdc-text-field-wrapper {
+  box-shadow: var(--field-focus-ring);
+  border-radius: var(--field-radius);
+}
+
+.mat-mdc-form-field.mat-form-field-invalid.mat-focused:not(.quote-date-field, .quote-status-filter, .created-filter, .date-pill) .mat-mdc-text-field-wrapper {
+  box-shadow: var(--field-invalid-ring);
+}
+
 #splash-screen {
   position: fixed;
   inset: 0;

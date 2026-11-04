@@ -25,14 +25,19 @@
   height: 36px;
   margin: 0;
   padding: 0 2px 0 12px;
-  border: 1px solid #dadce0;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--field-border);
+  border-radius: var(--field-radius);
+  background: var(--field-bg);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+:host ::ng-deep .quote-date-field:not(.mat-focused):not(.mat-form-field-disabled):not(.invalid):hover .mat-mdc-text-field-wrapper {
+  border-color: var(--field-border-hover);
 }
 
 :host ::ng-deep .quote-date-field.mat-focused .mat-mdc-text-field-wrapper {
-  border-color: #1a73e8;
-  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.16);
+  border-color: var(--field-focus);
+  box-shadow: var(--field-focus-ring);
 }
 
 :host ::ng-deep .quote-date-field.invalid .mat-mdc-text-field-wrapper,

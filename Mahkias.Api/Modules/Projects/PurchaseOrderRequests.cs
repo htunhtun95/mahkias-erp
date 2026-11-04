@@ -39,6 +39,8 @@ namespace Mahkias.Api.Modules.Projects
 
         public int? CurrencyId { get; set; }
 
+        public string Status { get; set; }
+
         public List<int> ProjectIds { get; set; }
 
         public List<PurchaseOrderItemRequest> Items { get; set; }
@@ -57,6 +59,8 @@ namespace Mahkias.Api.Modules.Projects
         public string ShipToAddress { get; set; }
 
         public int? CurrencyId { get; set; }
+
+        public string Status { get; set; }
 
         public string Items { get; set; }
 

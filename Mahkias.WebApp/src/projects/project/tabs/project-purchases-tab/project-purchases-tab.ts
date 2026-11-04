@@ -4,7 +4,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { forkJoin, Subscription } from 'rxjs';
 import { MaterialModule } from '../../../../app/material-module';
-import { Project, ProjectApiService, PurchaseOrderDetail, PurchaseOrderDocument, PurchaseOrderLine, PurchaseOrderListItem, QuotationCharge } from '../../../../core/services/project-api.service';
+import { Project, ProjectApiService, PurchaseOrderDetail, PurchaseOrderDocument, PurchaseOrderHistoryEntry, PurchaseOrderLine, PurchaseOrderListItem, QuotationCharge } from '../../../../core/services/project-api.service';
 import { formatMoney } from '../../../money-format';
 import { ConfirmDialog } from '../../../confirm-dialog/confirm-dialog';
 import { PurchaseOrderDialogComponent } from '../../../purchase-order-dialog/purchase-order-dialog';
@@ -59,10 +59,12 @@ export class ProjectPurchasesTabComponent implements OnChanges, OnDestroy {
   }
 
   get trackers() {
+    const count = (code: string) => String(this.orders.filter((order) => (order.statusCode || 'Draft') === code).length);
     return [
-      { label: 'PO Sent', value: String(this.orders.length), tone: 'sent' },
-      { label: 'In Transit', value: '0', tone: 'transit' },
-      { label: 'Received', value: '0', tone: 'received' },
+      { label: 'Draft', value: count('Draft'), tone: 'draft-count' },
+      { label: 'Sent', value: count('Sent'), tone: 'sent' },
+      { label: 'Revised', value: count('Revised'), tone: 'revised' },
+      { label: 'Cancelled', value: count('Cancelled'), tone: 'cancelled' },
     ];
   }
 
@@ -289,6 +291,51 @@ export class ProjectPurchasesTabComponent implements OnChanges, OnDestroy {
       return '';
     }
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  whenStamp(value?: string | null): string {
+    if (!value) {
+      return '';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    return date.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+
+  historyFor(id: number): PurchaseOrderHistoryEntry[] {
+    return this.orderDetail(id)?.history ?? [];
+  }
+
+  historyLabel(action: string): string {
+    switch (action) {
+      case 'StatusChanged':
+        return 'Status changed';
+      case 'Created':
+        return 'Created';
+      case 'Edited':
+        return 'Edited';
+      case 'Revised':
+        return 'Revised';
+      case 'Deleted':
+        return 'Deleted';
+      default:
+        return action || 'Updated';
+    }
+  }
+
+  historyActor(entry: PurchaseOrderHistoryEntry): string {
+    const name = entry.actorName?.trim();
+    const email = entry.actorEmail?.trim();
+    if (name && email) {
+      return `${name} · ${email}`;
+    }
+    return name || email || 'Unknown user';
+  }
+
+  statusClass(code?: string | null): string {
+    return (code || 'Draft').toLowerCase();
   }
 }
 

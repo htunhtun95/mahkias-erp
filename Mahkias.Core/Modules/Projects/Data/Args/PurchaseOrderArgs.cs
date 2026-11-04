@@ -53,6 +53,14 @@ namespace Mahkias.Core.Modules.Projects.Data.Args
         public IReadOnlyList<PurchaseOrderItemWrite> Items { get; set; }
 
         public IReadOnlyList<PurchaseOrderChargeWrite> Charges { get; set; }
+
+        public string StatusCode { get; set; }
+
+        public string ActorName { get; set; }
+
+        public string ActorEmail { get; set; }
+
+        public int? ActorUserId { get; set; }
     }
 
     public class CreatePurchaseOrderDocumentArgs

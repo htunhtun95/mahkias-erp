@@ -12,6 +12,7 @@ import {
   LookupValue,
   ProjectApiService,
   PurchaseOrderDocument,
+  PurchaseOrderHistoryEntry,
   PurchaseOrderItemInput,
   PurchaseOrderLine,
   Supplier,
@@ -103,6 +104,10 @@ export class PurchaseOrderDialogComponent implements OnInit {
   currencies: Currency[] = [];
   conditions: LookupValue[] = [];
   units: LookupValue[] = [];
+  statuses: LookupValue[] = [];
+  statusCode = 'Draft';
+  originalStatus = 'Draft';
+  history: PurchaseOrderHistoryEntry[] = [];
   conditionOptions: string[] = [];
   unitOptions: string[] = [];
   readonly documentAccept = '.pdf,.doc,.docx,.xls,.xlsx,.xlsm,.csv,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tif,.tiff';
@@ -134,6 +139,7 @@ export class PurchaseOrderDialogComponent implements OnInit {
       currencies: this.api.currencies(),
       units: this.api.units(),
       conditions: this.api.conditions(),
+      statuses: this.api.purchaseOrderStatuses(),
       detail: id ? this.api.purchaseOrder(id) : of(null),
       documents: id ? this.api.purchaseOrderDocuments(this.data.projectId, id) : of([]),
       links: this.api.quotationLinks(this.data.projectId).pipe(catchError(() => of([] as ActivityQuotationLink[]))),
@@ -143,6 +149,7 @@ export class PurchaseOrderDialogComponent implements OnInit {
         this.currencies = result.currencies;
         this.conditions = result.conditions;
         this.units = result.units;
+        this.statuses = result.statuses ?? [];
         this.conditionOptions = names(result.conditions);
         this.unitOptions = names(result.units);
         this.documents = result.documents;
@@ -155,6 +162,9 @@ export class PurchaseOrderDialogComponent implements OnInit {
           this.currencyId = result.detail.currencyId || fallbackCurrency;
           this.poDate = dateInputValue(result.detail.poDate);
           this.shipToAddress = result.detail.shipToAddress ?? '';
+          this.statusCode = result.detail.statusCode || 'Draft';
+          this.originalStatus = this.statusCode;
+          this.history = result.detail.history ?? [];
           this.rows = result.detail.items.map((item) => this.lineFromDetail(item));
           this.charges = (result.detail.charges ?? []).map((charge) => ({
             key: crypto.randomUUID(),
@@ -167,7 +177,7 @@ export class PurchaseOrderDialogComponent implements OnInit {
           this.currencyId = fallbackCurrency;
           this.rows = this.data.lines?.length
             ? this.data.lines.map((line) => this.lineFromPreset(line))
-            : (this.data.activities ?? []).map((activity) => this.lineFromActivity(activity));
+            : this.manualRows();
         }
         this.loading = false;
       },
@@ -463,6 +473,47 @@ export class PurchaseOrderDialogComponent implements OnInit {
     }
   }
 
+  get willRevise(): boolean {
+    return !!this.data.purchaseOrderId && this.originalStatus === 'Sent' && this.statusCode === 'Sent';
+  }
+
+  historyLabel(action: string): string {
+    switch (action) {
+      case 'StatusChanged':
+        return 'Status changed';
+      case 'Created':
+        return 'Created';
+      case 'Edited':
+        return 'Edited';
+      case 'Revised':
+        return 'Revised';
+      case 'Deleted':
+        return 'Deleted';
+      default:
+        return action || 'Updated';
+    }
+  }
+
+  historyActor(entry: PurchaseOrderHistoryEntry): string {
+    const name = entry.actorName?.trim();
+    const email = entry.actorEmail?.trim();
+    if (name && email) {
+      return `${name} · ${email}`;
+    }
+    return name || email || 'Unknown user';
+  }
+
+  whenStamp(value?: string | null): string {
+    if (!value) {
+      return '';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    return date.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+
   save() {
     if (this.saving) {
       return;
@@ -523,6 +574,7 @@ export class PurchaseOrderDialogComponent implements OnInit {
       poDate: isoDate(this.poDate),
       shipToAddress: this.shipToAddress.trim(),
       currencyId: this.currencyId,
+      status: this.statusCode,
       projectIds: [this.data.projectId],
       items,
       charges: charges.charges,
@@ -564,6 +616,14 @@ export class PurchaseOrderDialogComponent implements OnInit {
         this.error = error.error?.message || 'The purchase order could not be saved.';
       },
     });
+  }
+
+  private manualRows(): PoLine[] {
+    const activities = this.data.activities ?? [];
+    if (activities.length > 10) {
+      return Array.from({ length: 5 }, () => this.blankLine());
+    }
+    return activities.map((activity) => this.lineFromActivity(activity));
   }
 
   private lineFromActivity(activity: Activity): PoLine {

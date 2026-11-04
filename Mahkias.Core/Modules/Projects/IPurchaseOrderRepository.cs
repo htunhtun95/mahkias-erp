@@ -10,6 +10,8 @@ namespace Mahkias.Core.Modules.Projects
 
     public interface IPurchaseOrderRepository : IRepository<PurchaseOrderEntity>
     {
+        Task<IReadOnlyList<PurchaseOrderStatusResult>> GetStatusesAsync();
+
         Task<IReadOnlyList<PurchaseOrderListItem>> GetByProjectAsync(int projectId);
 
         Task<IReadOnlyList<PurchaseOrderTraceLine>> GetLinesByProjectAsync(int projectId);
@@ -24,7 +26,7 @@ namespace Mahkias.Core.Modules.Projects
 
         Task SaveExistingAsync(int purchaseOrderId, CreatePurchaseOrderArgs args, Func<int, CancellationToken, Task<CreatePurchaseOrderDocumentArgs>> attachFile, CancellationToken cancellationToken = default);
 
-        Task<bool> DeleteAsync(int purchaseOrderId);
+        Task<bool> DeleteAsync(int purchaseOrderId, string actorName, string actorEmail, int? actorUserId);
 
         Task<string> NextCodeAsync();
 

@@ -71,11 +71,31 @@
           }
         </select>
       </label>
+      <label>
+        <span>Status</span>
+        <select [(ngModel)]="statusCode" [disabled]="loading || saving">
+          @for (status of statuses; track status.id) {
+            <option [value]="status.code">{{ status.name }}</option>
+          }
+        </select>
+      </label>
+      <label class="ship-to">
+        <span>Ship to</span>
+        <textarea
+          cdkTextareaAutosize
+          cdkAutosizeMinRows="5"
+          cdkAutosizeMaxRows="8"
+          rows="5"
+          [(ngModel)]="shipToAddress"
+          maxlength="500"
+          [disabled]="loading || saving"
+          placeholder="Ship-to address"
+        ></textarea>
+      </label>
     </div>
-    <label class="ship-to">
-      <span>Ship to</span>
-      <textarea [(ngModel)]="shipToAddress" rows="2" maxlength="500" [disabled]="loading || saving" placeholder="Ship-to address"></textarea>
-    </label>
+    @if (willRevise) {
+      <p class="status-note">Saving a sent purchase order marks it Revised. You can set it back to Sent afterwards.</p>
+    }
   </header>
 
   <div class="quotation-dialog-body">
@@ -229,6 +249,23 @@
         [saved]="storedFiles"
         (removeSaved)="clearStoredAttachment()"
       />
+      @if (data.purchaseOrderId) {
+        <section class="history" aria-label="Purchase order history">
+          <h3>History</h3>
+          @if (!history.length) {
+            <p class="history-meta">No history recorded yet.</p>
+          }
+          @for (entry of history; track entry.id) {
+            <div class="history-item">
+              <div class="history-title">
+                <span class="history-action">{{ historyLabel(entry.action) }}</span>
+                <span>{{ entry.summary }}</span>
+              </div>
+              <p class="history-meta">{{ historyActor(entry) }} · {{ whenStamp(entry.createdAt) }}</p>
+            </div>
+          }
+        </section>
+      }
     }
   </div>
 

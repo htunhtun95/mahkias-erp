@@ -11,6 +11,7 @@ CREATE TABLE [projects].[PurchaseOrders]
     [BaseSubTotal] DECIMAL(18, 2) CONSTRAINT [DF_PurchaseOrders_BaseSubTotal] DEFAULT (0) NOT NULL,
     [Total] DECIMAL(18, 2) CONSTRAINT [DF_PurchaseOrders_Total] DEFAULT (0) NOT NULL,
     [BaseTotalAmount] DECIMAL(18, 2) CONSTRAINT [DF_PurchaseOrders_BaseTotalAmount] DEFAULT (0) NOT NULL,
+    [StatusId] INT CONSTRAINT [DF_PurchaseOrders_StatusId] DEFAULT (1) NOT NULL,
     [CreatedAt] DATETIME CONSTRAINT [DF_PurchaseOrders_CreatedAt] DEFAULT (GETDATE()) NOT NULL,
     [ModifiedAt] DATETIME NULL,
     [IsDeleted] BIT CONSTRAINT [DF_PurchaseOrders_IsDeleted] DEFAULT (0) NOT NULL,
@@ -18,7 +19,8 @@ CREATE TABLE [projects].[PurchaseOrders]
     [DeletedBy] NVARCHAR(100) NULL,
     CONSTRAINT [PK_PurchaseOrders] PRIMARY KEY CLUSTERED ([Id] ASC),
     CONSTRAINT [FK_PurchaseOrders_Suppliers] FOREIGN KEY ([SupplierId]) REFERENCES [projects].[Suppliers] ([Id]),
-    CONSTRAINT [FK_PurchaseOrders_Currencies] FOREIGN KEY ([CurrencyId]) REFERENCES [dbo].[Currencies] ([Id])
+    CONSTRAINT [FK_PurchaseOrders_Currencies] FOREIGN KEY ([CurrencyId]) REFERENCES [dbo].[Currencies] ([Id]),
+    CONSTRAINT [FK_PurchaseOrders_Statuses] FOREIGN KEY ([StatusId]) REFERENCES [dbo].[PurchaseOrderStatuses] ([Id])
 );
 GO
 

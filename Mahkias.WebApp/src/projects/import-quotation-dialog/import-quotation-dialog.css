@@ -544,9 +544,13 @@ label.invalid input {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+.preview-search:hover:not(:focus-within) {
+  border-color: var(--field-border-hover);
+}
+
 .preview-search:focus-within {
-  border-color: #1a73e8;
-  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.16);
+  border-color: var(--field-focus);
+  box-shadow: var(--field-focus-ring);
 }
 
 .preview-search mat-icon {

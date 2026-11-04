@@ -23,6 +23,7 @@
       <span></span>
       <span>PO no</span>
       <span>Supplier</span>
+      <span>Status</span>
       <span>PO date</span>
       <span>Items</span>
       <span>Total</span>
@@ -43,6 +44,7 @@
             </button>
             <span>{{ order.code }}</span>
             <span>{{ order.supplierName }}</span>
+            <span [attr.class]="'status-pill ' + statusClass(order.statusCode)">{{ order.statusName || 'Draft' }}</span>
             <span>{{ when(order.poDate) }}</span>
             <button class="count-btn" type="button" (click)="toggle(order)">{{ order.itemCount }}</button>
             <span>{{ money(order) }}</span>
@@ -153,6 +155,21 @@
                     </div>
                   }
                 </div>
+                <section class="history" aria-label="Purchase order history">
+                  <h3>History</h3>
+                  @if (!historyFor(order.id).length) {
+                    <p class="history-meta">No history recorded yet.</p>
+                  }
+                  @for (entry of historyFor(order.id); track entry.id) {
+                    <div class="history-item">
+                      <div class="history-title">
+                        <span class="history-action">{{ historyLabel(entry.action) }}</span>
+                        <span>{{ entry.summary }}</span>
+                      </div>
+                      <p class="history-meta">{{ historyActor(entry) }} · {{ whenStamp(entry.createdAt) }}</p>
+                    </div>
+                  }
+                </section>
               }
             </div>
           }

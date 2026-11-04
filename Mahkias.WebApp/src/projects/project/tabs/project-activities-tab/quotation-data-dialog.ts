@@ -91,10 +91,6 @@ export class QuotationDataDialog {
     this.close();
   }
 
-  poStatus(): string {
-    return 'PO Sent';
-  }
-
   money(amount?: number | null, symbol?: string | null, code?: string | null): string {
     return formatMoney(amount, symbol, code);
   }
