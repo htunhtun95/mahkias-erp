@@ -1,7 +1,8 @@
 import { Component, inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MaterialModule } from '../../../../app/material-module';
-import { ActivityQuotationLink } from '../../../../core/services/project-api.service';
+import { ActivityQuotationLink, PurchaseOrderTraceLine } from '../../../../core/services/project-api.service';
+import { ProcurementTrace } from '../../../procurement-trace';
 import { formatMoney } from '../../../money-format';
 import { quotationQuantity, quotationValidity } from '../../../quotation-terms';
 
@@ -16,12 +17,15 @@ export interface QuotationDataRow {
 
 export interface QuotationDataState {
   kind: QuotationViewKind;
+  projectId?: number;
   activityId?: number;
   groupId?: number;
   title: string;
   subtitle: string;
   requiredQuantity?: number | null;
   rows: QuotationDataRow[];
+  orders?: PurchaseOrderTraceLine[];
+  ordersLoading?: boolean;
 }
 
 @Component({
@@ -33,6 +37,7 @@ export interface QuotationDataState {
 })
 export class QuotationDataDialog {
   private dialogRef = inject(MatDialogRef<QuotationDataDialog>);
+  private trace = inject(ProcurementTrace);
   data = inject<QuotationDataState>(MAT_DIALOG_DATA);
 
   get isGroup(): boolean {
@@ -41,6 +46,10 @@ export class QuotationDataDialog {
 
   get rows(): QuotationDataRow[] {
     return this.data.rows ?? [];
+  }
+
+  get orders(): PurchaseOrderTraceLine[] {
+    return this.data.orders ?? [];
   }
 
   get heading(): string {
@@ -72,6 +81,33 @@ export class QuotationDataDialog {
 
   close() {
     this.dialogRef.close(false);
+  }
+
+  openOrder(line: PurchaseOrderTraceLine) {
+    if (!this.data.projectId) {
+      return;
+    }
+    this.trace.showOrder(this.data.projectId, line.purchaseOrderId);
+    this.close();
+  }
+
+  poStatus(): string {
+    return 'PO Sent';
+  }
+
+  money(amount?: number | null, symbol?: string | null, code?: string | null): string {
+    return formatMoney(amount, symbol, code);
+  }
+
+  when(value?: string | null): string {
+    if (!value) {
+      return '—';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '—';
+    }
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
   quotedUnit(link: ActivityQuotationLink): string {

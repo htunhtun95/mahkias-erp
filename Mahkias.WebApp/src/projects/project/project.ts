@@ -15,6 +15,7 @@ import { ConfirmDialog } from '../confirm-dialog/confirm-dialog';
 import { ProjectActivitiesTabComponent } from './tabs/project-activities-tab/project-activities-tab';
 import { ProjectPurchasesTabComponent } from './tabs/project-purchases-tab/project-purchases-tab';
 import { ProjectQuotationsTabComponent } from './tabs/project-quotations-tab/project-quotations-tab';
+import { ProcurementTrace } from '../procurement-trace';
 import { PurchaseOrderSync } from '../purchase-order-sync';
 import { QuotationSync } from '../quotation-sync';
 
@@ -45,8 +46,11 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
   private snackBar = inject(MatSnackBar);
   private quotationSync = inject(QuotationSync);
   private purchaseSync = inject(PurchaseOrderSync);
+  private trace = inject(ProcurementTrace);
   private syncSub?: Subscription;
+  private traceSub?: Subscription;
   private activitiesTab = viewChild(ProjectActivitiesTabComponent);
+  private purchasesTab = viewChild(ProjectPurchasesTabComponent);
   private quotationsTab = viewChild(ProjectQuotationsTabComponent);
 
   project: Project | null = null;
@@ -59,6 +63,7 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
   quoteFilter: 'all' | 'quoted' | 'unquoted' = 'all';
   quotationCount = 0;
   purchaseCount = 0;
+  procurementMounted = false;
   error = '';
 
   get activityCount(): number {
@@ -85,6 +90,7 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
 
       const tab = this.readTab(rawTab);
       if (tab === 'procurement') {
+        this.procurementMounted = true;
         const rawSection = params.get('section');
         const section = PROCUREMENT_SECTIONS.includes(rawSection as ProcurementSection)
           ? (rawSection as ProcurementSection)
@@ -121,6 +127,22 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
       }
     });
 
+    this.traceSub = new Subscription();
+    this.traceSub.add(this.trace.activities$.subscribe(({ projectId, activityId }) => {
+      if (this.project?.id !== projectId) {
+        return;
+      }
+      this.selectTab('activities');
+      setTimeout(() => this.activitiesTab()?.revealActivity(activityId));
+    }));
+    this.traceSub.add(this.trace.orders$.subscribe(({ projectId, purchaseOrderId }) => {
+      if (this.project?.id !== projectId) {
+        return;
+      }
+      this.selectSection('purchases');
+      setTimeout(() => this.purchasesTab()?.reveal(purchaseOrderId));
+    }));
+
     this.route.paramMap.subscribe((params) => {
       const id = Number(params.get('id'));
       if (!this.route.snapshot.queryParamMap.get('tab')) {
@@ -137,6 +159,7 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.syncSub?.unsubscribe();
+    this.traceSub?.unsubscribe();
   }
 
   selectTab(tab: ProjectTab) {
@@ -166,6 +189,7 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
   }
 
   load(id: number, silent = false) {
+    this.api.forgetProject(id);
     if (!silent) {
       this.loading = true;
     }
@@ -174,10 +198,28 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
       next: (project) => {
         this.project = project;
         this.loading = false;
+        this.warmProcurement(project.id);
       },
       error: () => {
         this.error = 'This project could not be loaded.';
         this.loading = false;
+      },
+    });
+  }
+
+  private warmProcurement(projectId: number) {
+    this.api.quotations(projectId).subscribe({
+      next: (items) => {
+        if (this.project?.id === projectId) {
+          this.quotationCount = items.length;
+        }
+      },
+    });
+    this.api.purchaseOrders(projectId).subscribe({
+      next: (items) => {
+        if (this.project?.id === projectId) {
+          this.purchaseCount = items.length;
+        }
       },
     });
   }
@@ -343,7 +385,10 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
       panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       autoFocus: 'first-tabbable',
-      data: { projectId: this.project.id },
+      data: {
+        projectId: this.project.id,
+        activities: this.project.activities ?? [],
+      },
     });
     this.afterPurchaseSaved(ref);
   }

@@ -127,4 +127,45 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
 
         public string Description { get; set; }
     }
+
+    public class PurchaseOrderTraceLine
+    {
+        public int PurchaseOrderId { get; set; }
+
+        public string Code { get; set; }
+
+        public DateTime? PoDate { get; set; }
+
+        public string SupplierName { get; set; }
+
+        public int LineId { get; set; }
+
+        public int? ActivityId { get; set; }
+
+        public int? QuotationId { get; set; }
+
+        public string QuotationCode { get; set; }
+
+        public string DsnNo { get; set; }
+
+        public string PartNo { get; set; }
+
+        public string Description { get; set; }
+
+        public string Condition { get; set; }
+
+        public string Unit { get; set; }
+
+        public string LeadTime { get; set; }
+
+        public decimal Quantity { get; set; }
+
+        public decimal UnitPrice { get; set; }
+
+        public decimal TotalPrice { get; set; }
+
+        public string CurrencyCode { get; set; }
+
+        public string CurrencySymbol { get; set; }
+    }
 }

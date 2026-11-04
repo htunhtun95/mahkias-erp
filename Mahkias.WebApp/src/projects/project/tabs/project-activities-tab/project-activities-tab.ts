@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, inject } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -8,9 +8,10 @@ import { MaterialModule } from '../../../../app/material-module';
 import { AutoGrowDirective } from '../../../../core/auto-grow';
 import { blockEnterSubmit } from '../../../../core/block-enter-submit';
 import { whileBusy } from '../../../../core/while-busy';
-import { Activity, ActivityGroup, ActivityLabel, ActivityQuotationLink, ActivityType, Project, ProjectApiService } from '../../../../core/services/project-api.service';
+import { Activity, ActivityGroup, ActivityLabel, ActivityQuotationLink, ActivityType, Project, ProjectApiService, PurchaseOrderTraceLine } from '../../../../core/services/project-api.service';
 import { QuotationDataDialog, QuotationDataRow, QuotationDataState } from './quotation-data-dialog';
 import { formatMoney } from '../../../money-format';
+import { PurchaseOrderSync } from '../../../purchase-order-sync';
 import { QuotationSync } from '../../../quotation-sync';
 import { ActivityGroupDialog } from './activity-group-dialog';
 import { AssignGroupDialog } from './assign-group-dialog';
@@ -56,9 +57,20 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
   private quotationSync = inject(QuotationSync);
+  private purchaseOrderSync = inject(PurchaseOrderSync);
+  private host = inject(ElementRef<HTMLElement>);
   private syncSub: Subscription;
+  private poSyncSub: Subscription;
   private linkRequest = 0;
+  private poRequest = 0;
+  private seenProjectId = 0;
+  private poLinesLoaded = false;
   private detailState: QuotationDataState | null = null;
+  private linksVersion = 0;
+  private sectionsKey = '';
+  private sectionsCache: TypeSection[] = [];
+  private lowestByActivity = new Map<number, ActivityQuotationLink>();
+  private quoteCountByActivity = new Map<number, number>();
 
   @Input({ required: true }) project!: Project;
   @Input() types: ActivityType[] = [];
@@ -77,6 +89,9 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
   labels: ActivityLabel[] = [];
   private labelSelection = new Map<number, number | null>();
   expandedGroupIds = new Set<number>();
+  poLines: PurchaseOrderTraceLine[] = [];
+  poLinesLoading = false;
+  linksLoading = false;
   quotationLinks = new Map<number, ActivityQuotationLink[]>();
   selectedIds = new Set<number>();
   selectedGroupIds = new Set<number>();
@@ -93,10 +108,16 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
         this.loadQuotationLinks();
       }
     });
+    this.poSyncSub = this.purchaseOrderSync.changes$.subscribe((projectId) => {
+      if (projectId === this.project?.id) {
+        this.loadPurchaseOrderLines();
+      }
+    });
   }
 
   ngOnDestroy() {
     this.syncSub.unsubscribe();
+    this.poSyncSub.unsubscribe();
   }
 
   get hasActivities(): boolean {
@@ -104,11 +125,54 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges) {
-    if (changes['project']?.currentValue?.id) {
-      this.pruneSelection();
+    const project = changes['project']?.currentValue as Project | undefined;
+    if (!project?.id) {
+      return;
+    }
+    const idChanged = project.id !== this.seenProjectId;
+    this.seenProjectId = project.id;
+    this.pruneSelection();
+    if (idChanged) {
+      this.poLines = [];
+      this.poLinesLoaded = false;
+      this.poLinesLoading = false;
       this.loadGroups();
       this.loadQuotationLinks();
+      return;
     }
+    this.loadQuotationLinks();
+    this.loadLabels();
+    if (this.poLinesLoaded || this.detailState) {
+      this.loadPurchaseOrderLines();
+    }
+  }
+
+  ordersFor(activityId: number): PurchaseOrderTraceLine[] {
+    return this.poLines.filter((line) => line.activityId === activityId);
+  }
+
+  private ordersForGroup(activities: Activity[]): PurchaseOrderTraceLine[] {
+    const ids = new Set(activities.map((activity) => activity.id));
+    return this.poLines
+      .filter((line) => line.activityId != null && ids.has(line.activityId))
+      .sort((left, right) =>
+        (left.dsnNo ?? '').localeCompare(right.dsnNo ?? '', undefined, { numeric: true, sensitivity: 'base' })
+        || left.code.localeCompare(right.code, undefined, { numeric: true, sensitivity: 'base' })
+        || left.lineId - right.lineId);
+  }
+
+  revealActivity(activityId: number) {
+    const activity = this.project?.activities?.find((item) => item.id === activityId);
+    if (!activity) {
+      return;
+    }
+    if (activity.activityGroupId) {
+      this.expandedGroupIds.add(activity.activityGroupId);
+    }
+    this.openActivityDetails(activity);
+    setTimeout(() => {
+      this.host.nativeElement.querySelector(`[data-activity-id="${activityId}"]`)?.scrollIntoView({ block: 'center' });
+    });
   }
 
   toggleGroup(groupId: number) {
@@ -124,7 +188,7 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
   }
 
   lowestLink(activity: Activity): ActivityQuotationLink | null {
-    return this.quotesFor(activity.id).find((link) => link.lowest) ?? null;
+    return this.lowestByActivity.get(activity.id) ?? null;
   }
 
   groupLowestLink(activities: Activity[]): ActivityQuotationLink | null {
@@ -142,7 +206,7 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
   }
 
   quoteCount(activity: Activity): number {
-    return new Set(this.quotesFor(activity.id).map((link) => link.quotationId)).size;
+    return this.quoteCountByActivity.get(activity.id) ?? 0;
   }
 
   groupQuoteCount(activities: Activity[]): number {
@@ -162,15 +226,20 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     return formatMoney(link.baseUnitPrice, '$', 'USD');
   }
 
-  openItemQuotations(activity: Activity) {
+  openActivityDetails(activity: Activity) {
     const state: QuotationDataState = {
       kind: 'item',
       activityId: activity.id,
-      title: 'Quotations',
+      projectId: this.project.id,
+      title: 'Activity details',
       subtitle: this.itemSubtitle(activity),
       requiredQuantity: activity.quantity,
       rows: this.itemQuoteRows(activity),
+      orders: [],
     };
+    this.ensurePurchaseOrders();
+    state.orders = this.ordersFor(activity.id);
+    state.ordersLoading = this.poLinesLoading;
     this.openQuotationView(state);
   }
 
@@ -178,10 +247,15 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     const state: QuotationDataState = {
       kind: 'group',
       groupId: group.id,
-      title: 'Quotations',
+      projectId: this.project.id,
+      title: 'Group details',
       subtitle: group.name,
       rows: this.groupQuoteRows(activities),
+      orders: [],
     };
+    this.ensurePurchaseOrders();
+    state.orders = this.ordersForGroup(activities);
+    state.ordersLoading = this.poLinesLoading;
     this.openQuotationView(state);
   }
 
@@ -202,7 +276,6 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
         this.detailState = null;
       }
     });
-    this.loadQuotationLinks();
   }
 
   private itemSubtitle(activity: Activity): string {
@@ -229,6 +302,34 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
   }
 
   get activityGroups(): TypeSection[] {
+    const key = this.sectionsKeyNow();
+    if (key !== this.sectionsKey) {
+      this.sectionsKey = key;
+      this.sectionsCache = this.composeActivityGroups();
+    }
+    return this.sectionsCache;
+  }
+
+  private sectionsKeyNow(): string {
+    const activities = this.project?.activities ?? [];
+    let stamp = `${this.project?.id}|${this.activityFilter}|${this.quoteFilter}|${this.linksVersion}|${this.types.length}|`;
+    for (const [typeId, labelId] of this.labelSelection) {
+      stamp += `${typeId}=${labelId ?? ''},`;
+    }
+    stamp += '|';
+    for (const activity of activities) {
+      stamp += `${activity.id}:${activity.activityGroupId ?? ''}:${activity.typeId ?? ''}:${activity.dsnNo ?? ''}:${activity.partNo ?? ''}:${activity.quantity ?? ''};`;
+    }
+    for (const group of this.groups) {
+      stamp += `g${group.id}:${group.name};`;
+    }
+    for (const label of this.labels) {
+      stamp += `l${label.id}:${label.activityIds.length}:${label.activityGroupIds.length};`;
+    }
+    return stamp;
+  }
+
+  private composeActivityGroups(): TypeSection[] {
     const visible = this.visibleProjectActivities();
     const ungrouped = visible.filter((activity) => !activity.activityGroupId);
     const order = this.types.length
@@ -390,8 +491,9 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     const projectId = this.project.id;
     const ref = this.dialog.open(ImportActivityDialog, {
       disableClose: true,
-      width: '840px',
+      width: '1080px',
       maxWidth: 'calc(100vw - 32px)',
+      maxHeight: '92vh',
       panelClass: 'activity-dialog-panel',
       backdropClass: 'add-project-dialog-backdrop',
       data: { projectId, types: this.types },
@@ -408,9 +510,9 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     const projectId = this.project.id;
     const ref = this.dialog.open(AddActivityDialog, {
       disableClose: true,
-      width: '1200px',
+      width: '1440px',
       maxWidth: 'calc(100vw - 32px)',
-      maxHeight: '85vh',
+      maxHeight: '92vh',
       panelClass: 'activity-dialog-panel',
       backdropClass: 'add-project-dialog-backdrop',
       data: { projectId, types: this.types },
@@ -426,7 +528,7 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
   openEditActivity(activity: Activity) {
     const ref = this.dialog.open(EditActivityDialog, {
       disableClose: true,
-      width: '520px',
+      width: '680px',
       maxWidth: 'calc(100vw - 32px)',
       panelClass: 'add-project-dialog-panel',
       backdropClass: 'add-project-dialog-backdrop',
@@ -1065,19 +1167,61 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     return filterActivitiesByLabel(label ?? null, activities, groups);
   }
 
+  private loadPurchaseOrderLines() {
+    if (!this.project?.id) {
+      this.poLines = [];
+      this.poLinesLoading = false;
+      return;
+    }
+    const request = ++this.poRequest;
+    const projectId = this.project.id;
+    this.poLinesLoading = true;
+    if (this.detailState) {
+      this.detailState.ordersLoading = true;
+    }
+    this.api.purchaseOrderLines(projectId).subscribe({
+      next: (lines) => {
+        if (request !== this.poRequest || projectId !== this.project?.id) {
+          return;
+        }
+        this.poLines = lines ?? [];
+        this.poLinesLoaded = true;
+        this.poLinesLoading = false;
+        this.publishDetail();
+      },
+      error: () => {
+        if (request !== this.poRequest || projectId !== this.project?.id) {
+          return;
+        }
+        this.poLines = [];
+        this.poLinesLoaded = true;
+        this.poLinesLoading = false;
+        this.publishDetail();
+      },
+    });
+  }
+
   private loadQuotationLinks() {
     if (!this.project?.id) {
       return;
     }
     const request = ++this.linkRequest;
     const projectId = this.project.id;
+    this.linksLoading = true;
     this.api.quotationLinks(projectId).subscribe({
       next: (links) => {
         if (request !== this.linkRequest || projectId !== this.project?.id) {
           return;
         }
         this.quotationLinks = this.groupQuotes(links);
+        this.linksLoading = false;
         this.publishDetail();
+      },
+      error: () => {
+        if (request !== this.linkRequest || projectId !== this.project?.id) {
+          return;
+        }
+        this.linksLoading = false;
       },
     });
   }
@@ -1088,6 +1232,8 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
 
   private groupQuotes(links: ActivityQuotationLink[]): Map<number, ActivityQuotationLink[]> {
     const grouped = new Map<number, ActivityQuotationLink[]>();
+    this.lowestByActivity = new Map<number, ActivityQuotationLink>();
+    this.quoteCountByActivity = new Map<number, number>();
     for (const link of links) {
       if (link.unitPrice == null && link.baseUnitPrice == null) {
         continue;
@@ -1098,11 +1244,18 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     }
     for (const [activityId, rows] of grouped) {
       rows.sort((left, right) => (this.comparablePrice(left) - this.comparablePrice(right)) || (left.quotationId - right.quotationId) || ((left.itemId ?? 0) - (right.itemId ?? 0)));
+      const quotations = new Set<number>();
       rows.forEach((row, index) => {
         row.lowest = index === 0;
+        quotations.add(row.quotationId);
       });
       grouped.set(activityId, rows);
+      if (rows[0]) {
+        this.lowestByActivity.set(activityId, rows[0]);
+      }
+      this.quoteCountByActivity.set(activityId, quotations.size);
     }
+    this.linksVersion++;
     return grouped;
   }
 
@@ -1124,6 +1277,8 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       state.subtitle = this.itemSubtitle(activity);
       state.requiredQuantity = activity.quantity;
       state.rows = this.itemQuoteRows(activity);
+      state.orders = this.ordersFor(activity.id);
+      state.ordersLoading = this.poLinesLoading;
       return;
     }
     if (state.kind === 'group' && state.groupId) {
@@ -1132,7 +1287,16 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
         state.subtitle = group.name;
       }
       const activities = (this.project.activities ?? []).filter((item) => item.activityGroupId === state.groupId);
+      state.projectId = this.project.id;
       state.rows = this.groupQuoteRows(activities);
+      state.orders = this.ordersForGroup(activities);
+      state.ordersLoading = this.poLinesLoading;
+    }
+  }
+
+  private ensurePurchaseOrders() {
+    if (!this.poLinesLoaded && !this.poLinesLoading) {
+      this.loadPurchaseOrderLines();
     }
   }
 

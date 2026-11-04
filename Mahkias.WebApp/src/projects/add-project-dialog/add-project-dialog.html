@@ -1,7 +1,10 @@
 @if (isSaving) {
-  <div class="busy-overlay cover-pad" role="status" aria-live="polite" aria-busy="true">
-    <mat-spinner diameter="40"></mat-spinner>
-    <p>Saving data...</p>
+  <div class="import-overlay" role="status" aria-live="polite" aria-busy="true">
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    <div class="import-overlay-body">
+      <mat-spinner diameter="40"></mat-spinner>
+      <p>{{ isEdit ? 'Saving...' : 'Creating...' }}</p>
+    </div>
   </div>
 }
 <h2 id="add-project-title">{{ isEdit ? 'Edit project' : "Let's create a new project" }}</h2>
@@ -40,7 +43,10 @@
   <div class="actions">
     <button type="button" class="btn ghost" (click)="cancel()" [disabled]="isSaving">Cancel</button>
     <button type="submit" class="btn primary" [disabled]="isSaving">
-      {{ isSaving ? 'Saving...' : (isEdit ? 'Save' : 'Create') }}
+      @if (isSaving) {
+        <mat-spinner diameter="18"></mat-spinner>
+      }
+      {{ isSaving ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? 'Save' : 'Create') }}
     </button>
   </div>
 </form>

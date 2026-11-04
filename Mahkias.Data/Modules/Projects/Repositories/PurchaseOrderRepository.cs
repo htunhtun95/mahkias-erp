@@ -50,6 +50,63 @@ ORDER BY P.Id DESC;", _connection);
             return items;
         }
 
+        public async Task<IReadOnlyList<PurchaseOrderTraceLine>> GetLinesByProjectAsync(int projectId)
+        {
+            var items = new List<PurchaseOrderTraceLine>();
+            using var command = new SqlCommand(@"
+SELECT P.Id AS PurchaseOrderId, P.Code, P.PoDate, S.Name AS SupplierName,
+       I.Id AS LineId, I.ActivityId, I.QuotationId, Q.Code AS QuotationCode,
+       I.DsnNo, I.PartNo, I.PartDescription, I.Condition, I.Unit, I.LeadTime,
+       I.Quantity, I.UnitPrice, I.TotalPrice, C.Code AS CurrencyCode, C.Symbol AS CurrencySymbol
+FROM projects.PurchaseOrderItems I
+INNER JOIN projects.PurchaseOrders P ON P.Id = I.PurchaseOrderId
+INNER JOIN projects.PurchaseOrderProjects PP ON PP.PurchaseOrderId = P.Id
+INNER JOIN projects.Suppliers S ON S.Id = P.SupplierId
+INNER JOIN dbo.Currencies C ON C.Id = I.CurrencyId
+LEFT JOIN projects.Quotations Q ON Q.Id = I.QuotationId AND Q.IsDeleted = 0
+WHERE PP.ProjectId = @ProjectId
+  AND P.IsDeleted = 0
+  AND S.IsDeleted = 0
+ORDER BY P.Id DESC, I.SortOrder, I.Id;", _connection);
+            command.Parameters.AddInt("ProjectId", projectId);
+            _connection.Open();
+            try
+            {
+                using var reader = await command.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    items.Add(new PurchaseOrderTraceLine
+                    {
+                        PurchaseOrderId = reader.ReadIntValue("PurchaseOrderId"),
+                        Code = reader.ReadNullableStringValue("Code"),
+                        PoDate = reader.ReadNullableDateTimeValue("PoDate"),
+                        SupplierName = reader.ReadNullableStringValue("SupplierName"),
+                        LineId = reader.ReadIntValue("LineId"),
+                        ActivityId = reader.ReadNullableIntValue("ActivityId"),
+                        QuotationId = reader.ReadNullableIntValue("QuotationId"),
+                        QuotationCode = reader.ReadNullableStringValue("QuotationCode"),
+                        DsnNo = reader.ReadNullableStringValue("DsnNo"),
+                        PartNo = reader.ReadNullableStringValue("PartNo"),
+                        Description = reader.ReadNullableStringValue("PartDescription"),
+                        Condition = reader.ReadNullableStringValue("Condition"),
+                        Unit = reader.ReadNullableStringValue("Unit"),
+                        LeadTime = reader.ReadNullableStringValue("LeadTime"),
+                        Quantity = reader.ReadDecimalValue("Quantity"),
+                        UnitPrice = reader.ReadDecimalValue("UnitPrice"),
+                        TotalPrice = reader.ReadDecimalValue("TotalPrice"),
+                        CurrencyCode = reader.ReadNullableStringValue("CurrencyCode"),
+                        CurrencySymbol = reader.ReadNullableStringValue("CurrencySymbol"),
+                    });
+                }
+            }
+            finally
+            {
+                _connection.Close();
+            }
+
+            return items;
+        }
+
         public async Task<PurchaseOrderDetailResult> GetDetailAsync(int purchaseOrderId)
         {
             using var command = new SqlCommand(@"

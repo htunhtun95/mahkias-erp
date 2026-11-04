@@ -33,3 +33,7 @@ CREATE TABLE [projects].[QuotationItems]
     CONSTRAINT [FK_QuotationItems_Units] FOREIGN KEY ([UnitId]) REFERENCES [dbo].[Units] ([Id]),
     CONSTRAINT [FK_QuotationItems_Conditions] FOREIGN KEY ([ConditionId]) REFERENCES [dbo].[Conditions] ([Id])
 );
+
+CREATE INDEX [IX_QuotationItems_QuotationId]
+    ON [projects].[QuotationItems] ([QuotationId])
+    INCLUDE ([ActivityId], [UnitPrice], [TotalPrice], [Quantity], [AwardedQuantity]);

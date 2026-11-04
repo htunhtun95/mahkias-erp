@@ -1,8 +1,11 @@
 <form class="app-dialog-container quotation-dialog-container" (keydown.enter)="onFieldEnter($event)" (submit)="$event.preventDefault()">
   @if (isImporting) {
-    <div class="busy-overlay" role="status" aria-live="polite" aria-busy="true">
-      <mat-spinner diameter="40"></mat-spinner>
-      <p>Importing...</p>
+    <div class="import-overlay" role="status" aria-live="polite" aria-busy="true">
+      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      <div class="import-overlay-body">
+        <mat-spinner diameter="40"></mat-spinner>
+        <p>Importing...</p>
+      </div>
     </div>
   }
   <header class="app-dialog-header quotation-dialog-header">
@@ -180,7 +183,7 @@
             <span class="preview-count">Showing {{ filteredLines.length }} of {{ lines.length }} rows</span>
           </div>
           <div class="sheet-wrap">
-          <table class="sheet">
+          <table class="sheet app-grid-table">
             <colgroup>
               <col class="col-dsn" />
               <col class="col-part" />
@@ -289,6 +292,9 @@
     <button class="btn" type="button" [disabled]="busy" (click)="cancel()">Cancel</button>
     @if (isVerifyStep) {
       <button class="btn primary" type="button" [disabled]="isImporting || checkState !== 'passed'" (click)="startImport()">
+        @if (isImporting) {
+          <mat-spinner diameter="18"></mat-spinner>
+        }
         {{ isImporting ? 'Importing...' : 'Start Import' }}
       </button>
     } @else {

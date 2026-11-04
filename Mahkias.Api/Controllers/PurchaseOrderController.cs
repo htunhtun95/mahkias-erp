@@ -46,6 +46,17 @@ namespace Mahkias.Api.Controllers
             return Ok(await _uow.PurchaseOrders.GetByProjectAsync(projectId));
         }
 
+        [HttpGet("/api/projects/{projectId:int}/purchase-orders/lines")]
+        public async Task<IActionResult> Lines(int projectId)
+        {
+            if (!await ProjectExists(projectId))
+            {
+                return NotFound();
+            }
+
+            return Ok(await _uow.PurchaseOrders.GetLinesByProjectAsync(projectId));
+        }
+
         [HttpGet("/api/purchase-orders/next-code")]
         public async Task<IActionResult> NextCode()
         {
@@ -119,6 +130,12 @@ namespace Mahkias.Api.Controllers
             if (prepared.Error != null)
             {
                 return prepared.Error;
+            }
+
+            var activityError = await MatchImportedActivities(projectId, prepared.Args);
+            if (activityError != null)
+            {
+                return activityError;
             }
 
             var upload = await ReadUploadAsync(form?.File, cancellationToken);
@@ -225,27 +242,29 @@ namespace Mahkias.Api.Controllers
             foreach (var row in planned.Rows)
             {
                 var matches = MatchActivities(activities, row.DsnNo, row.PartNo);
+                int? activityId = null;
                 if (matches.Count == 0)
                 {
-                    errors.Add(new ActivityImportIssue { Row = row.Row, Field = "Activity", Message = "No activity matches this row." });
-                    continue;
+                    errors.Add(new ActivityImportIssue { Row = row.Row, Field = "Activity", Message = "No activity on this project matches this DSN and part." });
                 }
-
-                if (matches.Count > 1)
+                else if (matches.Count > 1)
                 {
-                    errors.Add(new ActivityImportIssue { Row = row.Row, Field = "Activity", Message = "More than one activity matches this row." });
-                    continue;
+                    errors.Add(new ActivityImportIssue { Row = row.Row, Field = "Activity", Message = "More than one activity matches this DSN and part." });
+                }
+                else
+                {
+                    activityId = matches[0].Id;
                 }
 
                 if (row.Quantity <= 0)
                 {
                     errors.Add(new ActivityImportIssue { Row = row.Row, Field = "Quantity", Message = "Each purchase order line needs a quantity greater than zero." });
-                    continue;
                 }
 
                 items.Add(new
                 {
-                    activityId = matches[0].Id,
+                    row = row.Row,
+                    activityId,
                     dsnNo = row.DsnNo,
                     partNo = row.PartNo,
                     description = row.Description,
@@ -618,6 +637,33 @@ namespace Mahkias.Api.Controllers
             await file.CopyToAsync(buffer, cancellationToken);
             buffer.Position = 0;
             return (null, buffer, uploadName, contentType, fileType);
+        }
+
+        private async Task<IActionResult> MatchImportedActivities(int projectId, CreatePurchaseOrderArgs args)
+        {
+            var activities = await _uow.PurchaseOrders.GetProjectActivitiesAsync(projectId);
+            var index = 0;
+            foreach (var item in args.Items ?? Array.Empty<PurchaseOrderItemWrite>())
+            {
+                index++;
+                var matches = MatchActivities(activities, item.DsnNo, item.PartNo);
+                var label = string.IsNullOrWhiteSpace(item.DsnNo) && string.IsNullOrWhiteSpace(item.PartNo)
+                    ? "Line " + index
+                    : "Line " + index + " (" + item.DsnNo + " / " + item.PartNo + ")";
+                if (matches.Count == 0)
+                {
+                    return BadRequest(new { message = label + " does not match an activity on this project." });
+                }
+
+                if (matches.Count > 1)
+                {
+                    return BadRequest(new { message = label + " matches more than one activity on this project." });
+                }
+
+                item.ActivityId = matches[0].Id;
+            }
+
+            return null;
         }
 
         private static List<PurchaseOrderActivityMatch> MatchActivities(IReadOnlyList<PurchaseOrderActivityMatch> activities, string dsn, string part)

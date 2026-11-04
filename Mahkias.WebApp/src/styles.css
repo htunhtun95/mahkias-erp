@@ -64,7 +64,16 @@ html, body {
   gap: 8px;
 }
 
+.btn,
+button.primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
 .btn mat-spinner,
+button.primary mat-spinner,
 .batch-save mat-spinner,
 .delete-project mat-spinner,
 .icon-btn mat-spinner {
@@ -74,6 +83,39 @@ html, body {
 .busy-overlay,
 .import-overlay {
   background: rgba(255, 255, 255, 0.46);
+}
+
+.import-overlay {
+  position: absolute;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+}
+
+.import-overlay > .mat-mdc-progress-bar {
+  flex: 0 0 auto;
+  width: 100%;
+}
+
+.import-overlay-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.import-overlay-body p {
+  margin: 0;
+  color: #202124;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.import-overlay mat-spinner {
+  --mdc-circular-progress-active-indicator-color: #1a73e8;
 }
 
 .busy-overlay {
@@ -161,8 +203,12 @@ a.menu-text-left.active-menu .mat-icon {
 .cdk-overlay-pane.activity-dialog-panel {
   display: flex !important;
   flex-direction: column;
-  max-height: 85vh !important;
+  max-height: 92vh !important;
   overflow: hidden;
+}
+
+.cdk-overlay-pane.activity-dialog-panel:has(app-add-activity-dialog) {
+  min-height: 78vh;
 }
 
 .cdk-overlay-pane.add-project-dialog-panel .mat-mdc-dialog-surface,
@@ -283,7 +329,7 @@ a.menu-text-left.active-menu .mat-icon {
   box-sizing: border-box;
   width: 100%;
   min-height: 0;
-  max-height: 85vh;
+  max-height: 92vh;
   overflow: hidden;
 }
 
@@ -293,7 +339,7 @@ a.menu-text-left.active-menu .mat-icon {
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
-  max-height: 85vh;
+  max-height: 92vh;
   overflow: hidden;
 }
 
@@ -640,6 +686,46 @@ textarea.cdk-textarea-autosize-measuring-firefox {
   outline: none;
   border: none;
   box-shadow: none;
+}
+
+.cdk-overlay-pane table.sheet,
+.cdk-overlay-pane table.import-sheet,
+.cdk-overlay-pane table.app-grid-table {
+  border-collapse: collapse !important;
+}
+
+.cdk-overlay-pane table.sheet th,
+.cdk-overlay-pane table.sheet td,
+.cdk-overlay-pane table.import-sheet th,
+.cdk-overlay-pane table.import-sheet td,
+.cdk-overlay-pane table.app-grid-table th,
+.cdk-overlay-pane table.app-grid-table td {
+  border: 1px solid #e0e0e0 !important;
+}
+
+.cdk-overlay-pane table.sheet tbody td input,
+.cdk-overlay-pane table.sheet tbody td select,
+.cdk-overlay-pane table.sheet tbody td textarea,
+.cdk-overlay-pane table.import-sheet tbody td input,
+.cdk-overlay-pane table.import-sheet tbody td select,
+.cdk-overlay-pane table.import-sheet tbody td textarea,
+.cdk-overlay-pane table.app-grid-table tbody td input,
+.cdk-overlay-pane table.app-grid-table tbody td select,
+.cdk-overlay-pane table.app-grid-table tbody td textarea {
+  border: none !important;
+  border-radius: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.cdk-overlay-pane table.sheet tbody td:focus-within,
+.cdk-overlay-pane table.import-sheet tbody td:focus-within,
+.cdk-overlay-pane table.app-grid-table tbody td:focus-within {
+  position: relative;
+  z-index: 2;
+  border: 2px solid #1a73e8 !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
 @media (max-width: 900px) {

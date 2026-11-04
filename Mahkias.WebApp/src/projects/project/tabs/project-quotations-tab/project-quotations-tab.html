@@ -29,6 +29,9 @@
   }
 
   <div class="table">
+    @if (loading) {
+      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    }
     <div class="row heading">
       <span></span>
       <span>Quotation</span>
@@ -74,25 +77,34 @@
             </span>
             <span>{{ money(quotation.totalPrice, '$', 'USD') }}</span>
             <span class="actions">
-              <button class="icon-btn" type="button" matTooltip="Quotation details" aria-label="Quotation details" [disabled]="deletingId != null" (click)="openDetails(quotation)">
-                <mat-icon>description</mat-icon>
-              </button>
-              <button class="icon-btn" type="button" matTooltip="Edit quotation" aria-label="Edit quotation" [disabled]="deletingId != null" (click)="edit(quotation)">
-                <mat-icon>edit</mat-icon>
-              </button>
-              <button class="icon-btn danger" type="button" matTooltip="Delete quotation" aria-label="Delete quotation" [disabled]="deletingId != null" (click)="remove(quotation)">
+              <button class="icon-btn" type="button" [matMenuTriggerFor]="quotationMenu" aria-label="Quotation actions" aria-haspopup="menu" [disabled]="deletingId != null">
                 @if (deletingId === quotation.id) {
                   <mat-spinner diameter="18"></mat-spinner>
                 } @else {
-                  <mat-icon>delete</mat-icon>
+                  <mat-icon>more_vert</mat-icon>
                 }
               </button>
+              <mat-menu #quotationMenu="matMenu" class="activity-row-menu">
+                <button mat-menu-item type="button" (click)="openDetails(quotation)" [disabled]="deletingId != null">
+                  <mat-icon>visibility</mat-icon>
+                  <span>View details</span>
+                </button>
+                <button mat-menu-item type="button" (click)="edit(quotation)" [disabled]="deletingId != null">
+                  <mat-icon>edit</mat-icon>
+                  <span>Edit</span>
+                </button>
+                <button mat-menu-item type="button" class="danger" (click)="remove(quotation)" [disabled]="deletingId != null">
+                  <mat-icon>delete</mat-icon>
+                  <span>Delete</span>
+                </button>
+              </mat-menu>
             </span>
           </div>
           @if (isExpanded(quotation.id)) {
             <div class="lines">
               @if (loadingLine.has(quotation.id)) {
                 <div class="line-loading" role="status" aria-live="polite" aria-busy="true">
+                  <mat-progress-bar mode="indeterminate"></mat-progress-bar>
                   <mat-spinner diameter="28"></mat-spinner>
                 </div>
               } @else {

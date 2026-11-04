@@ -1,8 +1,11 @@
 <form class="app-dialog-container quotation-dialog-container" (keydown.enter)="onFieldEnter($event)" (submit)="$event.preventDefault()">
   @if (isSaving) {
-    <div class="busy-overlay" role="status" aria-live="polite" aria-busy="true">
-      <mat-spinner diameter="40"></mat-spinner>
-      <p>Saving data...</p>
+    <div class="import-overlay" role="status" aria-live="polite" aria-busy="true">
+      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      <div class="import-overlay-body">
+        <mat-spinner diameter="40"></mat-spinner>
+        <p>Saving...</p>
+      </div>
     </div>
   }
   <header class="app-dialog-header quotation-dialog-header">
@@ -230,6 +233,9 @@
       <span class="spacer"></span>
       <button class="btn" type="button" [disabled]="isSaving" (click)="cancel()">Cancel</button>
       <button class="btn primary" type="button" [disabled]="isSaving" (click)="save()">
+        @if (isSaving) {
+          <mat-spinner diameter="18"></mat-spinner>
+        }
         {{ isSaving ? 'Saving...' : (quotationId ? 'Save changes' : 'Save') }}
       </button>
     </div>

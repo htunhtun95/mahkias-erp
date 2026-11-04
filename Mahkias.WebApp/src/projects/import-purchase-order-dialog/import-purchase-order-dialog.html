@@ -1,8 +1,17 @@
-<div class="quotation-dialog-container">
+<div class="quotation-dialog-container po-import">
+  @if (saving) {
+    <div class="import-overlay" role="status" aria-live="polite" aria-busy="true">
+      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      <div class="import-overlay-body">
+        <mat-spinner diameter="40"></mat-spinner>
+        <p>Importing...</p>
+      </div>
+    </div>
+  }
   <header class="quotation-dialog-header">
     <div class="title-row">
       <h2>Import purchase order</h2>
-      <button class="icon-close" type="button" aria-label="Close" (click)="close()">
+      <button class="icon-close" type="button" aria-label="Close" [disabled]="saving" (click)="close()">
         <mat-icon>close</mat-icon>
       </button>
     </div>
@@ -11,14 +20,47 @@
         <span>PO number</span>
         <input [(ngModel)]="code" [disabled]="saving" maxlength="50" />
       </label>
-      <label>
+      <label class="supplier-field">
         <span>Supplier</span>
-        <select [(ngModel)]="supplierId" [disabled]="saving">
-          <option [ngValue]="null">Select a supplier</option>
-          @for (supplier of suppliers; track supplier.id) {
-            <option [ngValue]="supplier.id">{{ supplier.name }}</option>
+        <span class="supplier-control">
+          <input
+            #supplierInput
+            role="combobox"
+            aria-autocomplete="list"
+            [attr.aria-expanded]="supplierOpen"
+            [class.has-clear]="!!supplierQuery.trim()"
+            [attr.disabled]="saving ? '' : null"
+            [ngModel]="supplierQuery"
+            (ngModelChange)="onSupplierInput($event)"
+            (focus)="supplierOpen = true"
+            (blur)="closeSuppliers()"
+            name="supplier"
+            placeholder="Search suppliers"
+            autocomplete="off"
+          />
+          @if (supplierQuery.trim()) {
+            <button class="clear-supplier" type="button" matTooltip="Clear supplier" aria-label="Clear supplier" [disabled]="saving" (mousedown)="$event.preventDefault()" (click)="clearSupplier()">
+              <mat-icon>close</mat-icon>
+            </button>
           }
-        </select>
+          @if (supplierOpen) {
+            <div class="supplier-menu" role="listbox">
+              <div class="supplier-options">
+                @for (supplier of filteredSuppliers; track supplier.id) {
+                  <button type="button" role="option" (mousedown)="$event.preventDefault(); chooseSupplier(supplier)">
+                    {{ supplier.name }}
+                    @if (supplier.reference) {
+                      <small>{{ supplier.reference }}</small>
+                    }
+                  </button>
+                }
+                @if (!filteredSuppliers.length) {
+                  <p>{{ suppliers.length ? 'No matching suppliers' : 'No suppliers available' }}</p>
+                }
+              </div>
+            </div>
+          }
+        </span>
       </label>
       <app-quotation-date-field label="PO date" [(ngModel)]="poDate" [disabled]="saving" />
       <label>
@@ -37,100 +79,193 @@
   </header>
 
   <div class="quotation-dialog-body">
-    @if (step !== 'verify') {
-    <label class="original-toggle">
-      <input type="checkbox" [disabled]="saving || checking" [ngModel]="spreadsheetIsOriginal" (ngModelChange)="onOriginalChoice($event)" name="spreadsheetIsOriginal" />
-      <span>Imported spreadsheet is the original PO file</span>
-    </label>
-    <app-drive-upload-card
-      [compact]="true"
-      title="PO spreadsheet"
-      hint="Excel or CSV."
-      emptyLabel="Drag a spreadsheet here, or browse"
-      accept=".xlsx,.xls,.csv"
-      [file]="file"
-      [disabled]="saving || checking"
-      (fileChange)="onFile($event)"
-    />
-    @if (!spreadsheetIsOriginal) {
-      <div
-        class="original-file"
-        [class.dragging]="originalDragging"
-        (dragover)="onOriginalDragOver($event)"
-        (dragleave)="onOriginalDragLeave($event)"
-        (drop)="onOriginalDrop($event)"
-      >
-        <span>Original PO File</span>
-        <input type="file" [accept]="documentAccept" [disabled]="saving || checking" (change)="onOriginalFile($event)" aria-label="Original PO File" />
-        @if (originalFile) {
-          <span class="original-name">{{ originalFile.name }}</span>
-          <button class="original-clear" type="button" matTooltip="Remove file" aria-label="Remove original file" [disabled]="saving || checking" (click)="clearOriginal()">
-            <mat-icon>close</mat-icon>
-          </button>
-        }
-      </div>
-    }
-    }
-    <div class="steps">
-      <button type="button" [class.active]="step === 'file'" (click)="step = 'file'">Spreadsheet</button>
-      <button type="button" [class.active]="step === 'map'" [disabled]="!file" (click)="step = 'map'">Columns</button>
-      <button type="button" [class.active]="step === 'verify'" [disabled]="checkState !== 'checked'" (click)="step = 'verify'">Review</button>
-    </div>
-
-    @if (step === 'map') {
-      <div class="map-grid">
-        <label><span>DSN column</span><input [(ngModel)]="mapping.dsnNoColumn" (ngModelChange)="checkState = 'idle'" /></label>
-        <label><span>Part column</span><input [(ngModel)]="mapping.partNoColumn" (ngModelChange)="checkState = 'idle'" /></label>
-        <label><span>Description column</span><input [(ngModel)]="mapping.descriptionColumn" (ngModelChange)="checkState = 'idle'" /></label>
-        <label><span>Condition column</span><input [(ngModel)]="mapping.conditionColumn" (ngModelChange)="checkState = 'idle'" /></label>
-        <label><span>Unit column</span><input [(ngModel)]="mapping.unitColumn" (ngModelChange)="checkState = 'idle'" /></label>
-        <label><span>Lead time column</span><input [(ngModel)]="mapping.leadTimeColumn" (ngModelChange)="checkState = 'idle'" /></label>
-        <label><span>Quantity column</span><input [(ngModel)]="mapping.quantityColumn" (ngModelChange)="checkState = 'idle'" /></label>
-        <label><span>Unit price column</span><input [(ngModel)]="mapping.unitPriceColumn" (ngModelChange)="checkState = 'idle'" /></label>
-        <label><span>Total column</span><input [(ngModel)]="mapping.totalPriceColumn" (ngModelChange)="checkState = 'idle'" /></label>
-      </div>
-    }
-
-    @if (step === 'verify') {
-      <p class="preview-note">{{ items.length }} lines ready. {{ errors.length }} need attention.</p>
-      @if (errors.length) {
-        <ul class="check-list">
-          @for (issue of errors; track $index) {
-            <li>Row {{ issue.row }} · {{ issue.field }} · {{ issue.message }}</li>
-          }
-        </ul>
+    @if (!isVerifyStep) {
+      <label class="original-toggle">
+        <input type="checkbox" [disabled]="saving || checking || reading" [ngModel]="spreadsheetIsOriginal" (ngModelChange)="onOriginalChoice($event)" name="spreadsheetIsOriginal" />
+        <span>Imported spreadsheet is the original PO file</span>
+      </label>
+      <app-drive-upload-card
+        [compact]="true"
+        title="PO spreadsheet"
+        hint="Excel or CSV."
+        emptyLabel="Drag a spreadsheet here, or browse"
+        accept=".xlsx,.xls,.csv"
+        [file]="file"
+        [disabled]="saving || checking || reading"
+        (fileChange)="onFile($event)"
+      />
+      @if (reading) {
+        <p class="reading" role="status" aria-live="polite">
+          <mat-spinner diameter="18"></mat-spinner>
+          <span>Reading spreadsheet...</span>
+        </p>
       }
-      <div class="sheet-wrap">
-        <div class="sheet">
-          <div class="line heading">
-            <span>DSN</span>
-            <span>Part</span>
-            <span>Description</span>
-            <span></span>
-            <span></span>
-            <span>Lead time</span>
-            <span>Qty</span>
-            <span>Unit price</span>
-            <span>Total</span>
-            <span></span>
-          </div>
-          @for (item of items; track $index) {
-            <div class="line">
-              <span class="readonly">{{ item.dsnNo }}</span>
-              <span class="readonly">{{ item.partNo }}</span>
-              <span class="readonly">{{ item.description }}</span>
-              <span class="readonly">{{ item.condition }}</span>
-              <span class="readonly">{{ item.unit }}</span>
-              <span class="readonly">{{ item.leadTime }}</span>
-              <span class="readonly">{{ item.quantity }}</span>
-              <span class="readonly">{{ item.unitPrice }}</span>
-              <span class="readonly">{{ item.totalPrice }}</span>
-              <span></span>
-            </div>
+      @if (!spreadsheetIsOriginal) {
+        <div
+          class="original-file"
+          [class.dragging]="originalDragging"
+          (dragover)="onOriginalDragOver($event)"
+          (dragleave)="onOriginalDragLeave($event)"
+          (drop)="onOriginalDrop($event)"
+        >
+          <span>Original PO File</span>
+          <input type="file" [accept]="documentAccept" [disabled]="saving || checking" (change)="onOriginalFile($event)" aria-label="Original PO File" />
+          @if (originalFile) {
+            <span class="original-name">{{ originalFile.name }}</span>
+            <button class="original-clear" type="button" matTooltip="Remove file" aria-label="Remove original file" [disabled]="saving || checking" (click)="clearOriginal()">
+              <mat-icon>close</mat-icon>
+            </button>
           }
         </div>
-      </div>
+      }
+      @if (columns.length) {
+        <div class="map-panel">
+          <div class="map-grid">
+            @for (field of fields; track field.key) {
+              <span class="map-label" [class.invalid]="fieldInvalid(field.key)">{{ field.label }}</span>
+              <select [class.invalid]="fieldInvalid(field.key)" [name]="field.key" [(ngModel)]="mapping[field.key]" (ngModelChange)="dirtyMapping()">
+                <option value="">Column</option>
+                @for (column of columns; track column.letter) {
+                  <option [value]="column.letter">{{ column.letter }}{{ column.header ? ' · ' + column.header : '' }}</option>
+                }
+              </select>
+              <input [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping()" placeholder="Default" />
+            }
+          </div>
+          @if (requiredMissing) {
+            <p class="hint-error">Please select a Column Index or enter a Default Value for this required field.</p>
+          }
+          <p class="hint">DSN No and Part No are required. Condition, unit, and lead time are optional. A row with no unit price and no total price is skipped.</p>
+          @if (checkState === 'failed' && errors.length) {
+            <p class="hint-error">⚠ Validation Failed ({{ errors.length }} Errors Found)</p>
+            <ul class="errors">
+              @for (issue of errors; track $index) {
+                <li>Row {{ issue.row }}: [{{ issue.field }}] {{ issue.message }}</li>
+              }
+            </ul>
+          }
+        </div>
+      }
+    } @else {
+      @if (previewIssues.length) {
+        <p class="hint-error">⚠ {{ issueBanner }}</p>
+        <ul class="errors">
+          @for (issue of previewIssues; track issue.row + issue.message) {
+            <li>Row {{ issue.row }}: {{ issue.message }}</li>
+          }
+        </ul>
+      } @else {
+        <p class="verified">✓ Verified: Ready to Import</p>
+      }
+      <section class="preview">
+        <div class="preview-bar">
+          <label class="preview-search">
+            <mat-icon>search</mat-icon>
+            <input [attr.disabled]="saving ? '' : null" [(ngModel)]="previewQuery" name="previewQuery" placeholder="Search preview data..." autocomplete="off" />
+          </label>
+          <span class="preview-count">Showing {{ filteredLines.length }} of {{ lines.length }} rows</span>
+        </div>
+        <div class="import-sheet-wrap">
+          <table class="import-sheet app-grid-table">
+            <colgroup>
+              <col class="col-dsn" />
+              <col class="col-part" />
+              <col class="col-description" />
+              <col class="col-condition" />
+              <col class="col-unit" />
+              <col class="col-lead" />
+              <col class="col-qty" />
+              <col class="col-price" />
+              <col class="col-price" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th class="dsn">DSN No</th>
+                <th class="part">Part No</th>
+                <th>Description</th>
+                <th>Condition</th>
+                <th>Unit</th>
+                <th>Lead Time</th>
+                <th class="qty">Quantity</th>
+                <th class="price">Unit Price</th>
+                <th class="price">Total Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (line of filteredLines; track line.row) {
+                <tr>
+                  <td class="dsn" [class.invalid]="lineInvalid(line, 'dsn')">
+                    <input [attr.disabled]="saving ? '' : null" [(ngModel)]="line.dsnNo" (ngModelChange)="onDsn(line)" [name]="'dsn' + line.row" maxlength="100" />
+                  </td>
+                  <td class="part" [class.invalid]="lineInvalid(line, 'part')">
+                    <input [attr.disabled]="saving ? '' : null" [(ngModel)]="line.partNo" (ngModelChange)="onPart(line)" [name]="'part' + line.row" maxlength="200" />
+                    @if (line.priceWarning) {
+                      <span class="map-badge warning" title="Unit × quantity does not match total">Price</span>
+                    }
+                  </td>
+                  <td><input [attr.disabled]="saving ? '' : null" [(ngModel)]="line.description" [name]="'description' + line.row" maxlength="500" /></td>
+                  <td>
+                    <app-lookup-combobox
+                      ariaLabel="Condition"
+                      [value]="line.condition"
+                      [options]="conditionNames"
+                      [disabled]="saving"
+                      (valueChange)="line.condition = $event"
+                      (committed)="normalizeCondition(line)"
+                    />
+                  </td>
+                  <td>
+                    <app-lookup-combobox
+                      ariaLabel="Unit"
+                      [value]="line.unit"
+                      [options]="unitNames"
+                      [disabled]="saving"
+                      (valueChange)="line.unit = $event"
+                      (committed)="normalizeUnit(line)"
+                    />
+                  </td>
+                  <td><input [attr.disabled]="saving ? '' : null" [(ngModel)]="line.leadTime" [name]="'lead' + line.row" maxlength="100" /></td>
+                  <td [class.invalid]="lineInvalid(line, 'qty')">
+                    <input [attr.disabled]="saving ? '' : null" [(ngModel)]="line.quantity" (ngModelChange)="onQuantity(line)" (blur)="onQuantityBlur(line)" [name]="'qty' + line.row" inputmode="numeric" />
+                  </td>
+                  <td class="price" [class.invalid]="lineInvalid(line, 'price')">
+                    <span class="price-field">
+                      <span class="price-mark">{{ symbol }}</span>
+                      <input [attr.disabled]="saving ? '' : null" [(ngModel)]="line.unitPrice" (ngModelChange)="onUnitPrice(line)" [name]="'unitPrice' + line.row" />
+                    </span>
+                  </td>
+                  <td class="price" [class.invalid]="lineInvalid(line, 'price')">
+                    <span class="price-field">
+                      <span class="price-mark">{{ symbol }}</span>
+                      <input [attr.disabled]="saving ? '' : null" [(ngModel)]="line.totalPrice" (ngModelChange)="onTotalPrice(line)" [name]="'totalPrice' + line.row" />
+                    </span>
+                  </td>
+                </tr>
+              }
+              @if (!filteredLines.length) {
+                <tr>
+                  <td class="filter-empty" colspan="9">No preview rows match this search.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
       <app-quotation-charges [rows]="charges" [symbol]="symbol" subject="purchase order" [disabled]="saving" />
+      <div class="po-totals" aria-label="Purchase order totals">
+        <div>
+          <span>Subtotal</span>
+          <strong>{{ money(subtotal) }}</strong>
+        </div>
+        <div>
+          <span>Additional charges</span>
+          <strong>{{ money(chargesAmount) }}</strong>
+        </div>
+        <div class="grand">
+          <span>Total</span>
+          <strong>{{ money(grandTotal) }}</strong>
+        </div>
+      </div>
     }
   </div>
 
@@ -139,14 +274,25 @@
       <p class="error">{{ error }}</p>
     }
     <div class="footer-actions">
-      <button class="ghost" type="button" (click)="close()" [disabled]="saving">Cancel</button>
+      @if (isVerifyStep) {
+        <button class="ghost" type="button" (click)="showMapping()" [disabled]="saving">Back</button>
+      }
       <span class="spacer"></span>
-      @if (step === 'file') {
-        <button class="primary" type="button" (click)="readColumns()" [disabled]="!file || checking">Continue</button>
-      } @else if (step === 'map') {
-        <button class="primary" type="button" (click)="check()" [disabled]="checking">Check spreadsheet</button>
+      <button class="ghost" type="button" (click)="close()" [disabled]="saving">Cancel</button>
+      @if (isVerifyStep) {
+        <button class="primary" type="button" (click)="startImport()" [disabled]="!canImport">
+          @if (saving) {
+            <mat-spinner diameter="18"></mat-spinner>
+          }
+          {{ saving ? 'Importing...' : 'Start Import' }}
+        </button>
       } @else {
-        <button class="primary" type="button" (click)="startImport()" [disabled]="!canImport">Start import</button>
+        <button class="primary" type="button" (click)="check()" [disabled]="!canCheck">
+          @if (checking) {
+            <mat-spinner diameter="18"></mat-spinner>
+          }
+          {{ checking ? 'Checking...' : 'Check & Verify Data' }}
+        </button>
       }
     </div>
   </footer>

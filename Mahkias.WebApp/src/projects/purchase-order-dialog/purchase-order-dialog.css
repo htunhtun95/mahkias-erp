@@ -1,5 +1,6 @@
 :host,
 .quotation-dialog-container {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
@@ -17,8 +18,45 @@
   background: #fff;
 }
 
+.quotation-dialog-header {
+  position: relative;
+  z-index: 4;
+}
+
 .quotation-dialog-footer {
   border-top: 1px solid #e0e0e0;
+}
+
+.po-totals {
+  align-self: flex-end;
+  box-sizing: border-box;
+  width: 33.333%;
+  min-width: min(100%, 320px);
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.po-totals div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 40px;
+  padding: 8px 16px;
+  color: #202124;
+  font-size: 13px;
+}
+
+.po-totals .grand {
+  border-top: 1px solid #e8eaed;
+  font-weight: 600;
+}
+
+.po-totals strong {
+  font-variant-numeric: tabular-nums;
 }
 
 .quotation-dialog-body {
@@ -93,6 +131,100 @@ h2 {
   margin: 0;
   padding: 0 12px;
   line-height: 34px;
+}
+
+.supplier-field,
+.supplier-control {
+  position: relative;
+}
+
+.supplier-control {
+  display: block;
+}
+
+.supplier-control input.has-clear {
+  padding-right: 32px;
+}
+
+.clear-supplier {
+  position: absolute;
+  top: 0;
+  right: 2px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #5f6368;
+  cursor: pointer;
+}
+
+.clear-supplier mat-icon {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+}
+
+.clear-supplier:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.supplier-menu {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(60, 64, 67, 0.18);
+}
+
+.supplier-options {
+  max-height: 240px;
+  overflow: auto;
+}
+
+.supplier-menu button,
+.supplier-menu p {
+  margin: 0;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: #202124;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  text-align: left;
+}
+
+.supplier-menu button {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  height: auto;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.supplier-menu button:hover {
+  background: #f1f3f4;
+}
+
+.supplier-menu small,
+.supplier-menu p {
+  color: #5f6368;
 }
 
 label {
@@ -274,6 +406,31 @@ table.sheet td.invalid {
   background: #fce8e6;
 }
 
+table.sheet tbody td input,
+table.sheet tbody td select,
+table.sheet tbody td textarea {
+  border: none;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+table.sheet tbody td:focus-within {
+  position: relative;
+  z-index: 2;
+  border: 2px solid #1a73e8;
+  box-shadow: none;
+}
+
+table.sheet tbody td input:focus,
+table.sheet tbody td select:focus,
+table.sheet tbody td textarea:focus {
+  outline: none;
+  border: none;
+  box-shadow: none;
+}
+
 table.sheet td.quote {
   padding: 0 8px;
   color: #202124;
@@ -397,8 +554,14 @@ table.sheet td.quote {
 
 .loading {
   display: flex;
-  justify-content: center;
-  padding: 32px;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 32px 0;
+}
+
+.loading mat-progress-bar {
+  width: 100%;
 }
 
 .preview-note,
@@ -508,4 +671,257 @@ label.original-toggle input {
 .original-clear:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+.po-import .reading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #5f6368;
+  font-size: 13px;
+}
+
+.po-import .map-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.po-import .map-grid {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) minmax(140px, 0.55fr);
+  gap: 10px 12px;
+  align-items: center;
+}
+
+.po-import .map-label {
+  color: #5f6368;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.po-import .map-label.invalid {
+  color: #d93025;
+}
+
+.po-import .map-grid input,
+.po-import .map-grid select {
+  width: 100%;
+  height: 32px;
+  box-sizing: border-box;
+}
+
+.po-import .map-grid select.invalid {
+  border-color: #d93025;
+  background: #fce8e6;
+}
+
+.po-import .hint {
+  margin: 8px 0 0;
+  color: #5f6368;
+  font-size: 13px;
+}
+
+.po-import .hint-error,
+.po-import .errors {
+  margin: 0;
+  color: #c5221f;
+  font-size: 13px;
+}
+
+.po-import .errors {
+  padding-left: 18px;
+}
+
+.po-import .verified {
+  margin: 0;
+  color: #137333;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.po-import .preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.po-import .preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.po-import .preview-search {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 32px;
+  margin: 0;
+  padding: 0 10px;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  background: #fff;
+  color: #5f6368;
+}
+
+.po-import .preview-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 30px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.po-import .preview-search mat-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+
+.po-import .preview-count {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: #e8f0fe;
+  color: #1a73e8;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.po-import .import-sheet-wrap {
+  flex: 1 1 auto;
+  min-height: min-content;
+  margin-top: 0;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.po-import .import-sheet {
+  width: 100%;
+  min-width: 1180px;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.po-import .col-dsn { width: 90px; }
+.po-import .col-part { width: 180px; }
+.po-import .col-condition { width: 110px; }
+.po-import .col-unit { width: 100px; }
+.po-import .col-lead { width: 120px; }
+.po-import .col-qty { width: 90px; }
+.po-import .col-price { width: 148px; }
+
+.po-import .import-sheet th,
+.po-import .import-sheet td {
+  border: 0;
+  border-right: 1px solid #e0e0e0;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 0;
+  vertical-align: middle;
+  color: #202124;
+  text-align: left;
+}
+
+.po-import .import-sheet th:first-child,
+.po-import .import-sheet td:first-child {
+  border-left: 1px solid #e0e0e0;
+}
+
+.po-import .import-sheet thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  border-top: 1px solid #e0e0e0;
+  background: #f8f9fa;
+  background-clip: padding-box;
+  box-shadow: 0 1px 0 #e0e0e0;
+  color: #5f6368;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+  padding: 6px 8px;
+}
+
+.po-import .import-sheet th.dsn,
+.po-import .import-sheet td.dsn {
+  text-align: center;
+}
+
+.po-import .import-sheet td input,
+.po-import .import-sheet td select {
+  width: 100%;
+  height: 32px;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  padding: 0 8px;
+  box-sizing: border-box;
+  box-shadow: none;
+  font-size: 14px;
+}
+
+.po-import .import-sheet tbody td:focus-within {
+  position: relative;
+  z-index: 2;
+  border: 2px solid #1a73e8;
+  box-shadow: none;
+}
+
+.po-import .import-sheet tbody td input:focus,
+.po-import .import-sheet tbody td select:focus {
+  outline: none;
+  border: 0;
+  box-shadow: none;
+}
+
+.po-import .import-sheet td.invalid {
+  box-shadow: inset 0 0 0 1.5px #d93025;
+}
+
+.po-import .import-sheet td.part {
+  padding: 0 8px;
+}
+
+.po-import .import-sheet .price-field {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 36px;
+}
+
+.po-import .import-sheet .price-mark {
+  flex: 0 0 auto;
+  padding-left: 8px;
+  color: #5f6368;
+  font-size: 13px;
+}
+
+.po-import .import-sheet .price-field input {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  height: 32px;
+  padding-left: 4px;
+}
+
+.po-import .import-sheet td.filter-empty {
+  padding: 16px;
+}
+
+.po-import .filter-empty {
+  padding: 16px;
+  color: #80868b;
+  text-align: center;
 }

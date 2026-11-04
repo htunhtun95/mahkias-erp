@@ -22,20 +22,8 @@
 
 .import-overlay {
   position: absolute;
-  z-index: 8;
+  z-index: 30;
   inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-}
-
-.import-overlay p {
-  margin: 0;
-  color: #202124;
-  font-size: 14px;
-  font-weight: 500;
 }
 
 .reading {
@@ -682,9 +670,26 @@ label.invalid input {
   width: 100%;
   height: 32px;
   border: 0;
+  border-radius: 0;
+  outline: none;
   background: transparent;
   padding: 0 8px;
   box-sizing: border-box;
+  box-shadow: none;
+}
+
+.sheet tbody td:focus-within {
+  position: relative;
+  z-index: 2;
+  border: 2px solid #1a73e8;
+  box-shadow: none;
+}
+
+.sheet tbody td input:focus,
+.sheet tbody td select:focus {
+  outline: none;
+  border: 0;
+  box-shadow: none;
 }
 
 .sheet td.part {

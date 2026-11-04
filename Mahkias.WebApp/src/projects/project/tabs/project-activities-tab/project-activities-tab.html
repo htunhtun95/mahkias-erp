@@ -22,6 +22,11 @@
   </section>
 } @else {
   <div class="activity-groups" [class.is-busy]="isSaving || deletingId != null" (keydown.enter)="onFieldEnter($event)">
+    @if (linksLoading) {
+      <div class="fetch-bar" role="status" aria-live="polite" aria-busy="true">
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      </div>
+    }
     @if (isSaving) {
       <div class="busy-overlay busy-overlay-top" role="status" aria-live="polite" aria-busy="true">
         <mat-spinner diameter="40"></mat-spinner>
@@ -164,7 +169,7 @@
               </div>
               @if (isGroupOpen(block.group.id) || isBatchEditing(group.typeId)) {
                 @for (activity of block.activities; track activity.id) {
-                  <div class="row child" [class.editing]="isRowEditable(group, activity)">
+                  <div class="row child" [attr.data-activity-id]="activity.id" [class.editing]="isRowEditable(group, activity)">
                     <span></span>
                     <label class="pick">
                       <input
@@ -206,7 +211,7 @@
                     }
                     <span class="lowest-price">
                       @if (lowestLink(activity); as link) {
-                        <button class="price-link" type="button" matTooltip="View quotations" (click)="openItemQuotations(activity)" [disabled]="isSaving || deletingId != null" [attr.aria-label]="'View quotations for ' + (activity.dsnNo || activity.partNo)">{{ priceText(link) }}</button>
+                        <button class="price-link" type="button" matTooltip="View details" (click)="openActivityDetails(activity)" [disabled]="isSaving || deletingId != null" [attr.aria-label]="'View details for ' + (activity.dsnNo || activity.partNo)">{{ priceText(link) }}</button>
                         @if (quoteCount(activity) > 1) {
                           <span class="count-badge">{{ quoteCount(activity) }}</span>
                         }
@@ -219,6 +224,10 @@
                         @if (deletingId === activity.id) { <mat-spinner diameter="18"></mat-spinner> } @else { <mat-icon>more_vert</mat-icon> }
                       </button>
                       <mat-menu #activityMenu="matMenu" class="activity-row-menu">
+                        <button mat-menu-item type="button" (click)="openActivityDetails(activity)" [disabled]="isSaving || deletingId != null">
+                          <mat-icon>visibility</mat-icon>
+                          <span>Details</span>
+                        </button>
                         <button mat-menu-item type="button" (click)="ungroupActivity(activity)" [disabled]="isSaving || deletingId != null">
                           <mat-icon>link_off</mat-icon>
                           <span>Remove from Group</span>
@@ -245,7 +254,7 @@
             </div>
           }
           @for (activity of group.activities; track activity.id) {
-            <div class="activity-block">
+            <div class="activity-block" [attr.data-activity-id]="activity.id">
             <div class="row" [class.editing]="isRowEditable(group, activity)">
               <span></span>
               <label class="pick">
@@ -307,7 +316,7 @@
               }
               <span class="lowest-price">
                 @if (lowestLink(activity); as link) {
-                  <button class="price-link" type="button" matTooltip="View quotations" (click)="openItemQuotations(activity)" [disabled]="isSaving || deletingId != null" [attr.aria-label]="'View quotations for ' + (activity.dsnNo || activity.partNo)">{{ priceText(link) }}</button>
+                  <button class="price-link" type="button" matTooltip="View details" (click)="openActivityDetails(activity)" [disabled]="isSaving || deletingId != null" [attr.aria-label]="'View details for ' + (activity.dsnNo || activity.partNo)">{{ priceText(link) }}</button>
                   @if (quoteCount(activity) > 1) {
                     <span class="count-badge">{{ quoteCount(activity) }}</span>
                   }
@@ -324,6 +333,10 @@
                   }
                 </button>
                 <mat-menu #activityMenu="matMenu" class="activity-row-menu">
+                  <button mat-menu-item type="button" (click)="openActivityDetails(activity)" [disabled]="isSaving || deletingId != null">
+                    <mat-icon>visibility</mat-icon>
+                    <span>Details</span>
+                  </button>
                   @if (activity.activityGroupId) {
                     <button mat-menu-item type="button" (click)="ungroupActivity(activity)" [disabled]="isSaving || deletingId != null">
                       <mat-icon>link_off</mat-icon>

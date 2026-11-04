@@ -12,6 +12,7 @@
 
   @if (loading) {
     <div class="loading" role="status" aria-live="polite" aria-busy="true">
+      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
       <mat-spinner diameter="32"></mat-spinner>
     </div>
   } @else if (error) {

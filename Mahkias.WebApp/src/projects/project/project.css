@@ -152,13 +152,14 @@ h1 {
 
 .tabs {
   display: flex;
+  flex: 0 0 auto;
   align-items: flex-end;
   gap: 4px;
-  min-width: 0;
 }
 
 .tab {
   position: relative;
+  flex-shrink: 0;
   height: 48px;
   padding: 0 16px;
   border: 0;
@@ -243,34 +244,40 @@ h1 {
 
 .header-actions {
   display: flex;
+  flex: 1 1 auto;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
-  flex-shrink: 0;
+  min-width: 0;
   padding-bottom: 8px;
 }
 
 .activity-filters {
   display: flex;
   align-items: center;
+  flex: 1 1 280px;
   flex-wrap: wrap;
-  gap: 16px;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
 }
 
 .quote-status-filter {
-  width: 136px;
-  flex: 0 0 136px;
+  width: 120px;
+  flex: 0 0 120px;
   margin: 0;
 }
 
 .activity-search {
   display: flex;
   align-items: center;
+  box-sizing: border-box;
   gap: 6px;
-  flex: 0 1 340px;
-  width: 340px;
-  max-width: 100%;
+  flex: 1 1 160px;
+  width: auto;
+  min-width: 160px;
+  max-width: 220px;
   height: 40px;
   padding: 0 14px;
   border: 1px solid #dadce0;
@@ -351,10 +358,12 @@ h1 {
 .action-outline,
 .action-primary {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   gap: 8px;
   height: 40px;
+  white-space: nowrap;
   padding: 0 16px;
   border-radius: 24px;
   font: inherit;
@@ -417,6 +426,12 @@ h1 {
 }
 
 .loading {
+  display: flex;
+  flex-direction: column;
+  min-height: 240px;
+}
+
+.loading-body {
   display: flex;
   justify-content: center;
   padding: 48px;
@@ -592,6 +607,7 @@ h1 {
   .action-outline,
   .action-primary {
     width: 100%;
+    max-width: none;
     flex-basis: auto;
   }
 

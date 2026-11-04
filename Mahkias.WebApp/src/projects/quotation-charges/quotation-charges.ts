@@ -35,6 +35,16 @@ export function readQuotationCharges(rows: QuotationChargeRow[]): { charges: Quo
   return { charges, error: '' };
 }
 
+export function quotationChargeTotal(rows: QuotationChargeRow[]): number {
+  return rows.reduce((sum, row) => {
+    if (!row.name.trim()) {
+      return sum;
+    }
+    const amount = chargeAmount(row.amount.trim().replace(/^\$/, ''));
+    return amount == null ? sum : sum + amount;
+  }, 0);
+}
+
 function chargeAmount(text: string): number | null {
   if (!text || /[a-z]/i.test(text)) {
     return null;

@@ -1,13 +1,14 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, inject } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, inject } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Subscription } from 'rxjs';
+import { forkJoin, Subscription } from 'rxjs';
 import { MaterialModule } from '../../../../app/material-module';
-import { Project, ProjectApiService, PurchaseOrderListItem } from '../../../../core/services/project-api.service';
+import { Project, ProjectApiService, PurchaseOrderDetail, PurchaseOrderDocument, PurchaseOrderLine, PurchaseOrderListItem, QuotationCharge } from '../../../../core/services/project-api.service';
 import { formatMoney } from '../../../money-format';
 import { ConfirmDialog } from '../../../confirm-dialog/confirm-dialog';
 import { PurchaseOrderDialogComponent } from '../../../purchase-order-dialog/purchase-order-dialog';
+import { ProcurementTrace } from '../../../procurement-trace';
 import { PurchaseOrderSync } from '../../../purchase-order-sync';
 
 @Component({
@@ -22,6 +23,8 @@ export class ProjectPurchasesTabComponent implements OnChanges, OnDestroy {
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
   private sync = inject(PurchaseOrderSync);
+  private trace = inject(ProcurementTrace);
+  private host = inject(ElementRef<HTMLElement>);
   private syncSub: Subscription;
 
   @Input() project: Project | null = null;
@@ -31,6 +34,11 @@ export class ProjectPurchasesTabComponent implements OnChanges, OnDestroy {
   loading = false;
   error = '';
   deletingId: number | null = null;
+  expanded = new Set<number>();
+  lines = new Map<number, PurchaseOrderLine[]>();
+  details = new Map<number, PurchaseOrderDetail>();
+  documents = new Map<number, PurchaseOrderDocument[]>();
+  loadingLine = new Set<number>();
 
   constructor() {
     this.syncSub = this.sync.changes$.subscribe((projectId) => {
@@ -71,12 +79,137 @@ export class ProjectPurchasesTabComponent implements OnChanges, OnDestroy {
         this.orders = orders;
         this.loading = false;
         this.countChange.emit(orders.length);
+        const ids = new Set(orders.map((order) => order.id));
+        for (const id of [...this.expanded]) {
+          if (!ids.has(id)) {
+            this.expanded.delete(id);
+            this.lines.delete(id);
+            this.details.delete(id);
+            this.documents.delete(id);
+            this.loadingLine.delete(id);
+          } else {
+            this.fetchLines(id);
+          }
+        }
       },
       error: () => {
         this.loading = false;
         this.orders = [];
         this.error = 'Purchase orders could not be loaded.';
         this.countChange.emit(0);
+      },
+    });
+  }
+
+  toggle(order: PurchaseOrderListItem) {
+    if (this.expanded.has(order.id)) {
+      this.expanded.delete(order.id);
+      return;
+    }
+    this.expanded.add(order.id);
+    if (!this.lines.has(order.id)) {
+      this.fetchLines(order.id);
+    }
+  }
+
+  isExpanded(id: number): boolean {
+    return this.expanded.has(id);
+  }
+
+  reveal(id: number) {
+    this.expanded.add(id);
+    if (!this.lines.has(id)) {
+      this.fetchLines(id);
+    }
+    setTimeout(() => {
+      this.host.nativeElement.querySelector(`[data-order-id="${id}"]`)?.scrollIntoView({ block: 'center' });
+    });
+  }
+
+  openActivity(line: PurchaseOrderLine) {
+    if (this.project?.id && line.activityId) {
+      this.trace.showActivity(this.project.id, line.activityId);
+    }
+  }
+
+  lineItems(id: number): PurchaseOrderLine[] {
+    return this.lines.get(id) ?? [];
+  }
+
+  orderDetail(id: number): PurchaseOrderDetail | null {
+    return this.details.get(id) ?? null;
+  }
+
+  chargesFor(id: number): QuotationCharge[] {
+    return this.orderDetail(id)?.charges ?? [];
+  }
+
+  filesFor(id: number): PurchaseOrderDocument[] {
+    return this.documents.get(id) ?? [];
+  }
+
+  fileIcon(fileName: string): string {
+    const kind = extension(fileName);
+    if (kind === 'pdf') {
+      return 'picture_as_pdf';
+    }
+    if (kind === 'xls' || kind === 'xlsx' || kind === 'csv') {
+      return 'table_chart';
+    }
+    if (kind === 'png' || kind === 'jpg' || kind === 'jpeg' || kind === 'gif' || kind === 'webp') {
+      return 'image';
+    }
+    if (kind === 'doc' || kind === 'docx') {
+      return 'description';
+    }
+    return 'draft';
+  }
+
+  fileKind(fileName: string): string {
+    const kind = extension(fileName);
+    return kind ? kind.toUpperCase() : 'File';
+  }
+
+  headerMoney(order: PurchaseOrderListItem, value?: number | null): string {
+    return formatMoney(value, order.currencySymbol, order.currencyCode);
+  }
+
+  activityLabel(line: PurchaseOrderLine): string {
+    if (!line.activityId) {
+      return 'Not linked';
+    }
+    const activity = this.project?.activities?.find((item) => item.id === line.activityId);
+    const dsn = (line.dsnNo || activity?.dsnNo || '').trim();
+    const part = (line.partNo || activity?.mainPartNo || activity?.partNo || '').trim();
+    const label = dsn ? `DSN ${dsn}` : `Activity ${line.activityId}`;
+    return part ? `${label} · ${part}` : label;
+  }
+
+  lineMoney(amount: number, line: PurchaseOrderLine): string {
+    return formatMoney(amount, line.currencySymbol || '$', line.currencyCode || 'USD');
+  }
+
+  private fetchLines(id: number) {
+    if (!this.project) {
+      return;
+    }
+    this.loadingLine.add(id);
+    forkJoin({
+      detail: this.api.purchaseOrder(id),
+      documents: this.api.purchaseOrderDocuments(this.project.id, id),
+    }).subscribe({
+      next: ({ detail, documents }) => {
+        this.lines.set(id, detail.items ?? []);
+        this.details.set(id, detail);
+        this.documents.set(id, documents ?? []);
+        this.loadingLine.delete(id);
+      },
+      error: () => {
+        this.lines.set(id, []);
+        this.details.delete(id);
+        this.documents.delete(id);
+        this.loadingLine.delete(id);
+        this.error = 'Purchase order lines could not be loaded.';
       },
     });
   }
@@ -157,4 +290,9 @@ export class ProjectPurchasesTabComponent implements OnChanges, OnDestroy {
     }
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
+}
+
+function extension(fileName: string): string {
+  const index = fileName.lastIndexOf('.');
+  return index >= 0 ? fileName.slice(index + 1).toLowerCase() : '';
 }

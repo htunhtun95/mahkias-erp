@@ -1,5 +1,10 @@
 @if (loading) {
-  <div class="loading"><mat-spinner diameter="36"></mat-spinner></div>
+  <div class="loading" role="status" aria-live="polite" aria-busy="true">
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    <div class="loading-body">
+      <mat-spinner diameter="40"></mat-spinner>
+    </div>
+  </div>
 } @else if (project) {
   <a class="back" routerLink="/projects">
     <mat-icon>arrow_back</mat-icon>
@@ -80,7 +85,7 @@
                 <mat-icon>search</mat-icon>
                 <input
                   type="search"
-                  placeholder="Filter activities (DSN, Part No, Description)..."
+                  placeholder="Filter activities..."
                   [value]="activityFilter"
                   [attr.disabled]="isDeleting ? '' : null"
                   (input)="activityFilter = $any($event.target).value"
@@ -182,18 +187,20 @@
       (activitiesChange)="onActivitiesChange()"
       (failed)="error = $event"
     />
-    <app-project-quotations-tab
-      class="tab-panel"
-      [class.is-hidden]="tab !== 'procurement' || section !== 'quotations'"
-      [project]="project"
-      (countChange)="quotationCount = $event"
-    />
-    <app-project-purchases-tab
-      class="tab-panel"
-      [class.is-hidden]="tab !== 'procurement' || section !== 'purchases'"
-      [project]="project"
-      (countChange)="purchaseCount = $event"
-    />
+    @if (procurementMounted) {
+      <app-project-quotations-tab
+        class="tab-panel"
+        [class.is-hidden]="tab !== 'procurement' || section !== 'quotations'"
+        [project]="project"
+        (countChange)="quotationCount = $event"
+      />
+      <app-project-purchases-tab
+        class="tab-panel"
+        [class.is-hidden]="tab !== 'procurement' || section !== 'purchases'"
+        [project]="project"
+        (countChange)="purchaseCount = $event"
+      />
+    }
   </div>
 } @else {
   <p class="error">{{ error || 'Project not found.' }}</p>

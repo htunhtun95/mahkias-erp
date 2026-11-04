@@ -12,6 +12,8 @@ namespace Mahkias.Core.Modules.Projects
     {
         Task<IReadOnlyList<PurchaseOrderListItem>> GetByProjectAsync(int projectId);
 
+        Task<IReadOnlyList<PurchaseOrderTraceLine>> GetLinesByProjectAsync(int projectId);
+
         Task<PurchaseOrderDetailResult> GetDetailAsync(int purchaseOrderId);
 
         Task<IReadOnlyList<PurchaseOrderActivityMatch>> GetProjectActivitiesAsync(int projectId);

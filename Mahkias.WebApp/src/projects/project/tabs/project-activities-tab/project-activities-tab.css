@@ -2,6 +2,13 @@
   display: block;
 }
 
+.fetch-bar {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  margin-bottom: 8px;
+}
+
 .empty-actions {
   display: flex;
   flex-wrap: wrap;
@@ -330,6 +337,12 @@
   color: #1a73e8;
   font-size: 12px;
   font-weight: 600;
+}
+
+.lowest-price .count-badge {
+  background: #f1f3f4;
+  color: #202124;
+  font-weight: 400;
 }
 
 .activity-table {

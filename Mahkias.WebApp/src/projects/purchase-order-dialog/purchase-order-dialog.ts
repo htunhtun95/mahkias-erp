@@ -1,6 +1,6 @@
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { catchError, forkJoin, of, switchMap } from 'rxjs';
@@ -17,8 +17,9 @@ import {
   Supplier,
 } from '../../core/services/project-api.service';
 import { DriveUploadCardComponent, StoredDriveFile } from '../drive-upload-card/drive-upload-card';
+import { formatMoney } from '../money-format';
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
-import { QuotationChargeRow, QuotationChargesComponent, readQuotationCharges } from '../quotation-charges/quotation-charges';
+import { QuotationChargeRow, QuotationChargesComponent, quotationChargeTotal, readQuotationCharges } from '../quotation-charges/quotation-charges';
 import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-date-field';
 import { canonicalCondition, canonicalUnit } from '../quotation-lookups';
 import { dateInputValue } from '../quotation-terms';
@@ -113,6 +114,9 @@ export class PurchaseOrderDialogComponent implements OnInit {
   charges: QuotationChargeRow[] = [];
   code = '';
   supplierId: number | null = null;
+  supplierQuery = '';
+  supplierOpen = false;
+  @ViewChild('supplierInput') supplierInput?: ElementRef<HTMLInputElement>;
   currencyId: number | null = null;
   poDate = todayIso();
   shipToAddress = '';
@@ -147,6 +151,7 @@ export class PurchaseOrderDialogComponent implements OnInit {
         if (result.detail) {
           this.code = result.detail.code;
           this.supplierId = result.detail.supplierId;
+          this.supplierQuery = result.suppliers.find((supplier) => supplier.id === result.detail?.supplierId)?.name ?? '';
           this.currencyId = result.detail.currencyId || fallbackCurrency;
           this.poDate = dateInputValue(result.detail.poDate);
           this.shipToAddress = result.detail.shipToAddress ?? '';
@@ -158,6 +163,7 @@ export class PurchaseOrderDialogComponent implements OnInit {
           }));
         } else {
           this.supplierId = this.data.supplierId ?? null;
+          this.supplierQuery = result.suppliers.find((supplier) => supplier.id === this.supplierId)?.name ?? '';
           this.currencyId = fallbackCurrency;
           this.rows = this.data.lines?.length
             ? this.data.lines.map((line) => this.lineFromPreset(line))
@@ -170,6 +176,47 @@ export class PurchaseOrderDialogComponent implements OnInit {
         this.error = 'Purchase order details could not be loaded.';
       },
     });
+  }
+
+  get filteredSuppliers(): Supplier[] {
+    const query = this.supplierQuery.trim().toLowerCase();
+    if (!query) {
+      return this.suppliers;
+    }
+    return this.suppliers.filter((supplier) =>
+      supplier.name.toLowerCase().includes(query) || (supplier.reference ?? '').toLowerCase().includes(query),
+    );
+  }
+
+  onSupplierInput(value: string) {
+    this.supplierQuery = value;
+    this.supplierId = null;
+    this.supplierOpen = true;
+  }
+
+  chooseSupplier(supplier: Supplier) {
+    this.supplierId = supplier.id;
+    this.supplierQuery = supplier.name;
+    this.supplierOpen = false;
+  }
+
+  clearSupplier() {
+    if (this.loading || this.saving) {
+      return;
+    }
+    this.supplierQuery = '';
+    this.supplierId = null;
+    this.supplierOpen = true;
+    setTimeout(() => this.supplierInput?.nativeElement.focus());
+  }
+
+  closeSuppliers() {
+    setTimeout(() => {
+      if (document.activeElement === this.supplierInput?.nativeElement) {
+        return;
+      }
+      this.supplierOpen = false;
+    }, 150);
   }
 
   get title(): string {
@@ -191,6 +238,26 @@ export class PurchaseOrderDialogComponent implements OnInit {
 
   get symbol(): string {
     return this.currencies.find((currency) => currency.id === this.currencyId)?.symbol || '$';
+  }
+
+  get currencyCode(): string {
+    return this.currencies.find((currency) => currency.id === this.currencyId)?.code || 'USD';
+  }
+
+  get subtotal(): number {
+    return roundMoney(this.rows.reduce((sum, row) => sum + (lineAmount(row) ?? 0), 0));
+  }
+
+  get chargesAmount(): number {
+    return roundMoney(quotationChargeTotal(this.charges));
+  }
+
+  get grandTotal(): number {
+    return roundMoney(this.subtotal + this.chargesAmount);
+  }
+
+  money(value: number): string {
+    return formatMoney(value, this.symbol, this.currencyCode);
   }
 
   get visibleRows(): PoLine[] {
@@ -226,7 +293,7 @@ export class PurchaseOrderDialogComponent implements OnInit {
   }
 
   removeLine(row: PoLine) {
-    if (row.fromQuotation || this.saving) {
+    if (this.saving) {
       return;
     }
     this.rows = this.rows.filter((item) => item.key !== row.key);
@@ -627,6 +694,19 @@ function agreed(links: ActivityQuotationLink[], pick: (link: ActivityQuotationLi
     }
   }
   return values.length === 1 ? values[0] : '';
+}
+
+function lineAmount(row: PoLine): number | null {
+  if (skippable(row)) {
+    return null;
+  }
+  const unitPrice = numeric(row.unitPrice);
+  const quantity = row.quantity.trim() ? numeric(row.quantity) : 1;
+  const totalPrice = numeric(row.totalPrice);
+  if (unitPrice == null || quantity == null || quantity <= 0 || (row.totalPrice.trim() && totalPrice == null)) {
+    return null;
+  }
+  return roundMoney(row.totalPrice.trim() && totalPrice != null ? totalPrice : unitPrice * quantity);
 }
 
 function lineProblem(row: PoLine): 'dsn' | 'part' | 'qty' | 'price' | 'skip' | null {

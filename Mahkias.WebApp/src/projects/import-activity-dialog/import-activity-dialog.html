@@ -164,6 +164,9 @@
       @if (columns.length) {
         @if (validation === 'passed') {
           <button type="submit" class="btn primary" [disabled]="isImporting">
+            @if (isImporting) {
+              <mat-spinner diameter="18"></mat-spinner>
+            }
             {{ isImporting ? 'Importing...' : 'Start Import' }}
           </button>
         } @else {

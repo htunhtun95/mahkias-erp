@@ -1,5 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { Observable, shareReplay, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 export interface Project {
@@ -374,6 +375,28 @@ export interface PurchaseOrderLine {
   currencySymbol?: string | null;
 }
 
+export interface PurchaseOrderTraceLine {
+  purchaseOrderId: number;
+  code: string;
+  poDate?: string | null;
+  supplierName: string;
+  lineId: number;
+  activityId?: number | null;
+  quotationId?: number | null;
+  quotationCode?: string | null;
+  dsnNo?: string | null;
+  partNo?: string | null;
+  description?: string | null;
+  condition?: string | null;
+  unit?: string | null;
+  leadTime?: string | null;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  currencyCode?: string | null;
+  currencySymbol?: string | null;
+}
+
 export interface PurchaseOrderDetail extends PurchaseOrderListItem {
   items: PurchaseOrderLine[];
   charges: QuotationCharge[];
@@ -423,6 +446,15 @@ export interface PurchaseOrderExcelMappingInput {
   quantityColumn?: string;
   unitPriceColumn?: string;
   totalPriceColumn?: string;
+  defaultDsnNo?: string;
+  defaultPartNo?: string;
+  defaultDescription?: string;
+  defaultCondition?: string;
+  defaultUnit?: string;
+  defaultLeadTime?: string;
+  defaultQuantity?: string;
+  defaultUnitPrice?: string;
+  defaultTotalPrice?: string;
 }
 
 export interface PurchaseOrderExcelValidation {
@@ -452,8 +484,39 @@ export interface ActivityExcelUpload {
 @Injectable({ providedIn: 'root' })
 export class ProjectApiService {
   private readonly baseUrl = `${environment.apiUrl}/api`;
+  private readonly reads = new Map<string, Observable<unknown>>();
 
   constructor(private http: HttpClient) {}
+
+  forgetProject(projectId: number) {
+    const prefix = `${projectId}:`;
+    for (const key of this.reads.keys()) {
+      if (key.startsWith(prefix)) {
+        this.reads.delete(key);
+      }
+    }
+  }
+
+  private cached<T>(key: string, source: () => Observable<T>): Observable<T> {
+    const existing = this.reads.get(key) as Observable<T> | undefined;
+    if (existing) {
+      return existing;
+    }
+    const shared = new Observable<T>((subscriber) => source().subscribe({
+      next: (value) => subscriber.next(value),
+      error: (error) => {
+        this.reads.delete(key);
+        subscriber.error(error);
+      },
+      complete: () => subscriber.complete(),
+    })).pipe(shareReplay({ bufferSize: 1, refCount: false }));
+    this.reads.set(key, shared);
+    return shared;
+  }
+
+  private forget(key: string) {
+    this.reads.delete(key);
+  }
 
   list(search?: string, sortBy = 'createdAt', sortDirection: 'asc' | 'desc' = 'desc') {
     const params: Record<string, string> = { sortBy, sortDirection };
@@ -526,64 +589,80 @@ export class ProjectApiService {
   }
 
   activityGroups(projectId: number) {
-    return this.http.get<ActivityGroup[]>(`${this.baseUrl}/projects/${projectId}/activity-groups`);
+    return this.cached(`${projectId}:groups`, () => this.http.get<ActivityGroup[]>(`${this.baseUrl}/projects/${projectId}/activity-groups`));
   }
 
   createActivityGroup(projectId: number, name: string, description: string) {
-    return this.http.post<ActivityGroup>(`${this.baseUrl}/projects/${projectId}/activity-groups`, { name, description });
+    return this.http.post<ActivityGroup>(`${this.baseUrl}/projects/${projectId}/activity-groups`, { name, description }).pipe(
+      tap(() => this.forgetProject(projectId)),
+    );
   }
 
   updateActivityGroup(projectId: number, id: number, name: string, description: string) {
-    return this.http.put<ActivityGroup>(`${this.baseUrl}/projects/${projectId}/activity-groups/${id}`, { name, description });
+    return this.http.put<ActivityGroup>(`${this.baseUrl}/projects/${projectId}/activity-groups/${id}`, { name, description }).pipe(
+      tap(() => this.forgetProject(projectId)),
+    );
   }
 
   deleteActivityGroup(projectId: number, id: number) {
-    return this.http.delete<void>(`${this.baseUrl}/projects/${projectId}/activity-groups/${id}`);
+    return this.http.delete<void>(`${this.baseUrl}/projects/${projectId}/activity-groups/${id}`).pipe(
+      tap(() => this.forgetProject(projectId)),
+    );
   }
 
   assignActivityGroup(projectId: number, activityId: number, activityGroupId: number | null) {
-    return this.http.put<void>(`${this.baseUrl}/projects/${projectId}/activities/${activityId}/group`, { activityGroupId });
+    return this.http.put<void>(`${this.baseUrl}/projects/${projectId}/activities/${activityId}/group`, { activityGroupId }).pipe(
+      tap(() => this.forgetProject(projectId)),
+    );
   }
 
   assignActivities(projectId: number, activityIds: number[], activityGroupId: number | null) {
     return this.http.put<{ updated: number }>(`${this.baseUrl}/projects/${projectId}/activity-groups/assign`, {
       activityIds,
       activityGroupId,
-    });
+    }).pipe(tap(() => this.forgetProject(projectId)));
   }
 
   activityLabels(projectId: number) {
-    return this.http.get<ActivityLabel[]>(`${this.baseUrl}/projects/${projectId}/activity-labels`);
+    return this.cached(`${projectId}:labels`, () => this.http.get<ActivityLabel[]>(`${this.baseUrl}/projects/${projectId}/activity-labels`));
   }
 
   createActivityLabel(projectId: number, name: string, typeId: number) {
-    return this.http.post<ActivityLabel>(`${this.baseUrl}/projects/${projectId}/activity-labels`, { name, typeId });
+    return this.http.post<ActivityLabel>(`${this.baseUrl}/projects/${projectId}/activity-labels`, { name, typeId }).pipe(
+      tap(() => this.forgetProject(projectId)),
+    );
   }
 
   deleteActivityLabel(projectId: number, id: number) {
-    return this.http.delete<void>(`${this.baseUrl}/projects/${projectId}/activity-labels/${id}`);
+    return this.http.delete<void>(`${this.baseUrl}/projects/${projectId}/activity-labels/${id}`).pipe(
+      tap(() => this.forgetProject(projectId)),
+    );
   }
 
   setActivityLabels(projectId: number, activityIds: number[], labelIds: number[]) {
     return this.http.put<{ updated: number }>(`${this.baseUrl}/projects/${projectId}/activity-labels/activities`, {
       activityIds,
       labelIds,
-    });
+    }).pipe(tap(() => this.forgetProject(projectId)));
   }
 
   setGroupLabels(projectId: number, activityGroupIds: number[], labelIds: number[]) {
     return this.http.put<{ updated: number }>(`${this.baseUrl}/projects/${projectId}/activity-labels/groups`, {
       activityGroupIds,
       labelIds,
-    });
+    }).pipe(tap(() => this.forgetProject(projectId)));
   }
 
   removeActivityLabel(projectId: number, activityId: number, labelId: number) {
-    return this.http.delete<{ updated: number }>(`${this.baseUrl}/projects/${projectId}/activities/${activityId}/labels/${labelId}`);
+    return this.http.delete<{ updated: number }>(`${this.baseUrl}/projects/${projectId}/activities/${activityId}/labels/${labelId}`).pipe(
+      tap(() => this.forgetProject(projectId)),
+    );
   }
 
   removeActivityLabels(projectId: number, activityId: number) {
-    return this.http.delete<{ updated: number }>(`${this.baseUrl}/projects/${projectId}/activities/${activityId}/labels`);
+    return this.http.delete<{ updated: number }>(`${this.baseUrl}/projects/${projectId}/activities/${activityId}/labels`).pipe(
+      tap(() => this.forgetProject(projectId)),
+    );
   }
 
   removeLabelMembers(projectId: number, activityIds: number[], activityGroupIds: number[], labelId: number | null) {
@@ -591,7 +670,7 @@ export class ProjectApiService {
       activityIds,
       activityGroupIds,
       labelId,
-    });
+    }).pipe(tap(() => this.forgetProject(projectId)));
   }
 
   addActivity(projectId: number, body: CreateActivityRequest) {
@@ -649,19 +728,23 @@ export class ProjectApiService {
   }
 
   activityTypes() {
-    return this.http.get<ActivityType[]>(`${this.baseUrl}/lookup/activity-types`);
+    return this.cached('activity-types', () => this.http.get<ActivityType[]>(`${this.baseUrl}/lookup/activity-types`));
   }
 
   suppliers(search?: string) {
     const params: Record<string, string> = {};
-    if (search?.trim()) {
-      params['search'] = search.trim();
+    const term = search?.trim() ?? '';
+    if (term) {
+      params['search'] = term;
+      return this.http.get<Supplier[]>(`${this.baseUrl}/suppliers`, { params });
     }
-    return this.http.get<Supplier[]>(`${this.baseUrl}/suppliers`, { params });
+    return this.cached('suppliers', () => this.http.get<Supplier[]>(`${this.baseUrl}/suppliers`));
   }
 
   createSupplier(name: string, reference?: string) {
-    return this.http.post<Supplier>(`${this.baseUrl}/suppliers`, { name, reference: reference ?? null });
+    return this.http.post<Supplier>(`${this.baseUrl}/suppliers`, { name, reference: reference ?? null }).pipe(
+      tap(() => this.forget('suppliers')),
+    );
   }
 
   supplier(id: number) {
@@ -669,27 +752,31 @@ export class ProjectApiService {
   }
 
   updateSupplier(id: number, name: string, reference?: string) {
-    return this.http.put<SupplierDetail>(`${this.baseUrl}/suppliers/${id}`, { name, reference: reference ?? null });
+    return this.http.put<SupplierDetail>(`${this.baseUrl}/suppliers/${id}`, { name, reference: reference ?? null }).pipe(
+      tap(() => this.forget('suppliers')),
+    );
   }
 
   deleteSupplier(id: number) {
-    return this.http.delete<void>(`${this.baseUrl}/suppliers/${id}`);
+    return this.http.delete<void>(`${this.baseUrl}/suppliers/${id}`).pipe(
+      tap(() => this.forget('suppliers')),
+    );
   }
 
   quotations(projectId: number) {
-    return this.http.get<QuotationListItem[]>(`${this.baseUrl}/projects/${projectId}/quotations`);
+    return this.cached(`${projectId}:quotations`, () => this.http.get<QuotationListItem[]>(`${this.baseUrl}/projects/${projectId}/quotations`));
   }
 
   currencies() {
-    return this.http.get<Currency[]>(`${this.baseUrl}/currencies`);
+    return this.cached('currencies', () => this.http.get<Currency[]>(`${this.baseUrl}/currencies`));
   }
 
   units() {
-    return this.http.get<LookupValue[]>(`${this.baseUrl}/units`);
+    return this.cached('units', () => this.http.get<LookupValue[]>(`${this.baseUrl}/units`));
   }
 
   conditions() {
-    return this.http.get<LookupValue[]>(`${this.baseUrl}/conditions`);
+    return this.cached('conditions', () => this.http.get<LookupValue[]>(`${this.baseUrl}/conditions`));
   }
 
   quotation(id: number) {
@@ -697,7 +784,7 @@ export class ProjectApiService {
   }
 
   quotationLinks(projectId: number) {
-    return this.http.get<ActivityQuotationLink[]>(`${this.baseUrl}/projects/${projectId}/quotation-links`);
+    return this.cached(`${projectId}:links`, () => this.http.get<ActivityQuotationLink[]>(`${this.baseUrl}/projects/${projectId}/quotation-links`));
   }
 
   updateQuotation(id: number, body: {
@@ -873,7 +960,11 @@ export class ProjectApiService {
   }
 
   purchaseOrders(projectId: number) {
-    return this.http.get<PurchaseOrderListItem[]>(`${this.baseUrl}/projects/${projectId}/purchase-orders`);
+    return this.cached(`${projectId}:orders`, () => this.http.get<PurchaseOrderListItem[]>(`${this.baseUrl}/projects/${projectId}/purchase-orders`));
+  }
+
+  purchaseOrderLines(projectId: number) {
+    return this.cached(`${projectId}:po-lines`, () => this.http.get<PurchaseOrderTraceLine[]>(`${this.baseUrl}/projects/${projectId}/purchase-orders/lines`));
   }
 
   purchaseOrder(id: number) {
@@ -930,18 +1021,18 @@ export class ProjectApiService {
     body.append('quantityColumn', mapping.quantityColumn ?? '');
     body.append('unitPriceColumn', mapping.unitPriceColumn ?? '');
     body.append('totalPriceColumn', mapping.totalPriceColumn ?? '');
-    body.append('defaultDsnNo', '');
-    body.append('defaultPartNo', '');
-    body.append('defaultDescription', '');
-    body.append('defaultCondition', '');
-    body.append('defaultUnit', '');
-    body.append('defaultLeadTime', '');
+    body.append('defaultDsnNo', mapping.defaultDsnNo ?? '');
+    body.append('defaultPartNo', mapping.defaultPartNo ?? '');
+    body.append('defaultDescription', mapping.defaultDescription ?? '');
+    body.append('defaultCondition', mapping.defaultCondition ?? '');
+    body.append('defaultUnit', mapping.defaultUnit ?? '');
+    body.append('defaultLeadTime', mapping.defaultLeadTime ?? '');
     body.append('defaultMinimumQty', '');
     body.append('defaultQuotedDate', '');
     body.append('defaultValidUntil', '');
-    body.append('defaultUnitPrice', '');
-    body.append('defaultQuantity', '');
-    body.append('defaultTotalPrice', '');
+    body.append('defaultUnitPrice', mapping.defaultUnitPrice ?? '');
+    body.append('defaultQuantity', mapping.defaultQuantity ?? '');
+    body.append('defaultTotalPrice', mapping.defaultTotalPrice ?? '');
     return this.http.post<PurchaseOrderExcelValidation>(
       `${this.baseUrl}/projects/${projectId}/purchase-orders/excel/validate`,
       body,

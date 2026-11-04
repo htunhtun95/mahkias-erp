@@ -515,6 +515,31 @@ label.invalid input {
   background: #fce8e6;
 }
 
+.sheet tbody td input,
+.sheet tbody td select,
+.sheet tbody td textarea {
+  border: none;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.sheet tbody td:focus-within {
+  position: relative;
+  z-index: 2;
+  border: 2px solid #1a73e8;
+  box-shadow: none;
+}
+
+.sheet tbody td input:focus,
+.sheet tbody td select:focus,
+.sheet tbody td textarea:focus {
+  outline: none;
+  border: none;
+  box-shadow: none;
+}
+
 .sheet td.warn {
   box-shadow: inset 0 0 0 1.5px #e37400;
   background: #fef7e0;
