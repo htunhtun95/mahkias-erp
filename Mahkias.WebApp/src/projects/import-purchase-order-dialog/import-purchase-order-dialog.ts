@@ -2,7 +2,7 @@ import { TextFieldModule } from '@angular/cdk/text-field';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, ElementRef, OnInit, ViewChild, inject } from '@angular/core';
 import { FormsModule, NgModel } from '@angular/forms';
-import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { forkJoin, of, switchMap } from 'rxjs';
 import { MaterialModule } from '../../app/material-module';
 import {
@@ -15,8 +15,7 @@ import {
   PurchaseOrderItemInput,
   Supplier,
 } from '../../core/services/project-api.service';
-import { DocumentDraft, documentSummary, syncDocumentDrafts } from '../document-manager/document-manager';
-import { openDocumentLibrary } from '../document-library-dialog/document-library-dialog';
+import { DocumentManagerComponent, syncDocumentDrafts } from '../document-manager/document-manager';
 import { DriveUploadCardComponent } from '../drive-upload-card/drive-upload-card';
 import { formatMoney } from '../money-format';
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
@@ -53,13 +52,12 @@ interface PreviewLine {
 @Component({
   selector: 'app-import-purchase-order-dialog',
   standalone: true,
-  imports: [FormsModule, TextFieldModule, MaterialModule, QuotationDateFieldComponent, QuotationChargesComponent, DriveUploadCardComponent, LookupComboboxComponent, SheetCellFocusDirective],
+  imports: [FormsModule, TextFieldModule, MaterialModule, QuotationDateFieldComponent, QuotationChargesComponent, DriveUploadCardComponent, LookupComboboxComponent, SheetCellFocusDirective, DocumentManagerComponent],
   templateUrl: './import-purchase-order-dialog.html',
   styleUrls: ['../purchase-order-dialog/purchase-order-dialog.css'],
 })
 export class ImportPurchaseOrderDialogComponent implements OnInit {
-  private dialog = inject(MatDialog);
-  documentDrafts: DocumentDraft[] | null = null;
+  @ViewChild('library') private library?: DocumentManagerComponent;
   private api = inject(ProjectApiService);
   private dialogRef = inject(MatDialogRef<ImportPurchaseOrderDialogComponent, boolean>);
   readonly data = inject<ImportPurchaseOrderData>(MAT_DIALOG_DATA);
@@ -179,12 +177,16 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
     }
   }
 
+  get originalReady(): boolean {
+    return this.spreadsheetIsOriginal ? !!this.file : !!this.originalFile;
+  }
+
   get canCheck(): boolean {
-    return !!this.file && this.columns.length > 0 && !this.requiredMissing && !!this.code.trim() && !!this.supplierId && !readQuotationCharges(this.charges).error && !this.checking && !this.reading && !this.saving;
+    return !!this.file && this.originalReady && this.columns.length > 0 && !this.requiredMissing && !!this.code.trim() && !!this.supplierId && !readQuotationCharges(this.charges).error && !this.checking && !this.reading && !this.saving;
   }
 
   get canImport(): boolean {
-    return this.isVerifyStep && this.lines.length > 0 && this.previewIssues.length === 0 && !!this.supplierId && !!this.code.trim() && !readQuotationCharges(this.charges).error && !this.saving;
+    return this.isVerifyStep && this.originalReady && this.lines.length > 0 && this.previewIssues.length === 0 && !!this.supplierId && !!this.code.trim() && !readQuotationCharges(this.charges).error && !this.saving;
   }
 
   get activityIssueCount(): number {
@@ -349,29 +351,6 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
     if (!this.saving) {
       this.dialogRef.close(false);
     }
-  }
-
-  get supportingLabel(): string {
-    return documentSummary(this.documentDrafts ?? [], true);
-  }
-
-  openDocuments() {
-    openDocumentLibrary(this.dialog, {
-      title: 'Supporting documents',
-      note: 'Extra files are stored when the purchase order is imported. The spreadsheet above is still the file that is read.',
-      kind: 'purchase-order',
-      projectId: this.data.projectId,
-      ownerId: null,
-      documents: [],
-      drafts: this.documentDrafts,
-      accept: this.documentAccept,
-      supportingOnly: true,
-      sortBase: 100,
-    }).afterClosed().subscribe((result) => {
-      if (result?.saved) {
-        this.documentDrafts = result.drafts ?? [];
-      }
-    });
   }
 
   onOriginalChoice(checked: boolean) {
@@ -700,8 +679,8 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
     }, this.referenceFile()).pipe(
       switchMap((saved) => {
         const id = saved?.id;
-        const drafts = this.documentDrafts;
-        if (!id || !drafts?.some((draft) => draft.pendingFile && !draft.removed)) {
+        const drafts = this.library?.capture() ?? [];
+        if (!id || !drafts.some((draft) => draft.pendingFile && !draft.removed)) {
           return of(saved);
         }
         return syncDocumentDrafts(this.api, 'purchase-order', this.data.projectId, id, drafts, true, 100);

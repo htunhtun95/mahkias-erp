@@ -212,13 +212,14 @@
       </table>
     </div>
     <app-quotation-charges [rows]="charges" [symbol]="chargeSymbol" [disabled]="isSaving"></app-quotation-charges>
-    <section class="document-launch">
-      <div>
-        <h3>Documents</h3>
-        <p>{{ documentsLabel }}</p>
-      </div>
-      <button type="button" [disabled]="isSaving" (click)="openDocuments()">Manage documents</button>
-    </section>
+    <app-document-manager
+      #library
+      title="Documents"
+      hint="The original file stays first. Drag the other files to set their order."
+      [documents]="savedDocuments"
+      [accept]="documentAccept"
+      [disabled]="isSaving"
+    ></app-document-manager>
   </div>
 
   <footer class="app-dialog-actions quotation-dialog-footer">

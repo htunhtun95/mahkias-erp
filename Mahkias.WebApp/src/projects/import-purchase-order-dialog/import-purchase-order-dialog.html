@@ -134,6 +134,9 @@
           }
         </div>
       }
+      @if (!originalReady) {
+        <p class="hint-error">An original file is required.</p>
+      }
       @if (columns.length) {
         <div class="map-panel">
           <div class="map-grid">
@@ -285,13 +288,15 @@
     }
   </div>
 
-  <section class="document-launch">
-    <div>
-      <h3>Supporting documents</h3>
-      <p>{{ supportingLabel }}</p>
-    </div>
-    <button type="button" [disabled]="saving || checking" (click)="openDocuments()">Manage documents</button>
-  </section>
+  <app-document-manager
+    #library
+    title="Supporting documents"
+    hint="These files are stored with the purchase order. The spreadsheet above is still the file that is read."
+    [supportingOnly]="true"
+    [sortBase]="100"
+    [accept]="documentAccept"
+    [disabled]="saving || checking"
+  ></app-document-manager>
   <footer class="quotation-dialog-footer">
     @if (error) {
       <p class="error">{{ error }}</p>

@@ -2,11 +2,11 @@ import { Component, ElementRef, QueryList, ViewChild, ViewChildren, inject } fro
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { FormsModule, NgModel } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { Observable, of, switchMap, tap } from 'rxjs';
 import { MaterialModule } from '../../app/material-module';
-import { DocumentDraft, documentSummary, syncDocumentDrafts } from '../document-manager/document-manager';
-import { documentAccept as acceptedDocuments, openDocumentLibrary } from '../document-library-dialog/document-library-dialog';
+import { DocumentManagerComponent, syncDocumentDrafts } from '../document-manager/document-manager';
+import { documentAccept as acceptedDocuments } from '../document-library-dialog/document-library-dialog';
 import { blockEnterSubmit } from '../../core/block-enter-submit';
 import { closeOnEscape } from '../../core/close-on-escape';
 import { SheetCellFocusDirective } from '../sheet-cell-focus';
@@ -53,7 +53,7 @@ interface QuoteRow {
 @Component({
   selector: 'app-create-quotation-dialog',
   standalone: true,
-  imports: [FormsModule, MaterialModule, TextFieldModule, QuotationDateFieldComponent, LookupComboboxComponent, QuotationChargesComponent, SheetCellFocusDirective],
+  imports: [FormsModule, MaterialModule, TextFieldModule, QuotationDateFieldComponent, LookupComboboxComponent, QuotationChargesComponent, SheetCellFocusDirective, DocumentManagerComponent],
   templateUrl: './add-quotation-dialog.html',
   styleUrl: './add-quotation-dialog.css',
 })
@@ -62,14 +62,13 @@ export class CreateQuotationDialogComponent {
   @ViewChild('supplierField') private supplierField?: NgModel;
   @ViewChild('newSupplierField') private newSupplierField?: NgModel;
   @ViewChildren(QuotationDateFieldComponent) private dateFields?: QueryList<QuotationDateFieldComponent>;
-  private dialog = inject(MatDialog);
+  @ViewChild('library') private library?: DocumentManagerComponent;
 
   private api = inject(ProjectApiService);
   private dialogRef = inject(MatDialogRef<CreateQuotationDialogComponent>);
   data = inject<{ projectId: number; activities: Activity[]; quotation?: QuotationDetail }>(MAT_DIALOG_DATA);
   quotationId = this.data.quotation?.id ?? null;
   savedDocuments: QuotationDocument[] = [];
-  documentDrafts: DocumentDraft[] | null = null;
   readonly documentAccept = acceptedDocuments;
   quotationCode = this.data.quotation?.code ?? '';
   rowFilter = '';
@@ -394,7 +393,22 @@ export class CreateQuotationDialogComponent {
     if (filled.some((row) => !row.dsnNo.trim() || !row.partNo.trim() || !this.validQuantity(row.quantity) || !this.validOptionalQuantity(row.minimumQty) || this.priceBroken(row))) {
       return 'DSN number, part number, and quantity are required. Check the highlighted rows.';
     }
-    return readQuotationCharges(this.charges).error;
+    const charges = readQuotationCharges(this.charges).error;
+    if (charges) {
+      return charges;
+    }
+    if (!this.hasOriginalFile) {
+      return 'An original file is required.';
+    }
+    return '';
+  }
+
+  private get hasOriginalFile(): boolean {
+    const library = this.library;
+    if (library && (library.hasChanges || library.entries.length > 0)) {
+      return library.hasOriginal;
+    }
+    return this.savedDocuments.some((document) => !!document.isOriginal);
   }
 
   get canSave(): boolean {
@@ -402,6 +416,9 @@ export class CreateQuotationDialogComponent {
   }
 
   get visibleValidationMessage(): string {
+    if (this.validationMessage === 'An original file is required.') {
+      return this.validationMessage;
+    }
     if (!this.validationMessage) {
       return '';
     }
@@ -554,8 +571,8 @@ export class CreateQuotationDialogComponent {
               if (id) {
                 this.quotationId = id;
               }
-              const drafts = this.documentDrafts;
-              if (!id || !drafts?.some((draft) => (draft.pendingFile && !draft.removed) || (draft.removed && draft.documentId))) {
+              const drafts = this.library?.capture() ?? [];
+              if (!id || !this.library?.hasChanges) {
                 return of(result);
               }
               return syncDocumentDrafts(this.api, 'quotation', this.data.projectId, id, drafts, false);
@@ -586,35 +603,6 @@ export class CreateQuotationDialogComponent {
       });
   }
 
-  get documentsLabel(): string {
-    return documentSummary(this.documentDrafts ?? this.savedDocuments);
-  }
-
-  openDocuments() {
-    openDocumentLibrary(this.dialog, {
-      title: 'Manage documents',
-      note: this.quotationId
-        ? 'Changes are stored for this quotation when you save this window.'
-        : 'Files are stored when the quotation is saved.',
-      kind: 'quotation',
-      projectId: this.data.projectId,
-      ownerId: this.quotationId,
-      documents: this.savedDocuments,
-      drafts: this.quotationId ? null : this.documentDrafts,
-      accept: this.documentAccept,
-    }).afterClosed().subscribe((result) => {
-      if (!result?.saved) {
-        return;
-      }
-      if (this.quotationId) {
-        this.documentDrafts = null;
-        this.loadSavedDocuments();
-        return;
-      }
-      this.documentDrafts = result.drafts ?? [];
-    });
-  }
-
   private loadSavedDocuments() {
     if (!this.quotationId) {
       return;
@@ -622,6 +610,7 @@ export class CreateQuotationDialogComponent {
     this.api.quotationDocuments(this.data.projectId, this.quotationId).subscribe({
       next: (documents) => {
         this.savedDocuments = documents ?? [];
+        this.library?.replace(this.savedDocuments);
       },
     });
   }

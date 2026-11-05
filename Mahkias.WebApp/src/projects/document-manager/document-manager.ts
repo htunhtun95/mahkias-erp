@@ -103,6 +103,10 @@ export class DocumentManagerComponent implements OnChanges {
     return this.entries;
   }
 
+  get hasOriginal(): boolean {
+    return this.entries.some((entry) => entry.isOriginal);
+  }
+
   onDragOver(event: DragEvent) {
     event.preventDefault();
     if (!this.disabled) {

@@ -2,7 +2,7 @@ import { TextFieldModule } from '@angular/cdk/text-field';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, ElementRef, OnInit, ViewChild, inject } from '@angular/core';
 import { FormsModule, NgModel } from '@angular/forms';
-import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { catchError, forkJoin, of, switchMap } from 'rxjs';
 import { MaterialModule } from '../../app/material-module';
 import {
@@ -17,8 +17,8 @@ import {
   PurchaseOrderLine,
   Supplier,
 } from '../../core/services/project-api.service';
-import { DocumentDraft, documentSummary, syncDocumentDrafts } from '../document-manager/document-manager';
-import { documentAccept as acceptedDocuments, openDocumentLibrary } from '../document-library-dialog/document-library-dialog';
+import { DocumentManagerComponent, syncDocumentDrafts } from '../document-manager/document-manager';
+import { documentAccept as acceptedDocuments } from '../document-library-dialog/document-library-dialog';
 import { formatMoney } from '../money-format';
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
 import { QuotationChargeRow, QuotationChargesComponent, quotationChargeTotal, readQuotationCharges } from '../quotation-charges/quotation-charges';
@@ -94,6 +94,7 @@ interface PoEdits {
     LookupComboboxComponent,
     ActivitySuggestComponent,
     SheetCellFocusDirective,
+    DocumentManagerComponent,
   ],
   templateUrl: './purchase-order-dialog.html',
   styleUrl: './purchase-order-dialog.css',
@@ -114,7 +115,7 @@ export class PurchaseOrderDialogComponent implements OnInit {
   conditionOptions: string[] = [];
   unitOptions: string[] = [];
   readonly documentAccept = acceptedDocuments;
-  documentDrafts: DocumentDraft[] | null = null;
+  @ViewChild('library') private library?: DocumentManagerComponent;
   documents: PurchaseOrderDocument[] = [];
   links: ActivityQuotationLink[] = [];
   private applying = false;
@@ -125,7 +126,6 @@ export class PurchaseOrderDialogComponent implements OnInit {
   supplierQuery = '';
   supplierOpen = false;
   @ViewChild('supplierInput') supplierInput?: ElementRef<HTMLInputElement>;
-  private dialog = inject(MatDialog);
   @ViewChild('codeField') private codeField?: NgModel;
   @ViewChild('supplierField') private supplierField?: NgModel;
   currencyId: number | null = null;
@@ -302,39 +302,6 @@ export class PurchaseOrderDialogComponent implements OnInit {
     }
   }
 
-  get documentsLabel(): string {
-    return documentSummary(this.documentDrafts ?? this.documents);
-  }
-
-  openDocuments() {
-    openDocumentLibrary(this.dialog, {
-      title: 'Manage documents',
-      note: this.data.purchaseOrderId
-        ? 'Changes are stored for this purchase order when you save this window.'
-        : 'Files are stored when the purchase order is saved.',
-      kind: 'purchase-order',
-      projectId: this.data.projectId,
-      ownerId: this.data.purchaseOrderId ?? null,
-      documents: this.documents,
-      drafts: this.data.purchaseOrderId ? null : this.documentDrafts,
-      accept: this.documentAccept,
-    }).afterClosed().subscribe((result) => {
-      if (!result?.saved) {
-        return;
-      }
-      if (this.data.purchaseOrderId) {
-        this.documentDrafts = null;
-        this.api.purchaseOrderDocuments(this.data.projectId, this.data.purchaseOrderId).subscribe({
-          next: (documents) => {
-            this.documents = documents ?? [];
-          },
-        });
-        return;
-      }
-      this.documentDrafts = result.drafts ?? [];
-    });
-  }
-
   addLine() {
     this.rows = [...this.rows, this.blankLine()];
     this.search = '';
@@ -494,7 +461,22 @@ export class PurchaseOrderDialogComponent implements OnInit {
     if (!priced) {
       return 'Add at least one purchase order line with a unit price.';
     }
-    return readQuotationCharges(this.charges).error;
+    const charges = readQuotationCharges(this.charges).error;
+    if (charges) {
+      return charges;
+    }
+    if (!this.hasOriginalFile) {
+      return 'An original file is required.';
+    }
+    return '';
+  }
+
+  private get hasOriginalFile(): boolean {
+    const library = this.library;
+    if (library && (library.hasChanges || library.entries.length > 0)) {
+      return library.hasOriginal;
+    }
+    return this.documents.some((document) => !!document.isOriginal);
   }
 
   get canSave(): boolean {
@@ -502,6 +484,9 @@ export class PurchaseOrderDialogComponent implements OnInit {
   }
 
   get visibleValidationMessage(): string {
+    if (this.validationMessage === 'An original file is required.') {
+      return this.validationMessage;
+    }
     if (!this.validationMessage) {
       return '';
     }
@@ -701,8 +686,8 @@ export class PurchaseOrderDialogComponent implements OnInit {
         if (id) {
           this.data.purchaseOrderId = id;
         }
-        const drafts = this.documentDrafts;
-        if (!id || !drafts?.some((draft) => (draft.pendingFile && !draft.removed) || (draft.removed && draft.documentId))) {
+        const drafts = this.library?.capture() ?? [];
+        if (!id || !this.library?.hasChanges) {
           return of(saved);
         }
         return syncDocumentDrafts(this.api, 'purchase-order', this.data.projectId, id, drafts, false);

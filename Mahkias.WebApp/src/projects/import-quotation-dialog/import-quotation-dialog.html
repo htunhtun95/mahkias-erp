@@ -134,6 +134,9 @@
         }
       </div>
     }
+    @if (!originalReady) {
+      <p class="hint-error">An original file is required.</p>
+    }
 
     @if (columns.length) {
         <div class="map-panel">
@@ -285,13 +288,15 @@
     }
   </div>
 
-  <section class="document-launch">
-    <div>
-      <h3>Supporting documents</h3>
-      <p>{{ supportingLabel }}</p>
-    </div>
-    <button type="button" [disabled]="busy" (click)="openDocuments()">Manage documents</button>
-  </section>
+  <app-document-manager
+    #library
+    title="Supporting documents"
+    hint="Extra files are stored with the quotation. The spreadsheet above is still the file that is read."
+    [supportingOnly]="true"
+    [sortBase]="100"
+    [accept]="documentAccept"
+    [disabled]="busy"
+  ></app-document-manager>
   <footer class="app-dialog-actions quotation-dialog-footer">
     @if (isVerifyStep) {
       <button class="btn" type="button" [disabled]="isImporting" (click)="showMapping()">Back</button>

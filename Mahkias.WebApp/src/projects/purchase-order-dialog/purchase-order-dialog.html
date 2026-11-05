@@ -238,13 +238,14 @@
           <strong>{{ money(grandTotal) }}</strong>
         </div>
       </div>
-      <section class="document-launch">
-        <div>
-          <h3>Documents</h3>
-          <p>{{ documentsLabel }}</p>
-        </div>
-        <button type="button" [disabled]="saving" (click)="openDocuments()">Manage documents</button>
-      </section>
+      <app-document-manager
+        #library
+        title="Documents"
+        hint="The original file stays first. Drag the other files to set their order."
+        [documents]="documents"
+        [accept]="documentAccept"
+        [disabled]="saving"
+      ></app-document-manager>
       @if (data.purchaseOrderId) {
         <section class="history" aria-label="Purchase order history">
           <h3>History</h3>

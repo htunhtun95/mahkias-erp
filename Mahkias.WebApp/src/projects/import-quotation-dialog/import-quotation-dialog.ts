@@ -1,11 +1,10 @@
 import { Component, ElementRef, QueryList, ViewChild, ViewChildren, inject } from '@angular/core';
 import { FormsModule, NgModel } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { Observable, of, switchMap, tap } from 'rxjs';
 import { MaterialModule } from '../../app/material-module';
-import { DocumentDraft, documentSummary, syncDocumentDrafts } from '../document-manager/document-manager';
-import { openDocumentLibrary } from '../document-library-dialog/document-library-dialog';
+import { DocumentManagerComponent, syncDocumentDrafts } from '../document-manager/document-manager';
 import { DriveUploadCardComponent } from '../drive-upload-card/drive-upload-card';
 import { blockEnterSubmit } from '../../core/block-enter-submit';
 import { closeOnEscape } from '../../core/close-on-escape';
@@ -72,14 +71,13 @@ type CheckState = 'idle' | 'checking' | 'passed' | 'failed';
 @Component({
   selector: 'app-import-quotation-dialog',
   standalone: true,
-  imports: [FormsModule, MaterialModule, DriveUploadCardComponent, QuotationDateFieldComponent, LookupComboboxComponent, QuotationChargesComponent, SheetCellFocusDirective],
+  imports: [FormsModule, MaterialModule, DriveUploadCardComponent, QuotationDateFieldComponent, LookupComboboxComponent, QuotationChargesComponent, SheetCellFocusDirective, DocumentManagerComponent],
   templateUrl: './import-quotation-dialog.html',
   styleUrl: './import-quotation-dialog.css',
 })
 export class ImportQuotationDialogComponent {
   @ViewChild('supplierInput') private supplierInput?: ElementRef<HTMLInputElement>;
-  private dialog = inject(MatDialog);
-  documentDrafts: DocumentDraft[] | null = null;
+  @ViewChild('library') private library?: DocumentManagerComponent;
   @ViewChild('supplierField') private supplierField?: NgModel;
   @ViewChildren(QuotationDateFieldComponent) private dateFields?: QueryList<QuotationDateFieldComponent>;
 
@@ -235,8 +233,12 @@ export class ImportQuotationDialogComponent {
     return this.creatingSupplier ? !this.newSupplierName.trim() : !this.supplierId;
   }
 
+  get originalReady(): boolean {
+    return this.spreadsheetIsOriginal ? !!this.file : !!this.originalFile;
+  }
+
   get canStartImport(): boolean {
-    if (this.isImporting || this.checkState !== 'passed' || this.supplierMissing || this.datesInvalid || !!this.dateOrderError) {
+    if (this.isImporting || this.checkState !== 'passed' || this.supplierMissing || this.datesInvalid || !!this.dateOrderError || !this.originalReady) {
       return false;
     }
     if (!this.lines.some((line) => this.isPriced(line))) {
@@ -336,7 +338,7 @@ export class ImportQuotationDialogComponent {
   }
 
   get canCheck(): boolean {
-    return !!this.file && this.columns.length > 0 && !this.requiredMissing && !this.supplierMissing && !this.datesInvalid && !this.dateOrderError && this.checkState !== 'checking' && !this.isImporting;
+    return !!this.file && this.originalReady && this.columns.length > 0 && !this.requiredMissing && !this.supplierMissing && !this.datesInvalid && !this.dateOrderError && this.checkState !== 'checking' && !this.isImporting;
   }
 
   get busy(): boolean {
@@ -631,8 +633,8 @@ export class ImportQuotationDialogComponent {
         }, this.storedFile())),
         switchMap((saved) => {
           const id = saved?.id;
-          const drafts = this.documentDrafts;
-          if (!id || !drafts?.some((draft) => draft.pendingFile && !draft.removed)) {
+          const drafts = this.library?.capture() ?? [];
+          if (!id || !drafts.some((draft) => draft.pendingFile && !draft.removed)) {
             return of(saved);
           }
           return syncDocumentDrafts(this.api, 'quotation', this.data.projectId, id, drafts, true, 100);
@@ -662,29 +664,6 @@ export class ImportQuotationDialogComponent {
           this.error = (typeof body === 'string' ? body : body?.message) || 'The quotation could not be imported.';
         },
       });
-  }
-
-  get supportingLabel(): string {
-    return documentSummary(this.documentDrafts ?? [], true);
-  }
-
-  openDocuments() {
-    openDocumentLibrary(this.dialog, {
-      title: 'Supporting documents',
-      note: 'Extra files are stored when the quotation is imported. The spreadsheet above is still the file that is read.',
-      kind: 'quotation',
-      projectId: this.data.projectId,
-      ownerId: null,
-      documents: [],
-      drafts: this.documentDrafts,
-      accept: this.documentAccept,
-      supportingOnly: true,
-      sortBase: 100,
-    }).afterClosed().subscribe((result) => {
-      if (result?.saved) {
-        this.documentDrafts = result.drafts ?? [];
-      }
-    });
   }
 
   cancel() {

@@ -70,7 +70,7 @@ export class DocumentLibraryDialog implements AfterViewInit {
   }
 
   save() {
-    if (this.saving || !this.library?.hasChanges) {
+    if (this.saving || !this.library?.hasChanges || (this.library.locksOriginal && !this.library.hasOriginal)) {
       return;
     }
     const ownerId = this.data.ownerId;

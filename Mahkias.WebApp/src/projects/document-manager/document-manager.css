@@ -157,3 +157,8 @@ p {
   color: #5f6368;
   font-size: 12px;
 }
+
+.missing {
+  color: #d93025;
+  font-weight: 500;
+}

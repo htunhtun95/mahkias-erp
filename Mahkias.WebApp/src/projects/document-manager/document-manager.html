@@ -58,6 +58,9 @@
       }
     </ol>
   }
+  @if (locksOriginal && !hasOriginal) {
+    <p class="missing">An original file is required.</p>
+  }
   @if (hint) {
     <p>{{ hint }}</p>
   }

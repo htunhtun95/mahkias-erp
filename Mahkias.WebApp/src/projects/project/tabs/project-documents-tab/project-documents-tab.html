@@ -9,7 +9,7 @@
     <table>
       <thead>
         <tr>
-          <th>Order</th>
+          <th>No</th>
           <th>File</th>
           <th>Type</th>
           <th>Size</th>
@@ -17,9 +17,9 @@
         </tr>
       </thead>
       <tbody>
-        @for (document of documents; track document.documentId) {
+        @for (document of documents; track document.documentId; let index = $index) {
           <tr>
-            <td>{{ document.sortOrder ?? 0 }}</td>
+            <td>{{ index + 1 }}</td>
             <td>
               @if (document.webViewLink) {
                 <a [href]="document.webViewLink" target="_blank" rel="noopener noreferrer">{{ document.fileName }}</a>

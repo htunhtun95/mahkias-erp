@@ -30,7 +30,7 @@
 
 <div class="actions">
   <button class="btn ghost" type="button" [disabled]="saving" (click)="cancel()">Cancel</button>
-  <button class="btn primary" type="button" [disabled]="saving || !library?.hasChanges" (click)="save()">
+  <button class="btn primary" type="button" [disabled]="saving || !library?.hasChanges || (!!library?.locksOriginal && !library?.hasOriginal)" (click)="save()">
     @if (saving) {
       <mat-spinner diameter="18"></mat-spinner>
       Saving...
