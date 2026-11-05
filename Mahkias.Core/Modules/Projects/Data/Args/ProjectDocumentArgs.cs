@@ -11,6 +11,12 @@ namespace Mahkias.Core.Modules.Projects.Data.Args
         public string GoogleDriveFileId { get; set; }
 
         public string WebViewLink { get; set; }
+
+        public long FileSize { get; set; }
+
+        public bool IsOriginal { get; set; }
+
+        public int? SortOrder { get; set; }
     }
 
     public class CreateQuotationDocumentArgs
@@ -26,10 +32,23 @@ namespace Mahkias.Core.Modules.Projects.Data.Args
         public string GoogleDriveFileId { get; set; }
 
         public string WebViewLink { get; set; }
+
+        public long FileSize { get; set; }
+
+        public bool IsOriginal { get; set; }
+
+        public int? SortOrder { get; set; }
     }
 
     public class UpdateQuotationDocumentArgs : CreateQuotationDocumentArgs
     {
         public int DocumentId { get; set; }
+    }
+
+    public class DocumentOrderItem
+    {
+        public int DocumentId { get; set; }
+
+        public int SortOrder { get; set; }
     }
 }

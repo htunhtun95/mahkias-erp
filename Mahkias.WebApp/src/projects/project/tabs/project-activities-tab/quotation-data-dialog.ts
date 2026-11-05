@@ -3,6 +3,7 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MaterialModule } from '../../../../app/material-module';
 import { ActivityQuotationLink, PurchaseOrderTraceLine } from '../../../../core/services/project-api.service';
 import { ProcurementTrace } from '../../../procurement-trace';
+import { closeOnEscape } from '../../../../core/close-on-escape';
 import { formatMoney } from '../../../money-format';
 import { quotationQuantity, quotationValidity } from '../../../quotation-terms';
 
@@ -37,6 +38,10 @@ export interface QuotationDataState {
 })
 export class QuotationDataDialog {
   private dialogRef = inject(MatDialogRef<QuotationDataDialog>);
+
+  constructor() {
+    closeOnEscape(this.dialogRef, () => this.close());
+  }
   private trace = inject(ProcurementTrace);
   data = inject<QuotationDataState>(MAT_DIALOG_DATA);
 

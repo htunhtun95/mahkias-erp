@@ -13,15 +13,21 @@
 }
 
 h2 {
-  margin: 0 0 8px;
+  margin: 0;
   font-size: 20px;
-  font-weight: 600;
-  line-height: 1.3;
-  letter-spacing: -0.01em;
+  font-weight: 500;
+  line-height: 28px;
+}
+
+.erp-modal-note {
+  margin: 4px 0 0;
+  color: #5f6368;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 p {
-  margin: 0 0 20px;
+  margin: 0;
   color: #666;
   font-size: 14px;
   line-height: 1.5;
@@ -82,8 +88,10 @@ p {
   box-shadow: var(--field-focus-ring);
 }
 
-.field.invalid input {
+.field.invalid input,
+.field.invalid input:focus {
   border-color: #d93025;
+  box-shadow: 0 0 0 3px rgba(217, 48, 37, 0.16);
 }
 
 .error {

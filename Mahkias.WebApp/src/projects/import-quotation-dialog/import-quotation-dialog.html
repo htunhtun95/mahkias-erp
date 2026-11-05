@@ -11,7 +11,7 @@
   <header class="app-dialog-header quotation-dialog-header">
     <div class="title-row">
       <h2>Import Quotation</h2>
-      <button class="icon-btn" type="button" matTooltip="Close" aria-label="Close" [disabled]="busy" (click)="cancel()">
+      <button class="erp-modal-close" type="button" matTooltip="Close" aria-label="Close" [disabled]="busy" (click)="cancel()">
         <mat-icon>close</mat-icon>
       </button>
     </div>
@@ -27,10 +27,10 @@
       </label>
       @if (creatingSupplier) {
         <div class="new-supplier">
-          <label [class.invalid]="submitted && !newSupplierName.trim()">
-            <span>Supplier Name</span>
+          <label [class.invalid]="!newSupplierName.trim() && !!(newSupplierField?.touched || newSupplierField?.dirty)">
+            <span>Supplier Name<span class="req" aria-hidden="true">*</span></span>
             <span class="supplier-control">
-              <input class="has-clear" [attr.disabled]="busy ? '' : null" [(ngModel)]="newSupplierName" name="newSupplierName" autocomplete="off" />
+              <input #newSupplierField="ngModel" class="has-clear" [attr.disabled]="busy ? '' : null" [(ngModel)]="newSupplierName" name="newSupplierName" autocomplete="off" [attr.aria-invalid]="!newSupplierName.trim() && !!(newSupplierField?.touched || newSupplierField?.dirty)" />
               <button class="clear-supplier" type="button" matTooltip="Clear supplier" aria-label="Clear supplier" [disabled]="busy" (mousedown)="$event.preventDefault()" (click)="clearSupplier()">
                 <mat-icon>close</mat-icon>
               </button>
@@ -43,11 +43,12 @@
           </label>
         </div>
       } @else {
-        <label class="supplier-field" [class.invalid]="submitted && !supplierId">
-          <span>Supplier</span>
+        <label class="supplier-field" [class.invalid]="!supplierId && !!(supplierField?.touched || supplierField?.dirty)">
+          <span>Supplier<span class="req" aria-hidden="true">*</span></span>
           <span class="supplier-control">
           <input
             #supplierInput
+            #supplierField="ngModel"
             [class.has-clear]="!!supplierQuery.trim()"
             [attr.disabled]="busy ? '' : null"
             [ngModel]="supplierQuery"
@@ -58,7 +59,7 @@
             autocomplete="off"
           />
           @if (supplierQuery.trim()) {
-            <button class="clear-supplier" type="button" matTooltip="Clear supplier" aria-label="Clear supplier" [disabled]="busy" (mousedown)="$event.preventDefault()" (click)="clearSupplier()">
+            <button class="clear-supplier" type="button" matTooltip="Clear supplier" aria-label="Clear supplier" [disabled]="busy" (mousedown)="$event.preventDefault()" (click)="clearSupplier(supplierField)">
               <mat-icon>close</mat-icon>
             </button>
           }
@@ -138,8 +139,8 @@
         <div class="map-panel">
           <div class="map-grid">
             @for (field of fields; track field.key) {
-              <span class="map-label" [class.invalid]="fieldInvalid(field.key)">{{ field.label }}</span>
-              <select [class.invalid]="fieldInvalid(field.key)" [name]="field.key" [(ngModel)]="mapping[field.key]" (ngModelChange)="dirtyMapping()">
+              <span class="map-label" [class.invalid]="fieldInvalid(field.key) && (columnModel.touched || columnModel.dirty)">{{ field.label }}@if (field.required) {<span class="req" aria-hidden="true">*</span>}</span>
+              <select #columnModel="ngModel" [class.invalid]="fieldInvalid(field.key) && (columnModel.touched || columnModel.dirty)" [name]="field.key" [(ngModel)]="mapping[field.key]" (ngModelChange)="dirtyMapping(); noteMap(field.key)" (blur)="noteMap(field.key)">
                 <option value="">Column</option>
                 @for (column of columns; track column.letter) {
                   <option [value]="column.letter">{{ column.letter }}{{ column.header ? ' · ' + column.header : '' }}</option>
@@ -152,11 +153,11 @@
                   }
                 </select>
               } @else {
-                <input [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping()" placeholder="Default" />
+                <input #fallback="ngModel" [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping(); noteMap(field.def)" (blur)="noteMap(field.def)" [class.invalid]="fieldInvalid(field.key) && (fallback.touched || fallback.dirty)" placeholder="Default" />
               }
             }
           </div>
-          @if (requiredMissing) {
+          @if (requiredMissing && mappingNoted) {
             <p class="hint-error">Please select a Column Index or enter a Default Value for this required field.</p>
           }
           <p class="hint">DSN No and Part No are required. Condition, unit, lead time, and MOQ are optional. Quoted date and valid until belong to the quotation. A row with no unit price and no total price is skipped.</p>
@@ -198,24 +199,24 @@
             </colgroup>
             <thead>
               <tr>
-                <th class="dsn">DSN No</th>
-                <th class="part">Part No</th>
+                <th class="dsn">DSN No<span class="req" aria-hidden="true">*</span></th>
+                <th class="part">Part No<span class="req" aria-hidden="true">*</span></th>
                 <th>Condition</th>
                 <th>Unit</th>
                 <th>Lead Time</th>
                 <th>Currency</th>
-                <th class="qty">Quantity</th>
+                <th class="qty">Quantity<span class="req" aria-hidden="true">*</span></th>
                 <th class="qty">MOQ</th>
-                <th class="price">Unit Price</th>
+                <th class="price">Unit Price<span class="req" aria-hidden="true">*</span></th>
                 <th class="price">Total Price</th>
               </tr>
             </thead>
             <tbody>
               @for (line of filteredLines; track line.row) {
                 <tr>
-                  <td class="dsn" [class.invalid]="lineInvalid(line, 'dsn')"><input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.dsnNo" (ngModelChange)="onDsn(line)" [name]="'dsn' + line.row" /></td>
-                  <td class="part" [class.invalid]="lineInvalid(line, 'part')">
-                    <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.partNo" (ngModelChange)="onPart(line)" [name]="'part' + line.row" />
+                  <td class="dsn" [class.invalid]="lineInvalid(line, 'dsn') && lineSeen(line, 'dsn')"><input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.dsnNo" (ngModelChange)="onDsn(line); touchLine(line, 'dsn')" (blur)="touchLine(line, 'dsn')" [name]="'dsn' + line.row" /></td>
+                  <td class="part" [class.invalid]="lineInvalid(line, 'part') && lineSeen(line, 'part')">
+                    <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.partNo" (ngModelChange)="onPart(line); touchLine(line, 'part')" (blur)="touchLine(line, 'part')" [name]="'part' + line.row" />
                     @if (line.priceWarning) {
                       <span class="map-badge warning" title="Unit × quantity does not match total">Price</span>
                     }
@@ -248,22 +249,22 @@
                       }
                     </select>
                   </td>
-                  <td class="qty" [class.invalid]="lineInvalid(line, 'qty')">
-                    <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.quantity" (ngModelChange)="onQuantity(line)" (blur)="onQuantityBlur(line)" [name]="'qty' + line.row" />
+                  <td class="qty" [class.invalid]="lineInvalid(line, 'qty') && lineSeen(line, 'qty')">
+                    <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.quantity" (ngModelChange)="onQuantity(line); touchLine(line, 'qty')" (blur)="onQuantityBlur(line); touchLine(line, 'qty')" [name]="'qty' + line.row" />
                   </td>
-                  <td class="qty" [class.invalid]="lineInvalid(line, 'moq')">
-                    <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.minimumQty" (ngModelChange)="onMinimum(line)" [name]="'moq' + line.row" inputmode="numeric" />
+                  <td class="qty" [class.invalid]="lineInvalid(line, 'moq') && lineSeen(line, 'moq')">
+                    <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.minimumQty" (ngModelChange)="onMinimum(line); touchLine(line, 'moq')" (blur)="touchLine(line, 'moq')" [name]="'moq' + line.row" inputmode="numeric" />
                   </td>
-                  <td class="price" [class.invalid]="lineInvalid(line, 'price')">
+                  <td class="price" [class.invalid]="lineInvalid(line, 'price') && lineSeen(line, 'unit')">
                     <span class="price-field">
                       <span class="price-mark">{{ currencyMark(line.currencyId) }}</span>
-                      <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.unitPrice" (ngModelChange)="onUnit(line)" [name]="'unit' + line.row" />
+                      <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.unitPrice" (ngModelChange)="onUnit(line); touchLine(line, 'unit')" (blur)="touchLine(line, 'unit')" [name]="'unit' + line.row" />
                     </span>
                   </td>
-                  <td class="price" [class.invalid]="lineInvalid(line, 'price')">
+                  <td class="price" [class.invalid]="lineInvalid(line, 'price') && lineSeen(line, 'total')">
                     <span class="price-field">
                       <span class="price-mark">{{ currencyMark(line.currencyId) }}</span>
-                      <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.totalPrice" (ngModelChange)="onTotal(line)" [name]="'total' + line.row" />
+                      <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.totalPrice" (ngModelChange)="onTotal(line); touchLine(line, 'total')" (blur)="touchLine(line, 'total')" [name]="'total' + line.row" />
                     </span>
                   </td>
                 </tr>
@@ -284,6 +285,13 @@
     }
   </div>
 
+  <section class="document-launch">
+    <div>
+      <h3>Supporting documents</h3>
+      <p>{{ supportingLabel }}</p>
+    </div>
+    <button type="button" [disabled]="busy" (click)="openDocuments()">Manage documents</button>
+  </section>
   <footer class="app-dialog-actions quotation-dialog-footer">
     @if (isVerifyStep) {
       <button class="btn" type="button" [disabled]="isImporting" (click)="showMapping()">Back</button>
@@ -291,7 +299,7 @@
     <span class="footer-spacer"></span>
     <button class="btn" type="button" [disabled]="busy" (click)="cancel()">Cancel</button>
     @if (isVerifyStep) {
-      <button class="btn primary" type="button" [disabled]="isImporting || checkState !== 'passed'" (click)="startImport()">
+      <button class="btn primary" type="button" [disabled]="!canStartImport" (click)="startImport()">
         @if (isImporting) {
           <mat-spinner diameter="18"></mat-spinner>
         }

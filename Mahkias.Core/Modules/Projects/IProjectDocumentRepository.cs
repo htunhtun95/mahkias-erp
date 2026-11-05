@@ -16,9 +16,15 @@ namespace Mahkias.Core.Modules.Projects
 
         Task<string> SetProcurementFolderAsync(int projectId, string folderId);
 
+        Task<string> SetDocumentsFolderAsync(int projectId, string folderId);
+
         Task<ProjectDocumentResult> AddAsync(CreateProjectDocumentArgs args);
 
         Task<IReadOnlyList<ProjectDocumentResult>> ListByProjectAsync(int projectId);
+
+        Task<bool> RemoveAsync(int projectId, int documentId);
+
+        Task OrderAsync(int projectId, IReadOnlyList<DocumentOrderItem> documents, int? originalDocumentId);
 
         Task<QuotationDocumentResult> AddQuotationDocumentAsync(CreateQuotationDocumentArgs args);
 
@@ -27,5 +33,7 @@ namespace Mahkias.Core.Modules.Projects
         Task<bool> RemoveQuotationDocumentAsync(int projectId, int quotationId, int documentId);
 
         Task<IReadOnlyList<QuotationDocumentResult>> ListByQuotationAsync(int projectId, int quotationId);
+
+        Task OrderQuotationDocumentsAsync(int projectId, int quotationId, IReadOnlyList<DocumentOrderItem> documents, int? originalDocumentId);
     }
 }

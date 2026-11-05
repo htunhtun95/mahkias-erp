@@ -42,7 +42,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 16px 32px 8px;
+  padding: 16px 24px 12px;
 }
 
 .quotation-dialog-body {
@@ -52,7 +52,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 4px 32px 8px;
+  padding: 8px 24px 12px;
 }
 
 .upload-row {
@@ -68,7 +68,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
-  padding: 12px 32px 16px;
+  padding: 16px 24px;
   border-top: 1px solid #e0e0e0;
   background: #fff;
 }
@@ -239,9 +239,11 @@ select {
   box-sizing: border-box;
 }
 
-label.invalid input {
-  border: 1.5px solid #d93025;
-  background: #fce8e6;
+label.invalid input,
+label.invalid input:focus {
+  border-color: var(--field-invalid);
+  background: #fff;
+  box-shadow: var(--field-invalid-ring);
 }
 
 .supplier-field {
@@ -418,9 +420,13 @@ label.invalid input {
   height: 32px;
 }
 
-.map-grid select.invalid {
-  border-color: #d93025;
-  background: #fce8e6;
+.map-grid select.invalid,
+.map-grid select.invalid:focus,
+.map-grid input.invalid,
+.map-grid input.invalid:focus {
+  border-color: var(--field-invalid);
+  background: #fff;
+  box-shadow: var(--field-invalid-ring);
 }
 
 .map-note {
@@ -452,9 +458,9 @@ label.invalid input {
 
 .map-row.invalid {
   padding: 6px;
-  border: 1.5px solid #d93025;
+  border: 1px solid var(--field-invalid);
   border-radius: 8px;
-  background: #fce8e6;
+  background: #fff;
 }
 
 .hint {
@@ -631,8 +637,8 @@ label.invalid input {
 .col-price { width: 148px; }
 
 .sheet td.invalid {
-  box-shadow: inset 0 0 0 1.5px #d93025;
-  background: #fce8e6;
+  background: #fff;
+  box-shadow: none;
 }
 
 .sheet th,

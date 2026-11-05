@@ -24,20 +24,14 @@
 
 .dialog-header {
   flex-shrink: 0;
-  padding: 28px 32px 12px;
 }
 
 .dialog-header h2 {
   margin: 0;
-  color: #111827;
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-
-.dialog-header p {
-  margin: 6px 0 0;
-  color: #6b7280;
-  font-size: 0.875rem;
+  color: #202124;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 28px;
 }
 
 .dialog-form {
@@ -54,7 +48,7 @@
   overflow-x: auto;
   overflow-y: auto;
   overscroll-behavior: contain;
-  margin: 0 32px;
+  margin: 0 24px;
   border: 1px solid #e0e0e0;
   background: #fff;
 }
@@ -194,16 +188,17 @@
 
 .sheet td.cell.cell-invalid {
   position: relative;
-  background-color: #fce8e6 !important;
-  transition: box-shadow 0.2s ease-in-out;
+  background: #fff;
+  box-shadow: none;
 }
 
 .sheet td.cell.cell-invalid::before {
   content: "";
   position: absolute;
-  inset: 3px;
-  border: 1.5px solid #d93025;
-  border-radius: 4px;
+  inset: 0;
+  box-sizing: border-box;
+  border: 2px solid #d93025;
+  border-radius: 0;
   pointer-events: none;
   z-index: 2;
 }
@@ -213,8 +208,7 @@
 .sheet td.cell.cell-invalid textarea:focus,
 .sheet td.cell.cell-invalid select:focus {
   outline: none;
-  border: 1px solid #e0e0e0;
-  box-shadow: 0 0 0 2px rgba(217, 48, 37, 0.25) !important;
+  box-shadow: none !important;
   z-index: 3;
 }
 
@@ -296,7 +290,7 @@
   z-index: 10;
   margin-top: 0;
   padding: 16px 24px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid #e0e0e0;
   background: #fff;
 }
 

@@ -1,9 +1,10 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MaterialModule } from '../../app/material-module';
 import { blockEnterSubmit } from '../../core/block-enter-submit';
+import { requiredText } from '../../core/required-text';
 import { whileBusy } from '../../core/while-busy';
 import { Project, ProjectApiService } from '../../core/services/project-api.service';
 
@@ -28,7 +29,7 @@ export class AddProjectDialog {
   error = '';
 
   form = this.fb.group({
-    name: [this.data?.project?.name ?? '', Validators.required],
+    name: [this.data?.project?.name ?? '', requiredText],
     reference: [this.data?.project?.reference ?? ''],
     description: [this.data?.project?.description ?? ''],
   });
@@ -39,7 +40,7 @@ export class AddProjectDialog {
 
   get nameInvalid() {
     const name = this.form.controls.name;
-    return name.touched && name.invalid;
+    return name.invalid && (name.touched || name.dirty);
   }
 
   cancel() {

@@ -1,8 +1,10 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { forkJoin } from 'rxjs';
 import { MaterialModule } from '../../../../app/material-module';
 import { ProjectApiService, PurchaseOrderDetail, PurchaseOrderDocument, PurchaseOrderHistoryEntry, PurchaseOrderLine, PurchaseOrderListItem, QuotationCharge } from '../../../../core/services/project-api.service';
+import { formatFileSize } from '../../../document-manager/document-manager';
+import { documentAccept, openDocumentLibrary } from '../../../document-library-dialog/document-library-dialog';
 import { formatMoney } from '../../../money-format';
 
 export interface PurchaseOrderDetailDialogData {
@@ -19,6 +21,7 @@ export interface PurchaseOrderDetailDialogData {
 })
 export class PurchaseOrderDetailDialog implements OnInit {
   private api = inject(ProjectApiService);
+  private dialog = inject(MatDialog);
   private dialogRef = inject(MatDialogRef<PurchaseOrderDetailDialog>);
   data = inject<PurchaseOrderDetailDialogData>(MAT_DIALOG_DATA);
 
@@ -147,9 +150,32 @@ export class PurchaseOrderDetailDialog implements OnInit {
     return 'draft';
   }
 
+  fileSize = formatFileSize;
+
   fileKind(fileName: string): string {
     const kind = extension(fileName);
     return kind ? kind.toUpperCase() : 'File';
+  }
+
+  manageDocuments() {
+    openDocumentLibrary(this.dialog, {
+      title: 'Manage documents',
+      note: `Files for ${this.data.order.code}. Choose the original, then set the order.`,
+      kind: 'purchase-order',
+      projectId: this.data.projectId,
+      ownerId: this.data.order.id,
+      documents: this.documents,
+      accept: documentAccept,
+    }).afterClosed().subscribe((result) => {
+      if (!result?.saved) {
+        return;
+      }
+      this.api.purchaseOrderDocuments(this.data.projectId, this.data.order.id).subscribe({
+        next: (documents) => {
+          this.documents = documents ?? [];
+        },
+      });
+    });
   }
 
   close() {

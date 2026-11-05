@@ -401,14 +401,15 @@ END", _connection);
         {
             var items = new List<PurchaseOrderDocumentResult>();
             using var command = new SqlCommand(@"
-SELECT D.DocumentId, D.PurchaseOrderId, D.FileName, D.FileType, D.GoogleDriveFileId, D.WebViewLink, D.UploadedAt
+SELECT D.DocumentId, D.PurchaseOrderId, A.file_name AS FileName, A.file_type AS FileType, A.drive_file_id AS GoogleDriveFileId, A.file_url AS WebViewLink, A.created_at AS UploadedAt, A.file_size AS FileSize, A.sort_order AS SortOrder, D.IsOriginal, D.AssetId
 FROM projects.PurchaseOrderDocuments D
+INNER JOIN media.assets A ON A.id = D.AssetId
 INNER JOIN projects.PurchaseOrders P ON P.Id = D.PurchaseOrderId
 INNER JOIN projects.PurchaseOrderProjects PP ON PP.PurchaseOrderId = P.Id
 WHERE D.PurchaseOrderId = @PurchaseOrderId
   AND PP.ProjectId = @ProjectId
   AND P.IsDeleted = 0
-ORDER BY D.UploadedAt DESC, D.DocumentId DESC;", _connection);
+ORDER BY A.sort_order, A.created_at, D.DocumentId;", _connection);
             command.Parameters.AddInt("ProjectId", projectId);
             command.Parameters.AddInt("PurchaseOrderId", purchaseOrderId);
             _connection.Open();
@@ -431,21 +432,35 @@ ORDER BY D.UploadedAt DESC, D.DocumentId DESC;", _connection);
         public async Task<bool> RemoveDocumentAsync(int projectId, int purchaseOrderId, int documentId)
         {
             using var command = new SqlCommand(@"
-DELETE D
+DECLARE @AssetId UNIQUEIDENTIFIER;
+SELECT @AssetId = D.AssetId
 FROM projects.PurchaseOrderDocuments D
 INNER JOIN projects.PurchaseOrders P ON P.Id = D.PurchaseOrderId
 INNER JOIN projects.PurchaseOrderProjects PP ON PP.PurchaseOrderId = P.Id
 WHERE D.DocumentId = @DocumentId
   AND D.PurchaseOrderId = @PurchaseOrderId
   AND PP.ProjectId = @ProjectId
-  AND P.IsDeleted = 0;", _connection);
+  AND P.IsDeleted = 0;
+
+DELETE FROM projects.PurchaseOrderDocuments WHERE DocumentId = @DocumentId AND AssetId = @AssetId;
+DECLARE @Deleted INT = @@ROWCOUNT;
+
+IF @Deleted > 0 AND @AssetId IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM projects.QuotationDocuments WHERE AssetId = @AssetId)
+   AND NOT EXISTS (SELECT 1 FROM projects.PurchaseOrderDocuments WHERE AssetId = @AssetId)
+   AND NOT EXISTS (SELECT 1 FROM projects.ProjectDocuments WHERE AssetId = @AssetId)
+BEGIN
+    DELETE FROM media.assets WHERE id = @AssetId;
+END
+SELECT @Deleted;", _connection);
             command.Parameters.AddInt("ProjectId", projectId);
             command.Parameters.AddInt("PurchaseOrderId", purchaseOrderId);
             command.Parameters.AddInt("DocumentId", documentId);
             _connection.Open();
             try
             {
-                return await command.ExecuteNonQueryAsync() > 0;
+                var deleted = await command.ExecuteScalarAsync();
+                return deleted != null && deleted != DBNull.Value && Convert.ToInt32(deleted) > 0;
             }
             finally
             {
@@ -830,13 +845,36 @@ BEGIN
     ;THROW 50023, N'Purchase order was not found on this project.', 1;
 END
 
-DELETE FROM projects.PurchaseOrderDocuments WHERE PurchaseOrderId = @PurchaseOrderId;
+DECLARE @AssetId UNIQUEIDENTIFIER = NEWID();
+DECLARE @Original BIT = @IsOriginal;
+IF @Original = 0 AND NOT EXISTS (
+    SELECT 1 FROM projects.PurchaseOrderDocuments WHERE PurchaseOrderId = @PurchaseOrderId AND IsOriginal = 1
+)
+BEGIN
+    SET @Original = 1;
+END
+DECLARE @Sort INT = @SortOrder;
+IF @Sort IS NULL
+BEGIN
+    SELECT @Sort = ISNULL(MAX(A.sort_order), 0) + 1
+    FROM projects.PurchaseOrderDocuments D
+    INNER JOIN media.assets A ON A.id = D.AssetId
+    WHERE D.PurchaseOrderId = @PurchaseOrderId;
+END
+IF @Original = 1
+BEGIN
+    UPDATE projects.PurchaseOrderDocuments SET IsOriginal = 0 WHERE PurchaseOrderId = @PurchaseOrderId;
+END
 
-INSERT INTO projects.PurchaseOrderDocuments (PurchaseOrderId, FileName, FileType, GoogleDriveFileId, WebViewLink)
-VALUES (@PurchaseOrderId, @FileName, @FileType, @GoogleDriveFileId, @WebViewLink);
+INSERT INTO media.assets (id, file_url, file_name, file_type, file_size, sort_order, drive_file_id)
+VALUES (@AssetId, ISNULL(@WebViewLink, N''), @FileName, @FileType, @FileSize, ISNULL(@Sort, 0), @GoogleDriveFileId);
 
-SELECT D.DocumentId, D.PurchaseOrderId, D.FileName, D.FileType, D.GoogleDriveFileId, D.WebViewLink, D.UploadedAt
+INSERT INTO projects.PurchaseOrderDocuments (PurchaseOrderId, AssetId, IsOriginal)
+VALUES (@PurchaseOrderId, @AssetId, @Original);
+
+SELECT D.DocumentId, D.PurchaseOrderId, A.file_name AS FileName, A.file_type AS FileType, A.drive_file_id AS GoogleDriveFileId, A.file_url AS WebViewLink, A.created_at AS UploadedAt, A.file_size AS FileSize, A.sort_order AS SortOrder, D.IsOriginal, D.AssetId
 FROM projects.PurchaseOrderDocuments D
+INNER JOIN media.assets A ON A.id = D.AssetId
 WHERE D.DocumentId = CAST(SCOPE_IDENTITY() AS INT);", _connection, transaction);
             command.Parameters.AddInt("ProjectId", args.ProjectId);
             command.Parameters.AddInt("PurchaseOrderId", args.PurchaseOrderId);
@@ -844,6 +882,9 @@ WHERE D.DocumentId = CAST(SCOPE_IDENTITY() AS INT);", _connection, transaction);
             command.Parameters.AddNVarChar("FileType", args.FileType, 100, false);
             command.Parameters.AddNVarChar("GoogleDriveFileId", args.GoogleDriveFileId, 128, false);
             command.Parameters.AddNVarChar("WebViewLink", args.WebViewLink ?? string.Empty, 1000, false);
+            command.Parameters.AddBigInt("FileSize", args.FileSize);
+            command.Parameters.AddBit("IsOriginal", args.IsOriginal);
+            command.Parameters.AddNullableInt("SortOrder", args.SortOrder);
             using var reader = await command.ExecuteReaderAsync(cancellationToken);
             if (!await reader.ReadAsync(cancellationToken))
             {
@@ -911,7 +952,67 @@ WHERE D.DocumentId = CAST(SCOPE_IDENTITY() AS INT);", _connection, transaction);
                 GoogleDriveFileId = reader.ReadNullableStringValue("GoogleDriveFileId"),
                 WebViewLink = reader.ReadNullableStringValue("WebViewLink"),
                 UploadedAt = reader.ReadNullableDateTimeValue("UploadedAt"),
+                AssetId = reader.ReadGuidValue("AssetId"),
+                FileSize = reader["FileSize"] == DBNull.Value ? 0 : Convert.ToInt64(reader["FileSize"]),
+                SortOrder = reader.ReadIntValue("SortOrder"),
+                IsOriginal = reader.ReadBooleanValue("IsOriginal"),
             };
+        }
+
+        public async Task OrderDocumentsAsync(int projectId, int purchaseOrderId, IReadOnlyList<DocumentOrderItem> documents, int? originalDocumentId)
+        {
+            await _connection.OpenAsync();
+            using var transaction = _connection.BeginTransaction();
+            try
+            {
+                foreach (var item in documents ?? Array.Empty<DocumentOrderItem>())
+                {
+                    using var command = new SqlCommand(@"
+UPDATE A
+SET A.sort_order = @SortOrder
+FROM media.assets AS A
+INNER JOIN projects.PurchaseOrderDocuments AS D ON D.AssetId = A.id
+INNER JOIN projects.PurchaseOrders AS P ON P.Id = D.PurchaseOrderId
+INNER JOIN projects.PurchaseOrderProjects AS PP ON PP.PurchaseOrderId = P.Id
+WHERE D.DocumentId = @DocumentId
+  AND D.PurchaseOrderId = @PurchaseOrderId
+  AND PP.ProjectId = @ProjectId
+  AND P.IsDeleted = 0;", _connection, transaction);
+                    command.Parameters.AddInt("ProjectId", projectId);
+                    command.Parameters.AddInt("PurchaseOrderId", purchaseOrderId);
+                    command.Parameters.AddInt("DocumentId", item.DocumentId);
+                    command.Parameters.AddInt("SortOrder", item.SortOrder);
+                    await command.ExecuteNonQueryAsync();
+                }
+
+                if (originalDocumentId is > 0)
+                {
+                    using var mark = new SqlCommand(@"
+UPDATE D
+SET D.IsOriginal = CASE WHEN D.DocumentId = @OriginalDocumentId THEN 1 ELSE 0 END
+FROM projects.PurchaseOrderDocuments AS D
+INNER JOIN projects.PurchaseOrders AS P ON P.Id = D.PurchaseOrderId
+INNER JOIN projects.PurchaseOrderProjects AS PP ON PP.PurchaseOrderId = P.Id
+WHERE D.PurchaseOrderId = @PurchaseOrderId
+  AND PP.ProjectId = @ProjectId
+  AND P.IsDeleted = 0;", _connection, transaction);
+                    mark.Parameters.AddInt("ProjectId", projectId);
+                    mark.Parameters.AddInt("PurchaseOrderId", purchaseOrderId);
+                    mark.Parameters.AddInt("OriginalDocumentId", originalDocumentId.Value);
+                    await mark.ExecuteNonQueryAsync();
+                }
+
+                transaction.Commit();
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
+            finally
+            {
+                _connection.Close();
+            }
         }
 
         private async Task<int> InsertNewAsync(CreatePurchaseOrderArgs args, SqlTransaction transaction, CancellationToken cancellationToken)

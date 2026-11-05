@@ -715,6 +715,9 @@ WHERE Id = @QuotationId;", _connection, transaction);
             command.Parameters.AddNVarChar("FileType", args.FileType, 100, false);
             command.Parameters.AddNVarChar("GoogleDriveFileId", args.GoogleDriveFileId, 128, false);
             command.Parameters.AddNVarChar("WebViewLink", args.WebViewLink, 1000, false);
+            command.Parameters.AddBigInt("FileSize", args.FileSize);
+            command.Parameters.AddBit("IsOriginal", args.IsOriginal);
+            command.Parameters.AddNullableInt("SortOrder", args.SortOrder);
             using var reader = await command.ExecuteReaderAsync(cancellationToken);
             return await reader.ReadAsync(cancellationToken);
         }
@@ -767,6 +770,9 @@ WHERE Id = @QuotationId;", _connection, transaction);
             command.Parameters.AddNVarChar("FileType", args.FileType, 100, false);
             command.Parameters.AddNVarChar("GoogleDriveFileId", args.GoogleDriveFileId, 128, false);
             command.Parameters.AddNVarChar("WebViewLink", args.WebViewLink, 1000, false);
+            command.Parameters.AddBigInt("FileSize", args.FileSize);
+            command.Parameters.AddBit("IsOriginal", args.IsOriginal);
+            command.Parameters.AddNullableInt("SortOrder", args.SortOrder);
             using var reader = await command.ExecuteReaderAsync(cancellationToken);
             return await reader.ReadAsync(cancellationToken);
         }

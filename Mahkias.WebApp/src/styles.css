@@ -32,6 +32,13 @@ html, body {
   background-color: rgba(0, 0, 0, 0.35);
 }
 
+.req {
+  margin-left: 2px;
+  color: #d93025;
+  font-style: normal;
+  font-weight: 600;
+}
+
 :root {
   --field-border: #dadce0;
   --field-border-hover: #bdc1c6;
@@ -170,8 +177,21 @@ html, body {
   box-shadow: none;
 }
 
+:is(label.invalid, .field.invalid, .supplier-field.invalid) :is(input, select, textarea),
+:is(input, select, textarea).invalid,
+.field.invalid .control,
+label.amount.invalid {
+  border-color: var(--field-invalid);
+}
+
+:is(label.invalid, .field.invalid, .supplier-field.invalid) :is(input, select, textarea):hover,
+:is(input, select, textarea).invalid:hover,
+.field.invalid .control:hover,
+label.amount.invalid:hover,
 :is(label.invalid, .field.invalid, .invalid) :is(input, select, textarea):focus,
-:is(input, select, textarea).invalid:focus {
+:is(input, select, textarea).invalid:focus,
+.field.invalid .control:focus-within,
+label.amount.invalid:focus-within {
   border-color: var(--field-invalid);
   box-shadow: var(--field-invalid-ring);
 }
@@ -638,6 +658,65 @@ a.menu-text-left.active-menu .mat-icon {
   border-radius: 16px;
 }
 
+.cdk-global-overlay-wrapper:has(> .cdk-overlay-pane.quotation-dialog-panel.po-new-panel) {
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0;
+  overflow: hidden;
+}
+
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel {
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  max-width: 100vw !important;
+  height: 100vh !important;
+  min-height: 100vh !important;
+  max-height: 100vh !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .mat-dialog-container,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .mat-mdc-dialog-container,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .mat-mdc-dialog-inner-container,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .mat-mdc-dialog-surface,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .mat-mdc-dialog-component-host,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-purchase-order-dialog,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-import-purchase-order-dialog,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-create-quotation-dialog,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-import-quotation-dialog,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-quotation-detail-dialog,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-quotation-data-dialog,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .quotation-dialog-container,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .app-dialog-container,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .detail {
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .quotation-dialog-header,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .quotation-dialog-footer {
+  flex: 0 0 auto;
+}
+
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .quotation-dialog-body,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .app-dialog-body,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .detail-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
 .cdk-overlay-pane.quotation-dialog-panel.po-detail-panel {
   min-height: 0;
 }
@@ -677,9 +756,72 @@ a.menu-text-left.active-menu .mat-icon {
   background: #fff;
 }
 
-.app-dialog-header {
+.app-dialog-header,
+.erp-modal-header {
   flex: 0 0 auto;
-  padding: 20px 24px 12px;
+  padding: 16px 24px;
+  background: #fff;
+}
+
+.erp-modal-title,
+.app-dialog-header .erp-modal-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.erp-modal-title h2,
+.erp-modal-header h2,
+.app-dialog-header h2 {
+  margin: 0;
+  color: #202124;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 28px;
+}
+
+.erp-modal-note,
+.erp-modal-header .erp-modal-note,
+.app-dialog-header .erp-modal-note,
+.app-dialog-header > p,
+.erp-modal-title p {
+  margin: 4px 0 0;
+  color: #5f6368;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.erp-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  margin: -4px -8px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #5f6368;
+  cursor: pointer;
+}
+
+.erp-modal-close mat-icon {
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+}
+
+.erp-modal-close:hover:not(:disabled) {
+  background: #f1f3f4;
+  color: #202124;
+}
+
+.erp-modal-close:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .app-dialog-body {
@@ -689,15 +831,87 @@ a.menu-text-left.active-menu .mat-icon {
   padding: 20px 24px;
 }
 
-.app-dialog-actions {
+.app-dialog-actions,
+.document-launch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 12px 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.document-launch h3,
+.document-launch p {
+  margin: 0;
+}
+
+.document-launch h3 {
+  color: #202124;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.document-launch p {
+  margin-top: 4px;
+  color: #5f6368;
+  font-size: 13px;
+}
+
+.document-launch button {
+  flex: 0 0 auto;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid #dadce0;
+  border-radius: 18px;
+  background: #fff;
+  color: #1a73e8;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.document-launch button:hover:not(:disabled) {
+  background: #f8f9fa;
+}
+
+.document-launch button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.document-drag-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(60, 64, 67, 0.18);
+  font-size: 13px;
+}
+
+.erp-modal-footer {
   flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: 12px;
-  padding: 16px 24px 20px;
+  padding: 16px 24px;
   border-top: 1px solid #e0e0e0;
   background: #fff;
+}
+
+.cdk-overlay-container :is(button.primary, button.btn.primary):disabled {
+  opacity: 0.55;
+  cursor: default;
+  box-shadow: none;
 }
 
 .map-badge {
@@ -935,6 +1149,101 @@ textarea.cdk-textarea-autosize-measuring-firefox {
   border: 2px solid #1a73e8 !important;
   box-shadow: none !important;
   outline: none !important;
+}
+
+.cdk-overlay-pane.po-new-panel table.sheet tbody td:has(:is(input, textarea, select)),
+.cdk-overlay-pane.po-new-panel table.import-sheet tbody td:has(:is(input, textarea, select)),
+.cdk-overlay-pane.po-new-panel table.app-grid-table tbody td:has(:is(input, textarea, select)) {
+  position: relative;
+  height: 44px;
+  padding: 0 !important;
+  cursor: text;
+}
+
+.cdk-overlay-pane.po-new-panel table.sheet tbody td > :is(input, select),
+.cdk-overlay-pane.po-new-panel table.import-sheet tbody td > :is(input, select),
+.cdk-overlay-pane.po-new-panel table.app-grid-table tbody td > :is(input, select),
+.cdk-overlay-pane.po-new-panel table.sheet tbody td > :is(app-activity-suggest, app-lookup-combobox, .price-field),
+.cdk-overlay-pane.po-new-panel table.import-sheet tbody td > :is(app-activity-suggest, app-lookup-combobox, .price-field),
+.cdk-overlay-pane.po-new-panel table.app-grid-table tbody td > :is(app-activity-suggest, app-lookup-combobox, .price-field) {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+}
+
+.cdk-overlay-pane.po-new-panel table.sheet tbody td :is(app-activity-suggest, app-lookup-combobox, .lookup-combobox, .price-field) :is(input, select),
+.cdk-overlay-pane.po-new-panel table.import-sheet tbody td :is(app-activity-suggest, app-lookup-combobox, .lookup-combobox, .price-field) :is(input, select),
+.cdk-overlay-pane.po-new-panel table.app-grid-table tbody td :is(app-activity-suggest, app-lookup-combobox, .lookup-combobox, .price-field) :is(input, select) {
+  width: 100%;
+  height: 100% !important;
+  min-height: 0 !important;
+  align-self: stretch;
+}
+
+.cdk-overlay-pane.po-new-panel .price-field {
+  display: flex;
+  align-items: stretch;
+}
+
+.cdk-overlay-pane.po-new-panel table.sheet tbody td textarea,
+.cdk-overlay-pane.po-new-panel table.import-sheet tbody td textarea,
+.cdk-overlay-pane.po-new-panel table.app-grid-table tbody td textarea {
+  display: block;
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+}
+
+.cdk-overlay-pane.po-new-panel table.sheet tbody td:focus-within:has(:is(input, textarea, select)),
+.cdk-overlay-pane.po-new-panel table.import-sheet tbody td:focus-within:has(:is(input, textarea, select)),
+.cdk-overlay-pane.po-new-panel table.app-grid-table tbody td:focus-within:has(:is(input, textarea, select)) {
+  position: relative;
+  z-index: 4;
+  overflow: visible;
+  border: 1px solid #e0e0e0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.cdk-overlay-pane.po-new-panel table.sheet tbody td:focus-within:has(:is(input, textarea, select))::after,
+.cdk-overlay-pane.po-new-panel table.import-sheet tbody td:focus-within:has(:is(input, textarea, select))::after,
+.cdk-overlay-pane.po-new-panel table.app-grid-table tbody td:focus-within:has(:is(input, textarea, select))::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 2px solid var(--field-focus);
+  pointer-events: none;
+  z-index: 6;
+}
+
+.cdk-overlay-pane table.sheet tbody td.invalid,
+.cdk-overlay-pane table.import-sheet tbody td.invalid,
+.cdk-overlay-pane table.app-grid-table tbody td.invalid {
+  position: relative;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+
+.cdk-overlay-pane table.sheet tbody td.invalid::after,
+.cdk-overlay-pane table.import-sheet tbody td.invalid::after,
+.cdk-overlay-pane table.app-grid-table tbody td.invalid::after,
+.cdk-overlay-pane table.sheet tbody td.invalid:focus-within::after,
+.cdk-overlay-pane table.import-sheet tbody td.invalid:focus-within::after,
+.cdk-overlay-pane table.app-grid-table tbody td.invalid:focus-within::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 2px solid var(--field-invalid) !important;
+  pointer-events: none;
+  z-index: 7;
 }
 
 @media (max-width: 900px) {

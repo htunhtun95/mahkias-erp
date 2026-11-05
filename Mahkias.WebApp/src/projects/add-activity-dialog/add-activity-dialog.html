@@ -8,9 +8,16 @@
       </div>
     </div>
   }
-  <header class="dialog-header">
-    <h2>Add activities</h2>
-    <p>Empty rows are ignored. If you fill any field, DSN no, part number, and type are required. Label is optional and matched by name, ignoring case. Tip: Use 'or' or '/' for alternative parts (e.g., P001/P002/P003).</p>
+  <header class="dialog-header erp-modal-header">
+    <div class="erp-modal-title">
+      <div>
+        <h2>Add activities</h2>
+        <p class="erp-modal-note">Empty rows are ignored. If you fill any field, DSN no, part number, and type are required. Label is optional and matched by name, ignoring case. Tip: Use 'or' or '/' for alternative parts (e.g., P001/P002/P003).</p>
+      </div>
+      <button class="erp-modal-close" type="button" aria-label="Close" [disabled]="isSaving" (click)="cancel()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
   </header>
 
   <form class="dialog-form" [formGroup]="form" (ngSubmit)="save()" (keydown.enter)="onFieldEnter($event)">
@@ -34,9 +41,9 @@
         <thead>
           <tr>
             <th class="row-num" scope="col"></th>
-            <th class="col-text" scope="col">DSN No</th>
-            <th scope="col">Part No</th>
-            <th scope="col">Type</th>
+            <th class="col-text" scope="col">DSN No<span class="req" aria-hidden="true">*</span></th>
+            <th scope="col">Part No<span class="req" aria-hidden="true">*</span></th>
+            <th scope="col">Type<span class="req" aria-hidden="true">*</span></th>
             <th class="col-text" scope="col">Budget</th>
             <th class="col-text" scope="col">Qty</th>
             <th scope="col">Description</th>
@@ -86,8 +93,8 @@
                   rows="1"
                 ></textarea>
               </td>
-              <td class="cell col-text">
-                <input formControlName="label" title="Matched by name, ignoring case. Leave blank for no label." />
+              <td class="cell col-text" [class.cell-invalid]="labelInvalid($index)">
+                <input formControlName="label" title="Matched by name, ignoring case. Leave blank for no label." [attr.aria-invalid]="labelInvalid($index)" />
               </td>
               <td class="action-cell">
                 <button type="button" class="icon" matTooltip="Remove row" (click)="removeRow($index)" aria-label="Remove row">
@@ -100,19 +107,19 @@
       </table>
     </div>
 
-    <footer class="dialog-footer">
+    <footer class="dialog-footer erp-modal-footer">
       <button type="button" class="add-row" (click)="addRow()" [disabled]="isSaving">
         <mat-icon>add</mat-icon>
         Add row
       </button>
 
       <div class="footer-end">
-        @if (error) {
-          <p class="error" role="alert">{{ error }}</p>
+        @if (error || ((rows.dirty || rows.touched) && validationMessage)) {
+          <p class="error" role="alert">{{ error || validationMessage }}</p>
         }
         <div class="actions">
           <button type="button" class="btn ghost" (click)="cancel()" [disabled]="isSaving">Cancel</button>
-          <button type="submit" class="btn primary" [disabled]="isSaving">
+          <button type="submit" class="btn primary" [disabled]="isSaving || !canSave">
             @if (isSaving) {
               <mat-spinner diameter="18"></mat-spinner>
             }

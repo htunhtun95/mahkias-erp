@@ -61,6 +61,10 @@
                   <mat-icon>visibility</mat-icon>
                   <span>View details</span>
                 </button>
+                <button mat-menu-item type="button" (click)="manageDocuments(order)" [disabled]="deletingId != null">
+                  <mat-icon>folder</mat-icon>
+                  <span>Manage documents</span>
+                </button>
                 <button mat-menu-item type="button" (click)="edit(order)" [disabled]="deletingId != null">
                   <mat-icon>edit</mat-icon>
                   <span>Edit</span>
@@ -132,7 +136,7 @@
                             </span>
                             <span class="file-copy">
                               <span class="file-name">{{ document.fileName }}</span>
-                              <span class="file-meta">{{ fileKind(document.fileName) }}</span>
+                              <span class="file-meta">{{ document.isOriginal ? 'Original' : 'Supporting' }} · {{ fileKind(document.fileName) }}@if (document.fileSize) { · {{ fileSize(document.fileSize) }} }</span>
                             </span>
                             <mat-icon class="file-open" aria-hidden="true">open_in_new</mat-icon>
                           </a>

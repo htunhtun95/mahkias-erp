@@ -89,6 +89,10 @@
                   <mat-icon>visibility</mat-icon>
                   <span>View details</span>
                 </button>
+                <button mat-menu-item type="button" (click)="manageDocuments(quotation)" [disabled]="deletingId != null">
+                  <mat-icon>folder</mat-icon>
+                  <span>Manage documents</span>
+                </button>
                 <button mat-menu-item type="button" (click)="edit(quotation)" [disabled]="deletingId != null">
                   <mat-icon>edit</mat-icon>
                   <span>Edit</span>

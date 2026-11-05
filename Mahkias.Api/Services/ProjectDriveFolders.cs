@@ -43,7 +43,26 @@ namespace Mahkias.Api.Services
             }
 
             await EnsureProcurementFolderAsync(projectId, cancellationToken);
+            await EnsureDocumentsFolderAsync(projectId, cancellationToken);
             return projectFolderId;
+        }
+
+        public async Task<string> EnsureDocumentsFolderAsync(int projectId, CancellationToken cancellationToken = default)
+        {
+            var projectFolderId = await EnsureProjectFolderAsync(projectId, cancellationToken);
+            if (string.IsNullOrWhiteSpace(projectFolderId))
+            {
+                return null;
+            }
+
+            var project = await _uow.ProjectDocuments.GetDriveFolderAsync(projectId);
+            var folderId = await EnsureChildFolderAsync(projectFolderId, cancellationToken, "Documents", "Document");
+            if (!string.Equals(folderId, project.DocumentsFolderId, StringComparison.Ordinal))
+            {
+                folderId = await _uow.ProjectDocuments.SetDocumentsFolderAsync(projectId, folderId);
+            }
+
+            return folderId;
         }
 
         public async Task RenameProjectFolderAsync(int projectId, CancellationToken cancellationToken = default)

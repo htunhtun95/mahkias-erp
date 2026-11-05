@@ -74,6 +74,16 @@ export class ImportActivityDialog {
     return this.hasText(this.form.controls.type.value) || !!this.form.controls.defaultTypeId.value;
   }
 
+  mapInvalid(field: 'dsn' | 'part' | 'type'): boolean {
+    const ready = field === 'dsn' ? this.dsnReady : field === 'part' ? this.partReady : this.typeReady;
+    if (ready) {
+      return false;
+    }
+    const column = field === 'dsn' ? this.form.controls.dsnNo : field === 'part' ? this.form.controls.partNo : this.form.controls.type;
+    const fallback = field === 'dsn' ? this.form.controls.defaultDsn : field === 'part' ? this.form.controls.defaultPart : this.form.controls.defaultTypeId;
+    return column.touched || column.dirty || fallback.touched || fallback.dirty;
+  }
+
   get canValidate() {
     return !!this.file && this.columns.length > 0 && this.dsnReady && this.partReady && this.typeReady && !this.validating && !this.isImporting;
   }

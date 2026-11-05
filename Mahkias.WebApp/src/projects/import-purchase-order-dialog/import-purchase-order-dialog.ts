@@ -1,9 +1,9 @@
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, ElementRef, OnInit, ViewChild, inject } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { forkJoin } from 'rxjs';
+import { FormsModule, NgModel } from '@angular/forms';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { forkJoin, of, switchMap } from 'rxjs';
 import { MaterialModule } from '../../app/material-module';
 import {
   Activity,
@@ -15,6 +15,8 @@ import {
   PurchaseOrderItemInput,
   Supplier,
 } from '../../core/services/project-api.service';
+import { DocumentDraft, documentSummary, syncDocumentDrafts } from '../document-manager/document-manager';
+import { openDocumentLibrary } from '../document-library-dialog/document-library-dialog';
 import { DriveUploadCardComponent } from '../drive-upload-card/drive-upload-card';
 import { formatMoney } from '../money-format';
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
@@ -22,6 +24,8 @@ import { QuotationChargeRow, QuotationChargesComponent, quotationChargeTotal, re
 import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-date-field';
 import { canonicalCondition, canonicalUnit } from '../quotation-lookups';
 import { dateInputValue } from '../quotation-terms';
+import { closeOnEscape } from '../../core/close-on-escape';
+import { SheetCellFocusDirective } from '../sheet-cell-focus';
 
 interface ImportPurchaseOrderData {
   projectId: number;
@@ -49,11 +53,13 @@ interface PreviewLine {
 @Component({
   selector: 'app-import-purchase-order-dialog',
   standalone: true,
-  imports: [FormsModule, TextFieldModule, MaterialModule, QuotationDateFieldComponent, QuotationChargesComponent, DriveUploadCardComponent, LookupComboboxComponent],
+  imports: [FormsModule, TextFieldModule, MaterialModule, QuotationDateFieldComponent, QuotationChargesComponent, DriveUploadCardComponent, LookupComboboxComponent, SheetCellFocusDirective],
   templateUrl: './import-purchase-order-dialog.html',
   styleUrls: ['../purchase-order-dialog/purchase-order-dialog.css'],
 })
 export class ImportPurchaseOrderDialogComponent implements OnInit {
+  private dialog = inject(MatDialog);
+  documentDrafts: DocumentDraft[] | null = null;
   private api = inject(ProjectApiService);
   private dialogRef = inject(MatDialogRef<ImportPurchaseOrderDialogComponent, boolean>);
   readonly data = inject<ImportPurchaseOrderData>(MAT_DIALOG_DATA);
@@ -83,15 +89,15 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
   columns: ExcelColumn[] = [];
   mapping: PurchaseOrderExcelMappingInput = blankMapping();
   readonly fields = [
-    { key: 'dsnNoColumn', def: 'defaultDsnNo', label: 'DSN No' },
-    { key: 'partNoColumn', def: 'defaultPartNo', label: 'Part No' },
-    { key: 'descriptionColumn', def: 'defaultDescription', label: 'Description' },
-    { key: 'conditionColumn', def: 'defaultCondition', label: 'Condition' },
-    { key: 'unitColumn', def: 'defaultUnit', label: 'Unit' },
-    { key: 'leadTimeColumn', def: 'defaultLeadTime', label: 'Lead Time' },
-    { key: 'unitPriceColumn', def: 'defaultUnitPrice', label: 'Unit Price' },
-    { key: 'quantityColumn', def: 'defaultQuantity', label: 'Quantity' },
-    { key: 'totalPriceColumn', def: 'defaultTotalPrice', label: 'Total Price' },
+    { key: 'dsnNoColumn', def: 'defaultDsnNo', label: 'DSN No', required: true },
+    { key: 'partNoColumn', def: 'defaultPartNo', label: 'Part No', required: true },
+    { key: 'descriptionColumn', def: 'defaultDescription', label: 'Description', required: false },
+    { key: 'conditionColumn', def: 'defaultCondition', label: 'Condition', required: false },
+    { key: 'unitColumn', def: 'defaultUnit', label: 'Unit', required: false },
+    { key: 'leadTimeColumn', def: 'defaultLeadTime', label: 'Lead Time', required: false },
+    { key: 'unitPriceColumn', def: 'defaultUnitPrice', label: 'Unit Price', required: false },
+    { key: 'quantityColumn', def: 'defaultQuantity', label: 'Quantity', required: false },
+    { key: 'totalPriceColumn', def: 'defaultTotalPrice', label: 'Total Price', required: false },
   ] as const;
   lines: PreviewLine[] = [];
   errors: { row: number; field: string; message: string }[] = [];
@@ -103,6 +109,7 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
   private mappingToken = 0;
 
   ngOnInit() {
+    closeOnEscape(this.dialogRef, () => this.close());
     forkJoin({
       suppliers: this.api.suppliers(),
       currencies: this.api.currencies(),
@@ -164,12 +171,20 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
     return formatMoney(value, this.symbol, this.currencyCode);
   }
 
+  mappingNoted = false;
+
+  noteMap(key: string) {
+    if (key === 'dsnNoColumn' || key === 'partNoColumn' || key === 'defaultDsnNo' || key === 'defaultPartNo') {
+      this.mappingNoted = true;
+    }
+  }
+
   get canCheck(): boolean {
-    return !!this.file && this.columns.length > 0 && !this.requiredMissing && !this.checking && !this.reading && !this.saving;
+    return !!this.file && this.columns.length > 0 && !this.requiredMissing && !!this.code.trim() && !!this.supplierId && !readQuotationCharges(this.charges).error && !this.checking && !this.reading && !this.saving;
   }
 
   get canImport(): boolean {
-    return this.isVerifyStep && this.lines.length > 0 && this.previewIssues.length === 0 && !!this.supplierId && !!this.code.trim() && !this.saving;
+    return this.isVerifyStep && this.lines.length > 0 && this.previewIssues.length === 0 && !!this.supplierId && !!this.code.trim() && !readQuotationCharges(this.charges).error && !this.saving;
   }
 
   get activityIssueCount(): number {
@@ -239,10 +254,11 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
     this.supplierOpen = false;
   }
 
-  clearSupplier() {
+  clearSupplier(field?: NgModel) {
     if (this.saving) {
       return;
     }
+    field?.control.markAsDirty();
     this.supplierQuery = '';
     this.supplierId = null;
     this.supplierOpen = true;
@@ -333,6 +349,29 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
     if (!this.saving) {
       this.dialogRef.close(false);
     }
+  }
+
+  get supportingLabel(): string {
+    return documentSummary(this.documentDrafts ?? [], true);
+  }
+
+  openDocuments() {
+    openDocumentLibrary(this.dialog, {
+      title: 'Supporting documents',
+      note: 'Extra files are stored when the purchase order is imported. The spreadsheet above is still the file that is read.',
+      kind: 'purchase-order',
+      projectId: this.data.projectId,
+      ownerId: null,
+      documents: [],
+      drafts: this.documentDrafts,
+      accept: this.documentAccept,
+      supportingOnly: true,
+      sortBase: 100,
+    }).afterClosed().subscribe((result) => {
+      if (result?.saved) {
+        this.documentDrafts = result.drafts ?? [];
+      }
+    });
   }
 
   onOriginalChoice(checked: boolean) {
@@ -658,7 +697,16 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
       projectIds: [this.data.projectId],
       items: this.lineItems(),
       charges: charges.charges,
-    }, this.referenceFile()).subscribe({
+    }, this.referenceFile()).pipe(
+      switchMap((saved) => {
+        const id = saved?.id;
+        const drafts = this.documentDrafts;
+        if (!id || !drafts?.some((draft) => draft.pendingFile && !draft.removed)) {
+          return of(saved);
+        }
+        return syncDocumentDrafts(this.api, 'purchase-order', this.data.projectId, id, drafts, true, 100);
+      }),
+    ).subscribe({
       next: () => {
         this.saving = false;
         this.dialogRef.close(true);

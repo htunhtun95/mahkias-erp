@@ -5,11 +5,12 @@
       <p class="code">{{ quotation.code }}</p>
       <p class="subtitle">{{ quotation.supplierName || 'No supplier' }}</p>
     </div>
-    <button class="icon-btn" type="button" aria-label="Close" (click)="close()">
+    <button class="erp-modal-close" type="button" aria-label="Close" (click)="close()">
       <mat-icon>close</mat-icon>
     </button>
   </header>
 
+  <div class="detail-body">
   @if (loading) {
     <div class="loading" role="status" aria-live="polite" aria-busy="true">
       <mat-progress-bar mode="indeterminate"></mat-progress-bar>
@@ -120,7 +121,10 @@
       </section>
 
       <section class="panel">
-        <h3>Attached files</h3>
+        <div class="files-head">
+          <h3>Attached files</h3>
+          <button type="button" (click)="manageDocuments()">Manage documents</button>
+        </div>
         @if (!documents.length) {
           <p class="empty">No files stored for this quotation.</p>
         } @else {
@@ -132,7 +136,7 @@
                 </span>
                 <span class="file-copy">
                   <span class="file-name">{{ document.fileName }}</span>
-                  <span class="file-meta">{{ fileKind(document.fileName) }}</span>
+                  <span class="file-meta">{{ document.isOriginal ? 'Original' : 'Supporting' }} · {{ fileKind(document.fileName) }}@if (document.fileSize) { · {{ fileSize(document.fileSize) }} }</span>
                 </span>
                 <mat-icon class="file-open" aria-hidden="true">open_in_new</mat-icon>
               </a>
@@ -142,4 +146,9 @@
       </section>
     </div>
   }
+  </div>
+
+  <footer class="detail-footer">
+    <button type="button" (click)="close()">Close</button>
+  </footer>
 </div>

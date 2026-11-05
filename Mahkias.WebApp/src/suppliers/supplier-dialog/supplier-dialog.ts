@@ -1,9 +1,10 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MaterialModule } from '../../app/material-module';
 import { blockEnterSubmit } from '../../core/block-enter-submit';
+import { requiredText } from '../../core/required-text';
 import { whileBusy } from '../../core/while-busy';
 import { ProjectApiService, Supplier } from '../../core/services/project-api.service';
 
@@ -24,7 +25,7 @@ export class SupplierDialog {
   error = '';
 
   form = this.fb.group({
-    name: [this.data?.supplier?.name ?? '', Validators.required],
+    name: [this.data?.supplier?.name ?? '', requiredText],
     reference: [this.data?.supplier?.reference ?? ''],
   });
 
@@ -34,7 +35,7 @@ export class SupplierDialog {
 
   get nameInvalid() {
     const name = this.form.controls.name;
-    return name.touched && name.invalid;
+    return name.invalid && (name.touched || name.dirty);
   }
 
   onFieldEnter(event: Event) {

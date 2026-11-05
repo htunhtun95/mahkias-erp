@@ -11,7 +11,7 @@
   <header class="app-dialog-header quotation-dialog-header">
     <div class="title-row">
       <h2>{{ quotationId ? 'Edit Quotation' : 'Create Quotation' }}</h2>
-      <button class="icon-btn" type="button" matTooltip="Close" aria-label="Close" [disabled]="isSaving" (click)="cancel()">
+      <button class="erp-modal-close" type="button" matTooltip="Close" aria-label="Close" [disabled]="isSaving" (click)="cancel()">
         <mat-icon>close</mat-icon>
       </button>
     </div>
@@ -26,10 +26,10 @@
       </label>
       @if (creatingSupplier) {
         <div class="new-supplier">
-          <label [class.invalid]="submitted && !newSupplierName.trim()">
-            <span>Supplier Name</span>
+          <label [class.invalid]="newSupplierErrorVisible">
+            <span>Supplier Name<span class="req" aria-hidden="true">*</span></span>
             <span class="supplier-control">
-              <input class="has-clear" [attr.disabled]="isSaving ? '' : null" [(ngModel)]="newSupplierName" name="newSupplierName" autocomplete="off" />
+              <input #newSupplierField="ngModel" class="has-clear" [attr.disabled]="isSaving ? '' : null" [(ngModel)]="newSupplierName" name="newSupplierName" autocomplete="off" [attr.aria-invalid]="newSupplierErrorVisible" />
               <button class="clear-supplier" type="button" matTooltip="Clear supplier" aria-label="Clear supplier" [disabled]="isSaving" (mousedown)="$event.preventDefault()" (click)="clearSupplier()">
                 <mat-icon>close</mat-icon>
               </button>
@@ -42,11 +42,12 @@
           </label>
         </div>
       } @else {
-        <label class="supplier-field" [class.invalid]="submitted && !supplierId">
-          <span>Supplier</span>
+        <label class="supplier-field" [class.invalid]="supplierErrorVisible">
+          <span>Supplier<span class="req" aria-hidden="true">*</span></span>
           <span class="supplier-control">
           <input
             #supplierInput
+            #supplierField="ngModel"
             [class.has-clear]="!!supplierQuery.trim()"
             [attr.disabled]="isSaving ? '' : null"
             [ngModel]="supplierQuery"
@@ -127,15 +128,15 @@
         </colgroup>
         <thead>
           <tr>
-            <th class="dsn">DSN No</th>
-            <th class="part">Part No</th>
+            <th class="dsn">DSN No<span class="req" aria-hidden="true">*</span></th>
+            <th class="part">Part No<span class="req" aria-hidden="true">*</span></th>
             <th class="description">Description</th>
             <th>Condition</th>
             <th>Unit</th>
             <th>Lead Time</th>
             <th class="currency">Currency</th>
-            <th class="price">Unit Price</th>
-            <th class="qty">Quantity</th>
+            <th class="price">Unit Price<span class="req" aria-hidden="true">*</span></th>
+            <th class="qty">Quantity<span class="req" aria-hidden="true">*</span></th>
             <th class="qty">MOQ</th>
             <th class="price">Total Price</th>
           </tr>
@@ -143,8 +144,8 @@
         <tbody>
           @for (row of visibleRows; track row.key) {
             <tr>
-              <td class="cell dsn" [class.invalid]="invalid(row, 'dsn')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.dsnNo" (ngModelChange)="onDsn(row)" [name]="'dsn' + row.key" /></td>
-              <td class="cell part" [class.invalid]="invalid(row, 'part')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.partNo" (ngModelChange)="onPart(row)" [name]="'part' + row.key" /></td>
+              <td class="cell dsn" [class.invalid]="invalid(row, 'dsn') && interacted(row, 'dsn')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.dsnNo" (ngModelChange)="onDsn(row); touch(row, 'dsn')" (blur)="touch(row, 'dsn')" [name]="'dsn' + row.key" /></td>
+              <td class="cell part" [class.invalid]="invalid(row, 'part') && interacted(row, 'part')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.partNo" (ngModelChange)="onPart(row); touch(row, 'part')" (blur)="touch(row, 'part')" [name]="'part' + row.key" /></td>
               <td class="cell description">
                 <textarea
                   cdkTextareaAutosize
@@ -183,22 +184,22 @@
                   }
                 </select>
               </td>
-              <td class="cell price" [class.invalid]="invalid(row, 'price')">
+              <td class="cell price" [class.invalid]="invalid(row, 'price') && interacted(row, 'unit')">
                 <span class="price-field">
                   <span class="price-mark">{{ currencyMark(row.currencyId) }}</span>
-                  <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.unitPrice" (ngModelChange)="onUnit(row)" [name]="'unit' + row.key" />
+                  <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.unitPrice" (ngModelChange)="onUnit(row); touch(row, 'unit')" (blur)="touch(row, 'unit')" [name]="'unit' + row.key" />
                 </span>
               </td>
-              <td class="cell qty" [class.invalid]="invalid(row, 'qty')">
-                <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.quantity" (ngModelChange)="onQuantity(row)" (blur)="onQuantityBlur(row)" [name]="'qty' + row.key" />
+              <td class="cell qty" [class.invalid]="invalid(row, 'qty') && interacted(row, 'qty')">
+                <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.quantity" (ngModelChange)="onQuantity(row); touch(row, 'qty')" (blur)="onQuantityBlur(row); touch(row, 'qty')" [name]="'qty' + row.key" />
               </td>
-              <td class="cell qty" [class.invalid]="submitted && !validOptionalQuantity(row.minimumQty)">
-                <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.minimumQty" (ngModelChange)="onMinimum(row)" [name]="'moq' + row.key" inputmode="numeric" />
+              <td class="cell qty" [class.invalid]="!validOptionalQuantity(row.minimumQty) && interacted(row, 'moq')">
+                <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.minimumQty" (ngModelChange)="onMinimum(row); touch(row, 'moq')" (blur)="touch(row, 'moq')" [name]="'moq' + row.key" inputmode="numeric" />
               </td>
-              <td class="cell price" [class.invalid]="invalid(row, 'price')">
+              <td class="cell price" [class.invalid]="invalid(row, 'price') && interacted(row, 'total')">
                 <span class="price-field">
                   <span class="price-mark">{{ currencyMark(row.currencyId) }}</span>
-                  <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.totalPrice" (ngModelChange)="onTotal(row)" [name]="'total' + row.key" />
+                  <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.totalPrice" (ngModelChange)="onTotal(row); touch(row, 'total')" (blur)="touch(row, 'total')" [name]="'total' + row.key" />
                 </span>
               </td>
             </tr>
@@ -211,28 +212,23 @@
       </table>
     </div>
     <app-quotation-charges [rows]="charges" [symbol]="chargeSymbol" [disabled]="isSaving"></app-quotation-charges>
-    <app-drive-upload-card
-      [compact]="true"
-      title="Attachment File"
-      hint="PDF, Excel, Word, or image."
-      emptyLabel="Drag a file here, or browse"
-      [accept]="documentAccept"
-      [disabled]="isSaving"
-      [file]="pendingFile"
-      (fileChange)="onAttachment($event)"
-      [saved]="visibleStored"
-      (removeSaved)="clearStoredAttachment()"
-    ></app-drive-upload-card>
+    <section class="document-launch">
+      <div>
+        <h3>Documents</h3>
+        <p>{{ documentsLabel }}</p>
+      </div>
+      <button type="button" [disabled]="isSaving" (click)="openDocuments()">Manage documents</button>
+    </section>
   </div>
 
   <footer class="app-dialog-actions quotation-dialog-footer">
-    @if (error) {
-      <p class="hint-error">{{ error }}</p>
+    @if (error || visibleValidationMessage) {
+      <p class="hint-error">{{ error || visibleValidationMessage }}</p>
     }
     <div class="footer-actions">
       <span class="spacer"></span>
       <button class="btn" type="button" [disabled]="isSaving" (click)="cancel()">Cancel</button>
-      <button class="btn primary" type="button" [disabled]="isSaving" (click)="save()">
+      <button class="btn primary" type="button" [disabled]="isSaving || !canSave" (click)="save()">
         @if (isSaving) {
           <mat-spinner diameter="18"></mat-spinner>
         }

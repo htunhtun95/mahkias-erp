@@ -10,7 +10,8 @@ BEGIN
         Name,
         Reference,
         GoogleDriveFolderId,
-        ProcurementFolderId
+        ProcurementFolderId,
+        DocumentsFolderId
     FROM projects.Projects
     WHERE Id = @ProjectId
       AND IsDeleted = 0;

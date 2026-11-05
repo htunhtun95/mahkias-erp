@@ -136,10 +136,10 @@
                 <span class="description">{{ block.group.description || '—' }}</span>
                 <span>{{ block.activities.length }}</span>
                 <span class="lowest-price">
-                  @if (groupLowestLink(block.activities); as link) {
+                  @if (block.lowest; as link) {
                     <button class="price-link" type="button" matTooltip="View quotes" (click)="openGroupQuotations(block.group, block.activities)" [disabled]="isSaving || deletingId != null" [attr.aria-label]="'View quotes for ' + block.group.name">{{ priceText(link) }}</button>
-                    @if (groupQuoteCount(block.activities) > 1) {
-                      <span class="count-badge">{{ groupQuoteCount(block.activities) }}</span>
+                    @if ((block.quoteCount ?? 0) > 1) {
+                      <span class="count-badge">{{ block.quoteCount }}</span>
                     }
                   } @else {
                     <span class="price-empty">Unquoted</span>

@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, shareReplay, tap } from 'rxjs';
+import { map, Observable, shareReplay, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 export interface Project {
@@ -21,6 +21,10 @@ export interface ProjectDocument {
   googleDriveFileId: string;
   webViewLink: string;
   uploadedAt?: string | null;
+  assetId?: string;
+  fileSize?: number;
+  sortOrder?: number;
+  isOriginal?: boolean;
 }
 
 export interface QuotationDocument {
@@ -31,6 +35,10 @@ export interface QuotationDocument {
   googleDriveFileId: string;
   webViewLink: string;
   uploadedAt?: string | null;
+  assetId?: string;
+  fileSize?: number;
+  sortOrder?: number;
+  isOriginal?: boolean;
 }
 
 export interface Activity {
@@ -453,6 +461,10 @@ export interface PurchaseOrderDocument {
   fileType: string;
   webViewLink: string;
   uploadedAt?: string | null;
+  assetId?: string;
+  fileSize?: number;
+  sortOrder?: number;
+  isOriginal?: boolean;
 }
 
 export interface PurchaseOrderExcelMappingInput {
@@ -555,20 +567,66 @@ export class ProjectApiService {
     return this.http.get<ProjectDocument[]>(`${this.baseUrl}/projects/${projectId}/documents`);
   }
 
-  uploadProjectDocument(projectId: number, file: File) {
+  uploadProjectDocument(projectId: number, file: File, isOriginal = false, sortOrder?: number) {
     const body = new FormData();
     body.append('file', file, file.name);
+    body.append('isOriginal', String(isOriginal));
+    if (sortOrder != null) {
+      body.append('sortOrder', String(sortOrder));
+    }
     return this.http.post<ProjectDocument>(`${this.baseUrl}/projects/${projectId}/documents`, body);
+  }
+
+  removeProjectDocument(projectId: number, documentId: number) {
+    return this.http.delete<void>(`${this.baseUrl}/projects/${projectId}/documents/${documentId}`);
   }
 
   quotationDocuments(projectId: number, quotationId: number) {
     return this.http.get<QuotationDocument[]>(`${this.baseUrl}/projects/${projectId}/quotations/${quotationId}/documents`);
   }
 
-  uploadQuotationDocuments(projectId: number, quotationId: number, file: File) {
+  uploadQuotationDocuments(projectId: number, quotationId: number, file: File, isOriginal = false, sortOrder?: number) {
     const body = new FormData();
     body.append('files', file, file.name);
+    body.append('isOriginal', String(isOriginal));
+    if (sortOrder != null) {
+      body.append('sortOrder', String(sortOrder));
+    }
     return this.http.post<QuotationDocument[]>(`${this.baseUrl}/projects/${projectId}/quotations/${quotationId}/documents`, body);
+  }
+
+  uploadOwnedDocument(kind: 'quotation' | 'purchase-order' | 'project', projectId: number, ownerId: number, file: File, isOriginal: boolean, sortOrder: number): Observable<QuotationDocument | PurchaseOrderDocument | ProjectDocument> {
+    if (kind === 'project') {
+      return this.uploadProjectDocument(projectId, file, isOriginal, sortOrder);
+    }
+    if (kind === 'quotation') {
+      return this.uploadQuotationDocuments(projectId, ownerId, file, isOriginal, sortOrder).pipe(map((documents) => {
+        const document = documents[0];
+        if (!document) {
+          throw new Error('The file was stored, but its record could not be saved.');
+        }
+        return document;
+      }));
+    }
+    const body = new FormData();
+    body.append('file', file, file.name);
+    body.append('isOriginal', String(isOriginal));
+    body.append('sortOrder', String(sortOrder));
+    return this.http.post<PurchaseOrderDocument>(`${this.baseUrl}/projects/${projectId}/purchase-orders/${ownerId}/documents`, body);
+  }
+
+  orderDocuments(
+    kind: 'quotation' | 'purchase-order' | 'project',
+    projectId: number,
+    ownerId: number,
+    body: { documents: { documentId: number; sortOrder: number }[]; originalDocumentId?: number | null },
+  ) {
+    const path = kind === 'project'
+      ? `${this.baseUrl}/projects/${projectId}/documents/order`
+      : kind === 'quotation'
+        ? `${this.baseUrl}/projects/${projectId}/quotations/${ownerId}/documents/order`
+        : `${this.baseUrl}/projects/${projectId}/purchase-orders/${ownerId}/documents/order`;
+    return this.http.put<QuotationDocument[] | PurchaseOrderDocument[] | ProjectDocument[]>(path, body);
   }
 
   replaceQuotationDocument(projectId: number, quotationId: number, documentId: number, file: File) {

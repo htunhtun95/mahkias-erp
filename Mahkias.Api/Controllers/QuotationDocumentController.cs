@@ -86,6 +86,9 @@ namespace Mahkias.Api.Controllers
                         FileType = fileType,
                         GoogleDriveFileId = uploaded.FileId,
                         WebViewLink = uploaded.WebViewLink,
+                        FileSize = file.Length,
+                        IsOriginal = IsOriginalRequested(),
+                        SortOrder = RequestedSortOrder(),
                     });
                     if (document == null)
                     {
@@ -154,6 +157,9 @@ namespace Mahkias.Api.Controllers
                     FileType = fileType,
                     GoogleDriveFileId = uploaded.FileId,
                     WebViewLink = uploaded.WebViewLink,
+                    FileSize = file.Length,
+                    IsOriginal = IsOriginalRequested(),
+                    SortOrder = RequestedSortOrder(),
                 });
                 if (document == null)
                 {
@@ -166,6 +172,18 @@ namespace Mahkias.Api.Controllers
             {
                 return BadRequest(new { message = ex.Message });
             }
+        }
+
+        [HttpPut("order")]
+        public async Task<IActionResult> Order(int projectId, int quotationId, [FromBody] DocumentOrderRequest request)
+        {
+            if (request?.Documents == null)
+            {
+                return BadRequest(new { message = "Document order is required." });
+            }
+
+            await _uow.ProjectDocuments.OrderQuotationDocumentsAsync(projectId, quotationId, request.Documents, request.OriginalDocumentId);
+            return Ok(await _uow.ProjectDocuments.ListByQuotationAsync(projectId, quotationId));
         }
 
         [HttpDelete("{documentId:int}")]
@@ -185,5 +203,22 @@ namespace Mahkias.Api.Controllers
 
             return NoContent();
         }
+
+        private bool IsOriginalRequested()
+        {
+            return string.Equals(Request.Form["isOriginal"], "true", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private int? RequestedSortOrder()
+        {
+            return int.TryParse(Request.Form["sortOrder"], out var sort) ? sort : null;
+        }
+    }
+
+    public class DocumentOrderRequest
+    {
+        public List<DocumentOrderItem> Documents { get; set; } = new();
+
+        public int? OriginalDocumentId { get; set; }
     }
 }

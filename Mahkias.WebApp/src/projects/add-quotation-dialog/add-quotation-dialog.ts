@@ -1,12 +1,15 @@
 import { Component, ElementRef, QueryList, ViewChild, ViewChildren, inject } from '@angular/core';
 import { TextFieldModule } from '@angular/cdk/text-field';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, NgModel } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { Observable, of, switchMap, tap } from 'rxjs';
 import { MaterialModule } from '../../app/material-module';
-import { DriveUploadCardComponent } from '../drive-upload-card/drive-upload-card';
+import { DocumentDraft, documentSummary, syncDocumentDrafts } from '../document-manager/document-manager';
+import { documentAccept as acceptedDocuments, openDocumentLibrary } from '../document-library-dialog/document-library-dialog';
 import { blockEnterSubmit } from '../../core/block-enter-submit';
+import { closeOnEscape } from '../../core/close-on-escape';
+import { SheetCellFocusDirective } from '../sheet-cell-focus';
 import { whileBusy } from '../../core/while-busy';
 import {
   Activity,
@@ -50,22 +53,24 @@ interface QuoteRow {
 @Component({
   selector: 'app-create-quotation-dialog',
   standalone: true,
-  imports: [FormsModule, MaterialModule, TextFieldModule, DriveUploadCardComponent, QuotationDateFieldComponent, LookupComboboxComponent, QuotationChargesComponent],
+  imports: [FormsModule, MaterialModule, TextFieldModule, QuotationDateFieldComponent, LookupComboboxComponent, QuotationChargesComponent, SheetCellFocusDirective],
   templateUrl: './add-quotation-dialog.html',
   styleUrl: './add-quotation-dialog.css',
 })
 export class CreateQuotationDialogComponent {
   @ViewChild('supplierInput') private supplierInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('supplierField') private supplierField?: NgModel;
+  @ViewChild('newSupplierField') private newSupplierField?: NgModel;
   @ViewChildren(QuotationDateFieldComponent) private dateFields?: QueryList<QuotationDateFieldComponent>;
+  private dialog = inject(MatDialog);
 
   private api = inject(ProjectApiService);
   private dialogRef = inject(MatDialogRef<CreateQuotationDialogComponent>);
   data = inject<{ projectId: number; activities: Activity[]; quotation?: QuotationDetail }>(MAT_DIALOG_DATA);
   quotationId = this.data.quotation?.id ?? null;
-  pendingFile: File | null = null;
-  storedCleared = false;
   savedDocuments: QuotationDocument[] = [];
-  readonly documentAccept = '.pdf,.doc,.docx,.xls,.xlsx,.xlsm,.csv,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tif,.tiff';
+  documentDrafts: DocumentDraft[] | null = null;
+  readonly documentAccept = acceptedDocuments;
   quotationCode = this.data.quotation?.code ?? '';
   rowFilter = '';
   labelId: number | null = null;
@@ -96,6 +101,7 @@ export class CreateQuotationDialogComponent {
   error = '';
 
   constructor() {
+    closeOnEscape(this.dialogRef, () => this.cancel());
     this.api.suppliers().subscribe({
       next: (suppliers) => {
         this.suppliers = suppliers;
@@ -157,17 +163,80 @@ export class CreateQuotationDialogComponent {
     this.labelId = id;
   }
 
+  private labelCountKey = Number.NaN;
+  private labelCountAll = 0;
+  private labelCountById = new Map<number, number>();
+  private visibleKey = Number.NaN;
+  private visibleCache: QuoteRow[] = [];
+  private indexedActivities: Activity[] | null = null;
+  private activityById = new Map<number, Activity>();
+
   labelCount(label: ActivityLabel | null): number {
-    return this.rows.filter((row) => this.matchesLabel(row, label)).length;
+    const key = this.rowLinkKey();
+    if (key !== this.labelCountKey) {
+      this.labelCountKey = key;
+      this.recountLabels();
+    }
+    return label ? (this.labelCountById.get(label.id) ?? 0) : this.labelCountAll;
   }
 
   get visibleRows(): QuoteRow[] {
+    const key = this.visibleRowsKey();
+    if (key === this.visibleKey) {
+      return this.visibleCache;
+    }
+    this.visibleKey = key;
     const query = this.rowFilter.trim().toLowerCase();
     const label = this.labels.find((item) => item.id === this.labelId) ?? null;
-    return this.rows.filter((row) => {
+    this.visibleCache = this.rows.filter((row) => {
       const matchesQuery = !query || row.dsnNo.toLowerCase().includes(query) || row.partNo.toLowerCase().includes(query);
       return matchesQuery && this.matchesLabel(row, label);
     });
+    return this.visibleCache;
+  }
+
+  private rowLinkKey(): number {
+    let hash = this.rows.length;
+    for (const row of this.rows) {
+      hash = Math.imul(hash, 33) ^ (row.activityId ?? 0);
+    }
+    for (const label of this.labels) {
+      hash = Math.imul(hash, 33) ^ label.id ^ label.activityIds.length;
+    }
+    return hash;
+  }
+
+  private visibleRowsKey(): number {
+    let hash = (this.labelId ?? 0) ^ this.rowLinkKey();
+    const query = this.rowFilter;
+    for (let index = 0; index < query.length; index++) {
+      hash = Math.imul(hash, 33) ^ query.charCodeAt(index);
+    }
+    for (const row of this.rows) {
+      hash = Math.imul(hash, 33) ^ row.dsnNo.length ^ row.partNo.length;
+      for (let index = 0; index < row.dsnNo.length; index++) {
+        hash = (hash + row.dsnNo.charCodeAt(index)) | 0;
+      }
+      for (let index = 0; index < row.partNo.length; index++) {
+        hash = (hash + row.partNo.charCodeAt(index)) | 0;
+      }
+    }
+    return hash;
+  }
+
+  private recountLabels() {
+    const counts = new Map<number, number>();
+    let all = 0;
+    for (const row of this.rows) {
+      all += 1;
+      for (const label of this.labels) {
+        if (this.matchesLabel(row, label)) {
+          counts.set(label.id, (counts.get(label.id) ?? 0) + 1);
+        }
+      }
+    }
+    this.labelCountAll = all;
+    this.labelCountById = counts;
   }
 
   onDsn(row: QuoteRow) {
@@ -231,7 +300,10 @@ export class CreateQuotationDialogComponent {
     this.supplierQuery = '';
     this.supplierId = null;
     this.supplierOpen = true;
-    setTimeout(() => this.supplierInput?.nativeElement.focus());
+    setTimeout(() => {
+      this.supplierField?.control.markAsDirty();
+      this.supplierInput?.nativeElement.focus();
+    });
   }
 
   closeSuppliers() {
@@ -280,8 +352,73 @@ export class CreateQuotationDialogComponent {
     this.recalculate(row);
   }
 
+  private seen = new Set<string>();
+
+  private fieldStarted(field?: NgModel): boolean {
+    return !!field?.touched || !!field?.dirty;
+  }
+
+  get supplierErrorVisible(): boolean {
+    return !this.supplierId && this.fieldStarted(this.supplierField);
+  }
+
+  get newSupplierErrorVisible(): boolean {
+    return !this.newSupplierName.trim() && this.fieldStarted(this.newSupplierField);
+  }
+
+  touch(row: QuoteRow, field: string) {
+    this.seen.add(`${row.key}:${field}`);
+  }
+
+  interacted(row: QuoteRow, field: string): boolean {
+    return this.seen.has(`${row.key}:${field}`);
+  }
+
+  get validationMessage(): string {
+    if (this.creatingSupplier && !this.newSupplierName.trim()) {
+      return 'Supplier name is required.';
+    }
+    if (!this.creatingSupplier && !this.supplierId) {
+      return 'Choose a supplier.';
+    }
+    if (this.datesInvalid) {
+      return 'Enter a valid date.';
+    }
+    if (this.dateOrderError) {
+      return this.dateOrderError;
+    }
+    const filled = this.rows.filter((row) => this.isPriced(row));
+    if (!filled.length) {
+      return 'Enter a unit price or total price for at least one activity.';
+    }
+    if (filled.some((row) => !row.dsnNo.trim() || !row.partNo.trim() || !this.validQuantity(row.quantity) || !this.validOptionalQuantity(row.minimumQty) || this.priceBroken(row))) {
+      return 'DSN number, part number, and quantity are required. Check the highlighted rows.';
+    }
+    return readQuotationCharges(this.charges).error;
+  }
+
+  get canSave(): boolean {
+    return !this.validationMessage;
+  }
+
+  get visibleValidationMessage(): string {
+    if (!this.validationMessage) {
+      return '';
+    }
+    if (this.creatingSupplier && !this.newSupplierName.trim()) {
+      return this.newSupplierErrorVisible ? this.validationMessage : '';
+    }
+    if (!this.creatingSupplier && !this.supplierId) {
+      return this.supplierErrorVisible ? this.validationMessage : '';
+    }
+    if (this.datesInvalid || this.dateOrderError || this.seen.size || readQuotationCharges(this.charges).error) {
+      return this.validationMessage;
+    }
+    return '';
+  }
+
   invalid(row: QuoteRow, field: 'dsn' | 'part' | 'price' | 'qty'): boolean {
-    if (!this.submitted || !this.isPriced(row)) {
+    if (!this.isPriced(row)) {
       return false;
     }
     if (field === 'dsn') {
@@ -392,10 +529,6 @@ export class CreateQuotationDialogComponent {
 
     this.dialogRef.disableClose = true;
     let quotationSaved = false;
-    const editing = !!this.quotationId;
-    const currentFile = this.currentDocument;
-    const clearStored = this.storedCleared;
-    const file = this.pendingFile;
     this.withSupplier()
       .pipe(
         switchMap(() => {
@@ -408,22 +541,24 @@ export class CreateQuotationDialogComponent {
             items,
             charges: charges.charges,
           };
-          if (!this.quotationId) {
-            return this.api.importQuotation(this.data.projectId, body, file);
-          }
-          if (file) {
-            return this.api.saveQuotation(this.data.projectId, this.quotationId, body, file, currentFile?.documentId);
-          }
-          return this.api.updateQuotation(this.quotationId, {
-            ...body,
-            projectIds: [this.data.projectId],
-          }).pipe(
-            switchMap((saved) => {
+          const saved = !this.quotationId
+            ? this.api.importQuotation(this.data.projectId, body, null)
+            : this.api.updateQuotation(this.quotationId, {
+              ...body,
+              projectIds: [this.data.projectId],
+            });
+          return saved.pipe(
+            switchMap((result) => {
               quotationSaved = true;
-              if (editing && clearStored && currentFile) {
-                return this.api.removeQuotationDocument(this.data.projectId, this.quotationId!, currentFile.documentId);
+              const id = this.quotationId || result?.id;
+              if (id) {
+                this.quotationId = id;
               }
-              return of(saved);
+              const drafts = this.documentDrafts;
+              if (!id || !drafts?.some((draft) => (draft.pendingFile && !draft.removed) || (draft.removed && draft.documentId))) {
+                return of(result);
+              }
+              return syncDocumentDrafts(this.api, 'quotation', this.data.projectId, id, drafts, false);
             }),
           );
         }),
@@ -436,8 +571,7 @@ export class CreateQuotationDialogComponent {
         error: (error: HttpErrorResponse) => {
           if (quotationSaved) {
             this.loadSavedDocuments();
-            const fileAction = this.pendingFile ? 'uploaded' : 'removed';
-            this.error = this.driveError(error) || `The quotation was saved, but the file could not be ${fileAction}.`;
+            this.error = this.driveError(error) || 'The quotation was saved, but the documents could not be updated.';
             return;
           }
           if (this.creatingSupplier) {
@@ -452,6 +586,35 @@ export class CreateQuotationDialogComponent {
       });
   }
 
+  get documentsLabel(): string {
+    return documentSummary(this.documentDrafts ?? this.savedDocuments);
+  }
+
+  openDocuments() {
+    openDocumentLibrary(this.dialog, {
+      title: 'Manage documents',
+      note: this.quotationId
+        ? 'Changes are stored for this quotation when you save this window.'
+        : 'Files are stored when the quotation is saved.',
+      kind: 'quotation',
+      projectId: this.data.projectId,
+      ownerId: this.quotationId,
+      documents: this.savedDocuments,
+      drafts: this.quotationId ? null : this.documentDrafts,
+      accept: this.documentAccept,
+    }).afterClosed().subscribe((result) => {
+      if (!result?.saved) {
+        return;
+      }
+      if (this.quotationId) {
+        this.documentDrafts = null;
+        this.loadSavedDocuments();
+        return;
+      }
+      this.documentDrafts = result.drafts ?? [];
+    });
+  }
+
   private loadSavedDocuments() {
     if (!this.quotationId) {
       return;
@@ -461,26 +624,6 @@ export class CreateQuotationDialogComponent {
         this.savedDocuments = documents ?? [];
       },
     });
-  }
-
-  get currentDocument(): QuotationDocument | null {
-    return this.savedDocuments[0] ?? null;
-  }
-
-  get visibleStored(): QuotationDocument[] {
-    if (this.pendingFile || this.storedCleared || !this.currentDocument) {
-      return [];
-    }
-    return [this.currentDocument];
-  }
-
-  onAttachment(file: File | null) {
-    this.pendingFile = file;
-  }
-
-  clearStoredAttachment() {
-    this.storedCleared = true;
-    this.pendingFile = null;
   }
 
   private driveError(error: HttpErrorResponse): string {
@@ -503,6 +646,17 @@ export class CreateQuotationDialogComponent {
       }
     });
     return invalid;
+  }
+
+  private get datesInvalid(): boolean {
+    return this.dateFields?.some((field) => field.invalid) ?? false;
+  }
+
+  private priceBroken(row: QuoteRow): boolean {
+    if (row.unitPrice.trim() && this.money(row.unitPrice) == null) {
+      return true;
+    }
+    return !!row.totalPrice.trim() && this.money(row.totalPrice) == null;
   }
 
   private supplierReady(): boolean {
@@ -646,8 +800,16 @@ export class CreateQuotationDialogComponent {
     if (!label) {
       return true;
     }
-    const activity = this.activities.find((item) => item.id === row.activityId);
+    const activity = this.activityFor(row.activityId);
     return !!activity && activityHasLabel(activity, label);
+  }
+
+  private activityFor(activityId: number | null): Activity | undefined {
+    if (this.indexedActivities !== this.activities) {
+      this.indexedActivities = this.activities;
+      this.activityById = new Map(this.activities.map((activity) => [activity.id, activity]));
+    }
+    return activityId == null ? undefined : this.activityById.get(activityId);
   }
 
   private linkRow(row: QuoteRow) {

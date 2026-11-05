@@ -76,5 +76,11 @@ namespace Mahkias.Core.Modules.Projects.Data.Args
         public string GoogleDriveFileId { get; set; }
 
         public string WebViewLink { get; set; }
+
+        public long FileSize { get; set; }
+
+        public bool IsOriginal { get; set; }
+
+        public int? SortOrder { get; set; }
     }
 }

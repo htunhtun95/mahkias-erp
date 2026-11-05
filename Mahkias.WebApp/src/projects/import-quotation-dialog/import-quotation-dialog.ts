@@ -1,11 +1,15 @@
 import { Component, ElementRef, QueryList, ViewChild, ViewChildren, inject } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, NgModel } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { Observable, of, switchMap, tap } from 'rxjs';
 import { MaterialModule } from '../../app/material-module';
+import { DocumentDraft, documentSummary, syncDocumentDrafts } from '../document-manager/document-manager';
+import { openDocumentLibrary } from '../document-library-dialog/document-library-dialog';
 import { DriveUploadCardComponent } from '../drive-upload-card/drive-upload-card';
 import { blockEnterSubmit } from '../../core/block-enter-submit';
+import { closeOnEscape } from '../../core/close-on-escape';
+import { SheetCellFocusDirective } from '../sheet-cell-focus';
 import { whileBusy } from '../../core/while-busy';
 import { Activity, ActivityImportIssue, Currency, ProjectApiService, QuotationItemInput, Supplier } from '../../core/services/project-api.service';
 import { directActivityId } from '../quotation-map';
@@ -68,12 +72,15 @@ type CheckState = 'idle' | 'checking' | 'passed' | 'failed';
 @Component({
   selector: 'app-import-quotation-dialog',
   standalone: true,
-  imports: [FormsModule, MaterialModule, DriveUploadCardComponent, QuotationDateFieldComponent, LookupComboboxComponent, QuotationChargesComponent],
+  imports: [FormsModule, MaterialModule, DriveUploadCardComponent, QuotationDateFieldComponent, LookupComboboxComponent, QuotationChargesComponent, SheetCellFocusDirective],
   templateUrl: './import-quotation-dialog.html',
   styleUrl: './import-quotation-dialog.css',
 })
 export class ImportQuotationDialogComponent {
   @ViewChild('supplierInput') private supplierInput?: ElementRef<HTMLInputElement>;
+  private dialog = inject(MatDialog);
+  documentDrafts: DocumentDraft[] | null = null;
+  @ViewChild('supplierField') private supplierField?: NgModel;
   @ViewChildren(QuotationDateFieldComponent) private dateFields?: QueryList<QuotationDateFieldComponent>;
 
   private api = inject(ProjectApiService);
@@ -116,20 +123,21 @@ export class ImportQuotationDialogComponent {
   private mappingToken = 0;
 
   readonly fields = [
-    { key: 'dsnNoColumn', def: 'defaultDsnNo', label: 'DSN No' },
-    { key: 'partNoColumn', def: 'defaultPartNo', label: 'Part No' },
-    { key: 'descriptionColumn', def: 'defaultDescription', label: 'Description' },
-    { key: 'conditionColumn', def: 'defaultCondition', label: 'Condition' },
-    { key: 'unitColumn', def: 'defaultUnit', label: 'Unit' },
-    { key: 'leadTimeColumn', def: 'defaultLeadTime', label: 'Lead Time' },
-    { key: 'minimumQtyColumn', def: 'defaultMinimumQty', label: 'MOQ' },
-    { key: 'unitPriceColumn', def: 'defaultUnitPrice', label: 'Unit Price' },
-    { key: 'quantityColumn', def: 'defaultQuantity', label: 'Quantity' },
-    { key: 'totalPriceColumn', def: 'defaultTotalPrice', label: 'Total Price' },
-    { key: 'currencyColumn', def: '', label: 'Currency' },
+    { key: 'dsnNoColumn', def: 'defaultDsnNo', label: 'DSN No', required: true },
+    { key: 'partNoColumn', def: 'defaultPartNo', label: 'Part No', required: true },
+    { key: 'descriptionColumn', def: 'defaultDescription', label: 'Description', required: false },
+    { key: 'conditionColumn', def: 'defaultCondition', label: 'Condition', required: false },
+    { key: 'unitColumn', def: 'defaultUnit', label: 'Unit', required: false },
+    { key: 'leadTimeColumn', def: 'defaultLeadTime', label: 'Lead Time', required: false },
+    { key: 'minimumQtyColumn', def: 'defaultMinimumQty', label: 'MOQ', required: false },
+    { key: 'unitPriceColumn', def: 'defaultUnitPrice', label: 'Unit Price', required: false },
+    { key: 'quantityColumn', def: 'defaultQuantity', label: 'Quantity', required: false },
+    { key: 'totalPriceColumn', def: 'defaultTotalPrice', label: 'Total Price', required: false },
+    { key: 'currencyColumn', def: '', label: 'Currency', required: false },
   ];
 
   constructor() {
+    closeOnEscape(this.dialogRef, () => this.cancel());
     this.api.suppliers().subscribe({
       next: (suppliers) => {
         this.suppliers = suppliers;
@@ -206,8 +214,42 @@ export class ImportQuotationDialogComponent {
     line.condition = canonicalCondition(line.condition, this.conditions);
   }
 
+  mappingNoted = false;
+  private seen = new Set<string>();
+
+  touchLine(line: ImportLine, field: string) {
+    this.seen.add(`${line.row}:${field}`);
+  }
+
+  lineSeen(line: ImportLine, field: string): boolean {
+    return this.seen.has(`${line.row}:${field}`);
+  }
+
+  noteMap(key: string) {
+    if (key === 'dsnNoColumn' || key === 'partNoColumn' || key === 'defaultDsnNo' || key === 'defaultPartNo') {
+      this.mappingNoted = true;
+    }
+  }
+
+  get supplierMissing(): boolean {
+    return this.creatingSupplier ? !this.newSupplierName.trim() : !this.supplierId;
+  }
+
+  get canStartImport(): boolean {
+    if (this.isImporting || this.checkState !== 'passed' || this.supplierMissing || this.datesInvalid || !!this.dateOrderError) {
+      return false;
+    }
+    if (!this.lines.some((line) => this.isPriced(line))) {
+      return false;
+    }
+    if (this.lines.some((line) => this.isPriced(line) && (this.lineInvalid(line, 'dsn') || this.lineInvalid(line, 'part') || this.lineInvalid(line, 'qty') || this.lineInvalid(line, 'moq') || this.lineInvalid(line, 'price')))) {
+      return false;
+    }
+    return !readQuotationCharges(this.charges).error;
+  }
+
   lineInvalid(line: ImportLine, field: 'dsn' | 'part' | 'price' | 'qty' | 'moq'): boolean {
-    if (!this.lineSubmitted || !this.isPriced(line)) {
+    if (!this.isPriced(line)) {
       return false;
     }
     if (field === 'dsn') {
@@ -294,7 +336,7 @@ export class ImportQuotationDialogComponent {
   }
 
   get canCheck(): boolean {
-    return !!this.file && this.columns.length > 0 && !this.requiredMissing && this.checkState !== 'checking' && !this.isImporting;
+    return !!this.file && this.columns.length > 0 && !this.requiredMissing && !this.supplierMissing && !this.datesInvalid && !this.dateOrderError && this.checkState !== 'checking' && !this.isImporting;
   }
 
   get busy(): boolean {
@@ -340,7 +382,7 @@ export class ImportQuotationDialogComponent {
     this.supplierOpen = false;
   }
 
-  clearSupplier() {
+  clearSupplier(field?: NgModel) {
     if (this.busy) {
       return;
     }
@@ -350,7 +392,10 @@ export class ImportQuotationDialogComponent {
     this.supplierQuery = '';
     this.supplierId = null;
     this.supplierOpen = true;
-    setTimeout(() => this.supplierInput?.nativeElement.focus());
+    setTimeout(() => {
+      (field ?? this.supplierField)?.control.markAsDirty();
+      this.supplierInput?.nativeElement.focus();
+    });
   }
 
   closeSuppliers() {
@@ -584,6 +629,14 @@ export class ImportQuotationDialogComponent {
           items,
           charges: charges.charges,
         }, this.storedFile())),
+        switchMap((saved) => {
+          const id = saved?.id;
+          const drafts = this.documentDrafts;
+          if (!id || !drafts?.some((draft) => draft.pendingFile && !draft.removed)) {
+            return of(saved);
+          }
+          return syncDocumentDrafts(this.api, 'quotation', this.data.projectId, id, drafts, true, 100);
+        }),
         whileBusy((busy) => (this.isImporting = busy)),
       )
       .subscribe({
@@ -611,10 +664,37 @@ export class ImportQuotationDialogComponent {
       });
   }
 
+  get supportingLabel(): string {
+    return documentSummary(this.documentDrafts ?? [], true);
+  }
+
+  openDocuments() {
+    openDocumentLibrary(this.dialog, {
+      title: 'Supporting documents',
+      note: 'Extra files are stored when the quotation is imported. The spreadsheet above is still the file that is read.',
+      kind: 'quotation',
+      projectId: this.data.projectId,
+      ownerId: null,
+      documents: [],
+      drafts: this.documentDrafts,
+      accept: this.documentAccept,
+      supportingOnly: true,
+      sortBase: 100,
+    }).afterClosed().subscribe((result) => {
+      if (result?.saved) {
+        this.documentDrafts = result.drafts ?? [];
+      }
+    });
+  }
+
   cancel() {
     if (!this.busy) {
       this.dialogRef.close(false);
     }
+  }
+
+  private get datesInvalid(): boolean {
+    return this.dateFields?.some((field) => field.invalid) ?? false;
   }
 
   private supplierReady(): boolean {

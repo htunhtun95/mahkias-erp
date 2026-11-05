@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject } from '@angular/core';
 import { AbstractControl, FormBuilder, FormsModule, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
+import { ErrorStateMatcher } from '@angular/material/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MaterialModule } from '../../app/material-module';
 import { AutoGrowDirective } from '../../core/auto-grow';
@@ -8,12 +9,19 @@ import { blockEnterSubmit } from '../../core/block-enter-submit';
 import { whileBusy } from '../../core/while-busy';
 import { Activity, ActivityType, ProjectApiService } from '../../core/services/project-api.service';
 
+class InvalidWhenInvalidMatcher implements ErrorStateMatcher {
+  isErrorState(control: AbstractControl | null): boolean {
+    return !!control && control.invalid && (control.touched || control.dirty);
+  }
+}
+
 @Component({
   selector: 'app-edit-activity-dialog',
   standalone: true,
   imports: [FormsModule, ReactiveFormsModule, MaterialModule, AutoGrowDirective],
   templateUrl: './edit-activity-dialog.html',
   styleUrl: './edit-activity-dialog.css',
+  providers: [{ provide: ErrorStateMatcher, useClass: InvalidWhenInvalidMatcher }],
 })
 export class EditActivityDialog {
   private fb = inject(FormBuilder);
@@ -98,7 +106,7 @@ export class EditActivityDialog {
   }
 
   private showError(control: AbstractControl) {
-    return control.invalid && (control.touched || this.submitted);
+    return control.invalid && (control.touched || control.dirty);
   }
 
   private static requiredText(control: AbstractControl): ValidationErrors | null {

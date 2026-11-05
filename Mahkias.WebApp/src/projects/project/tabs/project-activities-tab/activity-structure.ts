@@ -1,8 +1,10 @@
-import { Activity, ActivityGroup, ActivityLabel } from '../../../../core/services/project-api.service';
+import { Activity, ActivityGroup, ActivityLabel, ActivityQuotationLink } from '../../../../core/services/project-api.service';
 
 export interface GroupBlock {
   group: ActivityGroup;
   activities: Activity[];
+  quoteCount?: number;
+  lowest?: ActivityQuotationLink | null;
 }
 
 export interface TypeSection {

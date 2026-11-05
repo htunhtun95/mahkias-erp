@@ -1,0 +1,38 @@
+<section class="documents-list">
+  @if (loading) {
+    <p class="documents-status">Loading documents...</p>
+  } @else if (error) {
+    <p class="documents-error">{{ error }}</p>
+  } @else if (!documents.length) {
+    <p class="documents-status">No documents stored for this project.</p>
+  } @else {
+    <table>
+      <thead>
+        <tr>
+          <th>Order</th>
+          <th>File</th>
+          <th>Type</th>
+          <th>Size</th>
+          <th>Added</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (document of documents; track document.documentId) {
+          <tr>
+            <td>{{ document.sortOrder ?? 0 }}</td>
+            <td>
+              @if (document.webViewLink) {
+                <a [href]="document.webViewLink" target="_blank" rel="noopener noreferrer">{{ document.fileName }}</a>
+              } @else {
+                {{ document.fileName }}
+              }
+            </td>
+            <td>{{ document.fileType || '—' }}</td>
+            <td>{{ fileSize(document.fileSize ?? 0) || '—' }}</td>
+            <td>{{ added(document.uploadedAt) }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</section>

@@ -7,8 +7,17 @@
     </div>
   </div>
 }
-<h2>{{ isEdit ? 'Edit Supplier' : 'Add Supplier' }}</h2>
-<p>{{ isEdit ? 'Update the supplier name and reference.' : 'Add a supplier name and an optional reference.' }}</p>
+<header class="erp-modal-header">
+  <div class="erp-modal-title">
+    <div>
+      <h2>{{ isEdit ? 'Edit Supplier' : 'Add Supplier' }}</h2>
+      <p class="erp-modal-note">{{ isEdit ? 'Update the supplier name and reference.' : 'Add a supplier name and an optional reference.' }}</p>
+    </div>
+    <button class="erp-modal-close" type="button" aria-label="Close" [disabled]="isSaving" (click)="cancel()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+</header>
 
 <form [formGroup]="form" (ngSubmit)="save()" (keydown.enter)="onFieldEnter($event)">
   <div class="field" [class.invalid]="nameInvalid">
@@ -30,9 +39,9 @@
     <p class="error">{{ error }}</p>
   }
 
-  <div class="actions">
+  <div class="actions erp-modal-footer">
     <button type="button" class="btn ghost" (click)="cancel()" [disabled]="isSaving">Cancel</button>
-    <button type="submit" class="btn primary" [disabled]="isSaving">
+    <button type="submit" class="btn primary" [disabled]="isSaving || form.invalid">
       @if (isSaving) {
         <mat-spinner diameter="18"></mat-spinner>
       }

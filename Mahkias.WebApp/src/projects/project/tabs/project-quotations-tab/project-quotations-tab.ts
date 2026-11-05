@@ -10,6 +10,7 @@ import { CreateQuotationDialogComponent } from '../../../add-quotation-dialog/ad
 import { ConfirmDialog } from '../../../confirm-dialog/confirm-dialog';
 import { PurchaseOrderDialogComponent } from '../../../purchase-order-dialog/purchase-order-dialog';
 import { PurchaseOrderSync } from '../../../purchase-order-sync';
+import { documentAccept, openDocumentLibrary } from '../../../document-library-dialog/document-library-dialog';
 import { QuotationDetailDialog } from './quotation-detail-dialog';
 import { QuotationSync } from '../../../quotation-sync';
 import { formatMoney } from '../../../money-format';
@@ -107,16 +108,37 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
     }
   }
 
+  manageDocuments(quotation: QuotationListItem) {
+    if (!this.project || this.deletingId != null) {
+      return;
+    }
+    this.api.quotationDocuments(this.project.id, quotation.id).subscribe({
+      next: (documents) => {
+        openDocumentLibrary(this.dialog, {
+          title: 'Manage documents',
+          note: `Files for ${quotation.code}. Choose the original, then set the order.`,
+          kind: 'quotation',
+          projectId: this.project!.id,
+          ownerId: quotation.id,
+          documents: documents ?? [],
+          accept: documentAccept,
+        });
+      },
+    });
+  }
+
   openDetails(quotation: QuotationListItem) {
     if (!this.project || this.deletingId != null) {
       return;
     }
     this.dialog.open(QuotationDetailDialog, {
       disableClose: true,
-      width: '96vw',
-      maxWidth: '1280px',
-      maxHeight: '90vh',
-      panelClass: ['add-project-dialog-panel', 'app-dialog-pane'],
+      width: '100vw',
+      maxWidth: '100vw',
+      minWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       autoFocus: 'first-tabbable',
       data: {
@@ -220,11 +242,12 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
     this.error = '';
     const ref = this.dialog.open(PurchaseOrderDialogComponent, {
       disableClose: true,
-      width: '95vw',
-      maxWidth: '95vw',
-      minWidth: 'min(720px, 95vw)',
-      maxHeight: 'none',
-      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'app-dialog-pane'],
+      width: '100vw',
+      maxWidth: '100vw',
+      minWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       autoFocus: 'first-tabbable',
       data: {
@@ -251,11 +274,12 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
       next: (detail) => {
         const ref = this.dialog.open(CreateQuotationDialogComponent, {
           disableClose: true,
-          width: '95vw',
-          maxWidth: '95vw',
-          minWidth: 'min(720px, 95vw)',
-          maxHeight: 'none',
-          panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'app-dialog-pane'],
+          width: '100vw',
+          maxWidth: '100vw',
+          minWidth: '100vw',
+          height: '100vh',
+          maxHeight: '100vh',
+          panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
           backdropClass: 'add-project-dialog-backdrop',
           autoFocus: 'first-tabbable',
           data: {

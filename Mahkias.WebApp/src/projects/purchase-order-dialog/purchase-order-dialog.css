@@ -14,13 +14,14 @@
 .quotation-dialog-header,
 .quotation-dialog-footer {
   flex: 0 0 auto;
-  padding: 16px 32px;
+  padding: 16px 24px;
   background: #fff;
 }
 
 .quotation-dialog-header {
   position: relative;
   z-index: 4;
+  border-bottom: 1px solid #e8eaed;
 }
 
 .quotation-dialog-footer {
@@ -66,7 +67,7 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 4px 32px 16px;
+  padding: 16px 24px;
 }
 
 .title-row,
@@ -98,10 +99,18 @@ h2 {
 }
 
 .icon-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 36px;
   height: 36px;
   border-radius: 50%;
   color: #5f6368;
+}
+
+.icon-close:hover:not(:disabled) {
+  background: #f1f3f4;
+  color: #202124;
 }
 
 .header-fields,
@@ -169,6 +178,19 @@ h2 {
   margin: 0;
   padding: 0 12px;
   line-height: 34px;
+}
+
+.header-fields label.invalid input,
+.header-fields label.invalid select,
+.header-fields label.invalid textarea,
+.header-fields label.invalid input:hover,
+.header-fields label.invalid select:hover,
+.header-fields label.invalid textarea:hover,
+.header-fields label.invalid input:focus,
+.header-fields label.invalid select:focus,
+.header-fields label.invalid textarea:focus {
+  border-color: var(--field-invalid);
+  box-shadow: var(--field-invalid-ring);
 }
 
 .supplier-field,
@@ -454,8 +476,8 @@ table.sheet td.locked input {
 }
 
 table.sheet td.invalid {
-  box-shadow: inset 0 0 0 1.5px #d93025;
-  background: #fce8e6;
+  background: #fff;
+  box-shadow: none;
 }
 
 table.sheet tbody td input,
@@ -764,9 +786,13 @@ label.original-toggle input {
   box-sizing: border-box;
 }
 
-.po-import .map-grid select.invalid {
-  border-color: #d93025;
-  background: #fce8e6;
+.po-import .map-grid select.invalid,
+.po-import .map-grid select.invalid:focus,
+.po-import .map-grid input.invalid,
+.po-import .map-grid input.invalid:focus {
+  border-color: var(--field-invalid);
+  background: #fff;
+  box-shadow: var(--field-invalid-ring);
 }
 
 .po-import .hint {
@@ -939,7 +965,8 @@ label.original-toggle input {
 }
 
 .po-import .import-sheet td.invalid {
-  box-shadow: inset 0 0 0 1.5px #d93025;
+  background: #fff;
+  box-shadow: none;
 }
 
 .po-import .import-sheet td.part {

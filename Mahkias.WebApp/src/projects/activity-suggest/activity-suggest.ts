@@ -120,6 +120,7 @@ export class ActivitySuggestComponent implements OnChanges, OnDestroy {
   @Input() ariaLabel = 'Activity';
   @Output() valueChange = new EventEmitter<string>();
   @Output() picked = new EventEmitter<ActivitySuggestion>();
+  @Output() blurred = new EventEmitter<void>();
   @ViewChild('origin') private origin?: ElementRef<HTMLInputElement>;
   @ViewChild('menu') private menu?: TemplateRef<unknown>;
 
@@ -167,6 +168,7 @@ export class ActivitySuggestComponent implements OnChanges, OnDestroy {
   onBlur() {
     this.focused = false;
     this.close();
+    this.blurred.emit();
   }
 
   onKey(event: KeyboardEvent) {

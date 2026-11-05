@@ -67,8 +67,9 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
   private poLinesLoaded = false;
   private detailState: QuotationDataState | null = null;
   private linksVersion = 0;
-  private sectionsKey = '';
+  private sectionsKey = Number.NaN;
   private sectionsCache: TypeSection[] = [];
+  private labelCounts = new Map<string, number>();
   private lowestByActivity = new Map<number, ActivityQuotationLink>();
   private quoteCountByActivity = new Map<number, number>();
 
@@ -263,10 +264,12 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     this.detailState = state;
     const ref = this.dialog.open(QuotationDataDialog, {
       disableClose: true,
-      width: '95vw',
-      maxWidth: '1400px',
-      maxHeight: '90vh',
-      panelClass: ['add-project-dialog-panel', 'app-dialog-pane'],
+      width: '100vw',
+      maxWidth: '100vw',
+      minWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       autoFocus: 'first-tabbable',
       data: state,
@@ -302,35 +305,65 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
   }
 
   get activityGroups(): TypeSection[] {
-    const key = this.sectionsKeyNow();
+    const key = this.viewKey();
     if (key !== this.sectionsKey) {
       this.sectionsKey = key;
-      this.sectionsCache = this.composeActivityGroups();
+      const visible = this.visibleProjectActivities();
+      this.sectionsCache = this.composeActivityGroups(visible);
+      this.labelCounts = this.countLabels(visible);
     }
     return this.sectionsCache;
   }
 
-  private sectionsKeyNow(): string {
-    const activities = this.project?.activities ?? [];
-    let stamp = `${this.project?.id}|${this.activityFilter}|${this.quoteFilter}|${this.linksVersion}|${this.types.length}|`;
+  private viewKey(): number {
+    let hash = 2166136261;
+    const mix = (value: number) => {
+      hash ^= value | 0;
+      hash = Math.imul(hash, 16777619);
+    };
+    const fold = (value: string | null | undefined) => {
+      const text = value ?? '';
+      let sum = text.length;
+      for (let index = 0; index < text.length; index++) {
+        sum = (sum + text.charCodeAt(index)) | 0;
+      }
+      mix(sum);
+    };
+    mix(this.project?.id ?? 0);
+    mix(this.linksVersion);
+    mix(this.types.length);
+    mix(this.groups.length);
+    mix(this.labels.length);
+    fold(this.activityFilter);
+    fold(this.quoteFilter);
     for (const [typeId, labelId] of this.labelSelection) {
-      stamp += `${typeId}=${labelId ?? ''},`;
+      mix(typeId);
+      mix(labelId ?? 0);
     }
-    stamp += '|';
+    const activities = this.project?.activities ?? [];
+    mix(activities.length);
     for (const activity of activities) {
-      stamp += `${activity.id}:${activity.activityGroupId ?? ''}:${activity.typeId ?? ''}:${activity.dsnNo ?? ''}:${activity.partNo ?? ''}:${activity.quantity ?? ''};`;
+      mix(activity.id);
+      mix(activity.activityGroupId ?? 0);
+      mix(activity.typeId ?? 0);
+      mix(activity.quantity ?? 0);
+      fold(activity.dsnNo);
+      fold(activity.partNo);
     }
     for (const group of this.groups) {
-      stamp += `g${group.id}:${group.name};`;
+      mix(group.id);
+      mix(group.typeId ?? 0);
+      fold(group.name);
     }
     for (const label of this.labels) {
-      stamp += `l${label.id}:${label.activityIds.length}:${label.activityGroupIds.length};`;
+      mix(label.id);
+      mix(label.activityIds.length);
+      mix(label.activityGroupIds.length);
     }
-    return stamp;
+    return hash;
   }
 
-  private composeActivityGroups(): TypeSection[] {
-    const visible = this.visibleProjectActivities();
+  private composeActivityGroups(visible: Activity[]): TypeSection[] {
     const ungrouped = visible.filter((activity) => !activity.activityGroupId);
     const order = this.types.length
       ? this.types.map((type) => type.id)
@@ -349,7 +382,11 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
         typeId,
         typeName: type?.name || items[0]?.type || blocks[0]?.activities[0]?.type || 'Activities',
         activities: filtered.activities,
-        groups: filtered.groups,
+        groups: filtered.groups.map((block) => ({
+          ...block,
+          quoteCount: this.groupQuoteCount(block.activities),
+          lowest: this.groupLowestLink(block.activities),
+        })),
         shownCount: filtered.activities.length + filtered.groups.reduce((total, block) => total + block.activities.length, 0),
       });
     }
@@ -916,12 +953,35 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     if (typeId == null) {
       return 0;
     }
-    return this.visibleProjectActivities().filter((activity) => {
-      if (activity.typeId !== typeId) {
-        return false;
+    this.activityGroups;
+    return this.labelCounts.get(label ? `${typeId}:${label.id}` : `${typeId}:`) ?? 0;
+  }
+
+  private countLabels(visible: Activity[]): Map<string, number> {
+    const counts = new Map<string, number>();
+    const labelsByType = new Map<number, ActivityLabel[]>();
+    for (const label of this.labels) {
+      if (label.typeId == null) {
+        continue;
       }
-      return label == null || activityHasLabel(activity, label);
-    }).length;
+      const list = labelsByType.get(label.typeId) ?? [];
+      list.push(label);
+      labelsByType.set(label.typeId, list);
+    }
+    for (const activity of visible) {
+      if (activity.typeId == null) {
+        continue;
+      }
+      const allKey = `${activity.typeId}:`;
+      counts.set(allKey, (counts.get(allKey) ?? 0) + 1);
+      for (const label of labelsByType.get(activity.typeId) ?? []) {
+        if (activityHasLabel(activity, label)) {
+          const key = `${activity.typeId}:${label.id}`;
+          counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+      }
+    }
+    return counts;
   }
 
   get labelActions(): { assign: boolean; remove: boolean } {
@@ -1407,8 +1467,25 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       .sort((left, right) => compareDsnNo(left.dsnNo, right.dsnNo));
   }
 
+  private memberIndexSource: Activity[] | null = null;
+  private membersByGroup = new Map<number, Activity[]>();
+
   private members(groupId: number): Activity[] {
-    return (this.project.activities ?? []).filter((activity) => activity.activityGroupId === groupId);
+    const activities = this.project?.activities ?? [];
+    if (this.memberIndexSource !== activities) {
+      const grouped = new Map<number, Activity[]>();
+      for (const activity of activities) {
+        if (!activity.activityGroupId) {
+          continue;
+        }
+        const list = grouped.get(activity.activityGroupId) ?? [];
+        list.push(activity);
+        grouped.set(activity.activityGroupId, list);
+      }
+      this.memberIndexSource = activities;
+      this.membersByGroup = grouped;
+    }
+    return this.membersByGroup.get(groupId) ?? [];
   }
 
   private visibleMembers(groupId: number): Activity[] {

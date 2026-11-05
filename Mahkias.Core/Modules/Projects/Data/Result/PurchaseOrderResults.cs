@@ -114,6 +114,14 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
         public string WebViewLink { get; set; }
 
         public DateTime? UploadedAt { get; set; }
+
+        public Guid AssetId { get; set; }
+
+        public long FileSize { get; set; }
+
+        public int SortOrder { get; set; }
+
+        public bool IsOriginal { get; set; }
     }
 
     public class PurchaseOrderDetailResult : PurchaseOrderListItem

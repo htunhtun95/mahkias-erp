@@ -305,6 +305,18 @@ namespace Mahkias.Api.Controllers
             return Ok(await _uow.PurchaseOrders.ListDocumentsAsync(projectId, purchaseOrderId));
         }
 
+        [HttpPut("/api/projects/{projectId:int}/purchase-orders/{purchaseOrderId:int}/documents/order")]
+        public async Task<IActionResult> OrderDocuments(int projectId, int purchaseOrderId, [FromBody] DocumentOrderRequest request)
+        {
+            if (request?.Documents == null)
+            {
+                return BadRequest(new { message = "Document order is required." });
+            }
+
+            await _uow.PurchaseOrders.OrderDocumentsAsync(projectId, purchaseOrderId, request.Documents, request.OriginalDocumentId);
+            return Ok(await _uow.PurchaseOrders.ListDocumentsAsync(projectId, purchaseOrderId));
+        }
+
         [HttpDelete("/api/projects/{projectId:int}/purchase-orders/{purchaseOrderId:int}/documents/{documentId:int}")]
         public async Task<IActionResult> RemoveDocument(int projectId, int purchaseOrderId, int documentId)
         {
@@ -319,7 +331,7 @@ namespace Mahkias.Api.Controllers
         [HttpPost("/api/projects/{projectId:int}/purchase-orders/{purchaseOrderId:int}/documents")]
         [RequestSizeLimit(MaxRequestBytes)]
         [RequestFormLimits(MultipartBodyLengthLimit = MaxRequestBytes)]
-        public async Task<IActionResult> UploadDocument(int projectId, int purchaseOrderId, IFormFile file, CancellationToken cancellationToken)
+        public async Task<IActionResult> UploadDocument(int projectId, int purchaseOrderId, IFormFile file, [FromForm] bool isOriginal, [FromForm] int? sortOrder, CancellationToken cancellationToken)
         {
             if (await _uow.PurchaseOrders.GetDetailAsync(purchaseOrderId) == null)
             {
@@ -340,6 +352,9 @@ namespace Mahkias.Api.Controllers
             try
             {
                 var saved = await UploadFileAsync(projectId, purchaseOrderId, upload.Buffer, upload.FileName, upload.ContentType, upload.FileType, cancellationToken);
+                saved.FileSize = upload.Buffer.Length;
+                saved.IsOriginal = isOriginal;
+                saved.SortOrder = sortOrder;
                 return Ok(await _uow.PurchaseOrders.AddDocumentAsync(saved));
             }
             catch (Exception ex) when (ex is InvalidOperationException || ex is SqlException)
@@ -370,6 +385,7 @@ namespace Mahkias.Api.Controllers
                 FileType = fileType,
                 GoogleDriveFileId = uploaded.FileId,
                 WebViewLink = uploaded.WebViewLink ?? string.Empty,
+                FileSize = buffer.Length,
             };
         }
 

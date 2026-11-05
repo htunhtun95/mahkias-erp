@@ -108,10 +108,30 @@ export class AddActivityDialog implements AfterViewInit, OnDestroy {
     this.watchLastRow();
   }
 
+  get validationMessage(): string {
+    const filled = this.rows.controls
+      .map((row) => row.getRawValue() as ActivityRowValue)
+      .filter((row) => !this.isBlank(row));
+    if (!filled.length) {
+      return 'Enter at least one activity.';
+    }
+    if (filled.some((row) => !this.isComplete(row))) {
+      return 'DSN no, part number, and type are required on the highlighted rows.';
+    }
+    if (filled.some((row) => String(row.label ?? '').trim().length > 200)) {
+      return 'Label names must be 200 characters or fewer.';
+    }
+    return '';
+  }
+
+  get canSave(): boolean {
+    return !this.validationMessage;
+  }
+
   fieldInvalid(index: number, field: 'dsnNo' | 'partNo' | 'typeId') {
     const control = this.rows.at(index).get(field);
     const row = this.rowValue(index);
-    if (!control || this.isBlank(row) || !(this.submitted || control.touched)) {
+    if (!control || this.isBlank(row) || !(control.touched || control.dirty)) {
       return false;
     }
 
@@ -136,6 +156,12 @@ export class AddActivityDialog implements AfterViewInit, OnDestroy {
     }
 
     return 'Type is required';
+  }
+
+  labelInvalid(index: number): boolean {
+    const control = this.rows.at(index).get('label');
+    const row = this.rowValue(index);
+    return !!control && (control.touched || control.dirty) && !this.isBlank(row) && String(row.label ?? '').trim().length > 200;
   }
 
   cancel() {

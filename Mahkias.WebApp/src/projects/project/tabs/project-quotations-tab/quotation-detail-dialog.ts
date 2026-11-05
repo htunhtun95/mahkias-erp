@@ -1,8 +1,11 @@
 import { Component, inject, OnInit } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { forkJoin } from 'rxjs';
 import { MaterialModule } from '../../../../app/material-module';
 import { ProjectApiService, QuotationCharge, QuotationDetail, QuotationDocument, QuotationLine, QuotationListItem } from '../../../../core/services/project-api.service';
+import { closeOnEscape } from '../../../../core/close-on-escape';
+import { formatFileSize } from '../../../document-manager/document-manager';
+import { documentAccept, openDocumentLibrary } from '../../../document-library-dialog/document-library-dialog';
 import { formatMoney } from '../../../money-format';
 import { quotationQuantity, quotationValidity } from '../../../quotation-terms';
 
@@ -20,6 +23,7 @@ export interface QuotationDetailDialogData {
 })
 export class QuotationDetailDialog implements OnInit {
   private api = inject(ProjectApiService);
+  private dialog = inject(MatDialog);
   private dialogRef = inject(MatDialogRef<QuotationDetailDialog>);
   data = inject<QuotationDetailDialogData>(MAT_DIALOG_DATA);
 
@@ -29,6 +33,7 @@ export class QuotationDetailDialog implements OnInit {
   documents: QuotationDocument[] = [];
 
   ngOnInit() {
+    closeOnEscape(this.dialogRef, () => this.close());
     forkJoin({
       detail: this.api.quotation(this.data.quotation.id),
       documents: this.api.quotationDocuments(this.data.projectId, this.data.quotation.id),
@@ -109,9 +114,32 @@ export class QuotationDetailDialog implements OnInit {
     return 'draft';
   }
 
+  fileSize = formatFileSize;
+
   fileKind(fileName: string): string {
     const kind = extension(fileName);
     return kind ? kind.toUpperCase() : 'File';
+  }
+
+  manageDocuments() {
+    openDocumentLibrary(this.dialog, {
+      title: 'Manage documents',
+      note: `Files for ${this.data.quotation.code}. Choose the original, then set the order.`,
+      kind: 'quotation',
+      projectId: this.data.projectId,
+      ownerId: this.data.quotation.id,
+      documents: this.documents,
+      accept: documentAccept,
+    }).afterClosed().subscribe((result) => {
+      if (!result?.saved) {
+        return;
+      }
+      this.api.quotationDocuments(this.data.projectId, this.data.quotation.id).subscribe({
+        next: (documents) => {
+          this.documents = documents ?? [];
+        },
+      });
+    });
   }
 
   close() {

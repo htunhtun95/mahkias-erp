@@ -19,7 +19,9 @@
 }
 
 .quotation-dialog-header {
-  padding: 16px 32px 0;
+  padding: 16px 24px;
+  border-bottom: 1px solid #e8eaed;
+  background: #fff;
 }
 
 .quotation-dialog-body {
@@ -28,7 +30,7 @@
   gap: 16px;
   min-height: min-content;
   overflow: visible;
-  padding: 4px 32px 24px;
+  padding: 16px 24px 24px;
 }
 
 .title-row {
@@ -36,15 +38,20 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  margin: 0;
 }
 
 h2 {
   margin: 0;
+  color: #202124;
   font-size: 20px;
   font-weight: 500;
 }
 
 .icon-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 36px;
   height: 36px;
   border: 0;
@@ -63,7 +70,8 @@ h2 {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
-  margin-top: 12px;
+  margin-top: 16px;
+  padding: 0;
   align-items: start;
 }
 
@@ -134,6 +142,23 @@ section {
   flex-direction: column;
   gap: 8px;
   min-width: 0;
+}
+
+.files-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.files-head button {
+  border: 0;
+  background: transparent;
+  color: #1a73e8;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
 }
 
 h3 {

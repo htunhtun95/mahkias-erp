@@ -5,9 +5,11 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { forkJoin, Subscription } from 'rxjs';
 import { MaterialModule } from '../../../../app/material-module';
 import { Project, ProjectApiService, PurchaseOrderDetail, PurchaseOrderDocument, PurchaseOrderLine, PurchaseOrderListItem, QuotationCharge } from '../../../../core/services/project-api.service';
+import { formatFileSize } from '../../../document-manager/document-manager';
 import { formatMoney } from '../../../money-format';
 import { ConfirmDialog } from '../../../confirm-dialog/confirm-dialog';
 import { PurchaseOrderDialogComponent } from '../../../purchase-order-dialog/purchase-order-dialog';
+import { documentAccept, openDocumentLibrary } from '../../../document-library-dialog/document-library-dialog';
 import { PurchaseOrderDetailDialog } from './purchase-order-detail-dialog';
 import { ProcurementTrace } from '../../../procurement-trace';
 import { PurchaseOrderSync } from '../../../purchase-order-sync';
@@ -168,6 +170,8 @@ export class ProjectPurchasesTabComponent implements OnChanges, OnDestroy {
     return 'draft';
   }
 
+  fileSize = formatFileSize;
+
   fileKind(fileName: string): string {
     const kind = extension(fileName);
     return kind ? kind.toUpperCase() : 'File';
@@ -217,6 +221,30 @@ export class ProjectPurchasesTabComponent implements OnChanges, OnDestroy {
     });
   }
 
+  manageDocuments(order: PurchaseOrderListItem) {
+    if (!this.project || this.deletingId != null) {
+      return;
+    }
+    const projectId = this.project.id;
+    this.api.purchaseOrderDocuments(projectId, order.id).subscribe({
+      next: (documents) => {
+        openDocumentLibrary(this.dialog, {
+          title: 'Manage documents',
+          note: `Files for ${order.code}. Choose the original, then set the order.`,
+          kind: 'purchase-order',
+          projectId,
+          ownerId: order.id,
+          documents: documents ?? [],
+          accept: documentAccept,
+        }).afterClosed().subscribe((result) => {
+          if (result?.saved && this.expanded.has(order.id)) {
+            this.fetchLines(order.id);
+          }
+        });
+      },
+    });
+  }
+
   openDetails(order: PurchaseOrderListItem) {
     if (!this.project || this.deletingId != null) {
       return;
@@ -243,11 +271,12 @@ export class ProjectPurchasesTabComponent implements OnChanges, OnDestroy {
     }
     const ref = this.dialog.open(PurchaseOrderDialogComponent, {
       disableClose: true,
-      width: '95vw',
-      maxWidth: '95vw',
-      minWidth: 'min(720px, 95vw)',
-      maxHeight: 'none',
-      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'app-dialog-pane'],
+      width: '100vw',
+      maxWidth: '100vw',
+      minWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       autoFocus: 'first-tabbable',
       data: {

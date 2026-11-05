@@ -62,6 +62,16 @@
       >
         Procurement
       </button>
+      <button
+        class="tab"
+        type="button"
+        role="tab"
+        [class.active]="tab === 'documents'"
+        [attr.aria-selected]="tab === 'documents'"
+        (click)="selectTab('documents')"
+      >
+        Documents
+      </button>
     </div>
 
     <div class="header-actions">
@@ -138,6 +148,11 @@
             }
           }
         }
+        @case ('documents') {
+          <button class="action-primary" type="button" (click)="manageDocuments()" [disabled]="isDeleting">
+            Manage documents
+          </button>
+        }
       }
     </div>
   </div>
@@ -201,6 +216,12 @@
         (countChange)="purchaseCount = $event"
       />
     }
+    <app-project-documents-tab
+      class="tab-panel"
+      [class.is-hidden]="tab !== 'documents'"
+      [project]="project"
+      [disabled]="isDeleting"
+    />
   </div>
 } @else {
   <p class="error">{{ error || 'Project not found.' }}</p>

@@ -1,8 +1,8 @@
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, ElementRef, OnInit, ViewChild, inject } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { FormsModule, NgModel } from '@angular/forms';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { catchError, forkJoin, of, switchMap } from 'rxjs';
 import { MaterialModule } from '../../app/material-module';
 import {
@@ -17,13 +17,16 @@ import {
   PurchaseOrderLine,
   Supplier,
 } from '../../core/services/project-api.service';
-import { DriveUploadCardComponent, StoredDriveFile } from '../drive-upload-card/drive-upload-card';
+import { DocumentDraft, documentSummary, syncDocumentDrafts } from '../document-manager/document-manager';
+import { documentAccept as acceptedDocuments, openDocumentLibrary } from '../document-library-dialog/document-library-dialog';
 import { formatMoney } from '../money-format';
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
 import { QuotationChargeRow, QuotationChargesComponent, quotationChargeTotal, readQuotationCharges } from '../quotation-charges/quotation-charges';
 import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-date-field';
 import { canonicalCondition, canonicalUnit } from '../quotation-lookups';
 import { dateInputValue } from '../quotation-terms';
+import { closeOnEscape } from '../../core/close-on-escape';
+import { SheetCellFocusDirective } from '../sheet-cell-focus';
 import { ActivitySuggestion, directActivityId } from '../quotation-map';
 import { ActivitySuggestComponent } from '../activity-suggest/activity-suggest';
 
@@ -88,9 +91,9 @@ interface PoEdits {
     MaterialModule,
     QuotationDateFieldComponent,
     QuotationChargesComponent,
-    DriveUploadCardComponent,
     LookupComboboxComponent,
     ActivitySuggestComponent,
+    SheetCellFocusDirective,
   ],
   templateUrl: './purchase-order-dialog.html',
   styleUrl: './purchase-order-dialog.css',
@@ -110,9 +113,9 @@ export class PurchaseOrderDialogComponent implements OnInit {
   history: PurchaseOrderHistoryEntry[] = [];
   conditionOptions: string[] = [];
   unitOptions: string[] = [];
-  readonly documentAccept = '.pdf,.doc,.docx,.xls,.xlsx,.xlsm,.csv,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tif,.tiff';
+  readonly documentAccept = acceptedDocuments;
+  documentDrafts: DocumentDraft[] | null = null;
   documents: PurchaseOrderDocument[] = [];
-  storedCleared = false;
   links: ActivityQuotationLink[] = [];
   private applying = false;
   rows: PoLine[] = [];
@@ -122,10 +125,12 @@ export class PurchaseOrderDialogComponent implements OnInit {
   supplierQuery = '';
   supplierOpen = false;
   @ViewChild('supplierInput') supplierInput?: ElementRef<HTMLInputElement>;
+  private dialog = inject(MatDialog);
+  @ViewChild('codeField') private codeField?: NgModel;
+  @ViewChild('supplierField') private supplierField?: NgModel;
   currencyId: number | null = null;
   poDate = todayIso();
   shipToAddress = '';
-  file: File | null = null;
   search = '';
   loading = true;
   saving = false;
@@ -133,6 +138,7 @@ export class PurchaseOrderDialogComponent implements OnInit {
   error = '';
 
   ngOnInit() {
+    closeOnEscape(this.dialogRef, () => this.close());
     const id = this.data.purchaseOrderId;
     forkJoin({
       suppliers: this.api.suppliers(),
@@ -215,6 +221,7 @@ export class PurchaseOrderDialogComponent implements OnInit {
       return;
     }
     this.supplierQuery = '';
+    this.supplierField?.control.markAsDirty();
     this.supplierId = null;
     this.supplierOpen = true;
     setTimeout(() => this.supplierInput?.nativeElement.focus());
@@ -231,19 +238,6 @@ export class PurchaseOrderDialogComponent implements OnInit {
 
   get title(): string {
     return this.data.purchaseOrderId ? 'Edit purchase order' : 'New purchase order';
-  }
-
-  get storedFiles(): StoredDriveFile[] {
-    if (this.storedCleared || this.file) {
-      return [];
-    }
-    return this.documents
-      .filter((document) => !!document.webViewLink)
-      .map((document) => ({
-        fileName: document.fileName,
-        fileType: document.fileType,
-        webViewLink: document.webViewLink,
-      }));
   }
 
   get symbol(): string {
@@ -270,31 +264,75 @@ export class PurchaseOrderDialogComponent implements OnInit {
     return formatMoney(value, this.symbol, this.currencyCode);
   }
 
+  private poVisibleKey = Number.NaN;
+  private poVisibleCache: PoLine[] = [];
+
   get visibleRows(): PoLine[] {
     const term = this.search.trim().toLowerCase();
     if (!term) {
       return this.rows;
     }
-    return this.rows.filter((row) =>
+    const key = this.poSearchKey(term);
+    if (key === this.poVisibleKey) {
+      return this.poVisibleCache;
+    }
+    this.poVisibleKey = key;
+    this.poVisibleCache = this.rows.filter((row) =>
       [row.dsnNo, row.partNo, row.description, row.quotationCode].some((value) => value.toLowerCase().includes(term)),
     );
+    return this.poVisibleCache;
   }
 
-  onAttachment(file: File | null) {
-    this.file = file;
-  }
-
-  clearStoredAttachment() {
-    if (!this.saving) {
-      this.file = null;
-      this.storedCleared = true;
+  private poSearchKey(term: string): number {
+    let hash = term.length;
+    for (let index = 0; index < term.length; index++) {
+      hash = Math.imul(hash, 33) ^ term.charCodeAt(index);
     }
+    const head = (value: string) => value ? value.charCodeAt(0) : 0;
+    for (const row of this.rows) {
+      hash = Math.imul(hash, 33) ^ row.dsnNo.length ^ row.partNo.length ^ row.description.length ^ row.quotationCode.length;
+      hash = (hash + head(row.dsnNo) + head(row.partNo) + head(row.description) + head(row.quotationCode)) | 0;
+    }
+    return hash;
   }
 
   close() {
     if (!this.saving) {
       this.dialogRef.close(false);
     }
+  }
+
+  get documentsLabel(): string {
+    return documentSummary(this.documentDrafts ?? this.documents);
+  }
+
+  openDocuments() {
+    openDocumentLibrary(this.dialog, {
+      title: 'Manage documents',
+      note: this.data.purchaseOrderId
+        ? 'Changes are stored for this purchase order when you save this window.'
+        : 'Files are stored when the purchase order is saved.',
+      kind: 'purchase-order',
+      projectId: this.data.projectId,
+      ownerId: this.data.purchaseOrderId ?? null,
+      documents: this.documents,
+      drafts: this.data.purchaseOrderId ? null : this.documentDrafts,
+      accept: this.documentAccept,
+    }).afterClosed().subscribe((result) => {
+      if (!result?.saved) {
+        return;
+      }
+      if (this.data.purchaseOrderId) {
+        this.documentDrafts = null;
+        this.api.purchaseOrderDocuments(this.data.projectId, this.data.purchaseOrderId).subscribe({
+          next: (documents) => {
+            this.documents = documents ?? [];
+          },
+        });
+        return;
+      }
+      this.documentDrafts = result.drafts ?? [];
+    });
   }
 
   addLine() {
@@ -405,10 +443,81 @@ export class PurchaseOrderDialogComponent implements OnInit {
     this.applying = false;
   }
 
-  invalid(row: PoLine, field: 'dsn' | 'part' | 'qty' | 'price'): boolean {
-    if (!this.submitted) {
-      return false;
+  private seen = new Set<string>();
+
+  private fieldStarted(field?: NgModel): boolean {
+    return !!field?.touched || !!field?.dirty;
+  }
+
+  touch(row: PoLine, field: string) {
+    this.seen.add(`${row.key}:${field}`);
+  }
+
+  interacted(row: PoLine, field: string): boolean {
+    return this.seen.has(`${row.key}:${field}`);
+  }
+
+  get codeInvalid(): boolean {
+    return !this.code.trim();
+  }
+
+  get codeErrorVisible(): boolean {
+    return this.codeInvalid && this.fieldStarted(this.codeField);
+  }
+
+  get supplierErrorVisible(): boolean {
+    return this.supplierInvalid && this.fieldStarted(this.supplierField);
+  }
+
+  get supplierInvalid(): boolean {
+    return !this.supplierId;
+  }
+
+  get validationMessage(): string {
+    if (this.codeInvalid) {
+      return 'Enter a PO number.';
     }
+    if (this.supplierInvalid) {
+      return 'Choose a supplier.';
+    }
+    let priced = false;
+    for (const row of this.rows) {
+      const problem = lineProblem(row);
+      if (problem === 'skip') {
+        continue;
+      }
+      if (problem) {
+        return lineMessage(problem);
+      }
+      priced = true;
+    }
+    if (!priced) {
+      return 'Add at least one purchase order line with a unit price.';
+    }
+    return readQuotationCharges(this.charges).error;
+  }
+
+  get canSave(): boolean {
+    return !this.validationMessage;
+  }
+
+  get visibleValidationMessage(): string {
+    if (!this.validationMessage) {
+      return '';
+    }
+    if (this.codeInvalid) {
+      return this.codeErrorVisible ? this.validationMessage : '';
+    }
+    if (this.supplierInvalid) {
+      return this.supplierErrorVisible ? this.validationMessage : '';
+    }
+    if (readQuotationCharges(this.charges).error || this.seen.size) {
+      return this.validationMessage;
+    }
+    return '';
+  }
+
+  invalid(row: PoLine, field: 'dsn' | 'part' | 'qty' | 'price'): boolean {
     const problem = lineProblem(row);
     if (problem === 'skip' || problem == null) {
       return false;
@@ -581,25 +690,22 @@ export class PurchaseOrderDialogComponent implements OnInit {
     };
     this.saving = true;
     this.error = '';
-    const file = this.file;
-    const clearStored = this.storedCleared && !file;
-    const currentFile = this.documents[0];
     let orderSaved = false;
-    const request = file
-      ? this.data.purchaseOrderId
-        ? this.api.savePurchaseOrder(this.data.projectId, this.data.purchaseOrderId, body, file)
-        : this.api.importPurchaseOrder(this.data.projectId, body, file)
-      : this.data.purchaseOrderId
-        ? this.api.updatePurchaseOrder(this.data.purchaseOrderId, body)
-        : this.api.createPurchaseOrder(body);
+    const request = this.data.purchaseOrderId
+      ? this.api.updatePurchaseOrder(this.data.purchaseOrderId, body)
+      : this.api.createPurchaseOrder(body);
     request.pipe(
       switchMap((saved) => {
         orderSaved = true;
         const id = this.data.purchaseOrderId || saved?.id;
-        if (clearStored && id && currentFile) {
-          return this.api.removePurchaseOrderDocument(this.data.projectId, id, currentFile.documentId);
+        if (id) {
+          this.data.purchaseOrderId = id;
         }
-        return of(saved);
+        const drafts = this.documentDrafts;
+        if (!id || !drafts?.some((draft) => (draft.pendingFile && !draft.removed) || (draft.removed && draft.documentId))) {
+          return of(saved);
+        }
+        return syncDocumentDrafts(this.api, 'purchase-order', this.data.projectId, id, drafts, false);
       }),
     ).subscribe({
       next: () => {
@@ -609,8 +715,7 @@ export class PurchaseOrderDialogComponent implements OnInit {
       error: (error: HttpErrorResponse) => {
         this.saving = false;
         if (orderSaved) {
-          this.storedCleared = false;
-          this.error = error.error?.message || 'The purchase order was saved, but the file could not be updated.';
+          this.error = error.error?.message || 'The purchase order was saved, but the documents could not be updated.';
           return;
         }
         this.error = error.error?.message || 'The purchase order could not be saved.';

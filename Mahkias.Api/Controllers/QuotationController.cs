@@ -327,6 +327,7 @@ namespace Mahkias.Api.Controllers
                     FileType = fileType,
                     GoogleDriveFileId = uploaded.FileId,
                     WebViewLink = uploaded.WebViewLink ?? string.Empty,
+                    FileSize = buffer.Length,
                 };
             }
 
@@ -338,6 +339,7 @@ namespace Mahkias.Api.Controllers
                 FileType = fileType,
                 GoogleDriveFileId = uploaded.FileId,
                 WebViewLink = uploaded.WebViewLink ?? string.Empty,
+                FileSize = buffer.Length,
             };
         }
 

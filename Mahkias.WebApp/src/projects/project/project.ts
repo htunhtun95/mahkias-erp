@@ -13,16 +13,17 @@ import { ImportQuotationDialogComponent } from '../import-quotation-dialog/impor
 import { PurchaseOrderDialogComponent } from '../purchase-order-dialog/purchase-order-dialog';
 import { ConfirmDialog } from '../confirm-dialog/confirm-dialog';
 import { ProjectActivitiesTabComponent } from './tabs/project-activities-tab/project-activities-tab';
+import { ProjectDocumentsTabComponent } from './tabs/project-documents-tab/project-documents-tab';
 import { ProjectPurchasesTabComponent } from './tabs/project-purchases-tab/project-purchases-tab';
 import { ProjectQuotationsTabComponent } from './tabs/project-quotations-tab/project-quotations-tab';
 import { ProcurementTrace } from '../procurement-trace';
 import { PurchaseOrderSync } from '../purchase-order-sync';
 import { QuotationSync } from '../quotation-sync';
 
-export type ProjectTab = 'activities' | 'procurement';
+export type ProjectTab = 'activities' | 'procurement' | 'documents';
 export type ProcurementSection = 'quotations' | 'purchases';
 
-const PROJECT_TABS: ProjectTab[] = ['activities', 'procurement'];
+const PROJECT_TABS: ProjectTab[] = ['activities', 'procurement', 'documents'];
 const PROCUREMENT_SECTIONS: ProcurementSection[] = ['quotations', 'purchases'];
 
 @Component({
@@ -32,6 +33,7 @@ const PROCUREMENT_SECTIONS: ProcurementSection[] = ['quotations', 'purchases'];
     RouterModule,
     MaterialModule,
     ProjectActivitiesTabComponent,
+    ProjectDocumentsTabComponent,
     ProjectQuotationsTabComponent,
     ProjectPurchasesTabComponent,
   ],
@@ -50,6 +52,7 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
   private syncSub?: Subscription;
   private traceSub?: Subscription;
   private activitiesTab = viewChild(ProjectActivitiesTabComponent);
+  private documentsTab = viewChild(ProjectDocumentsTabComponent);
   private purchasesTab = viewChild(ProjectPurchasesTabComponent);
   private quotationsTab = viewChild(ProjectQuotationsTabComponent);
 
@@ -107,6 +110,19 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
 
         this.tab = 'procurement';
         this.section = section;
+        return;
+      }
+
+      if (tab === 'documents') {
+        this.tab = 'documents';
+        if (params.get('section')) {
+          this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { section: null },
+            queryParamsHandling: 'merge',
+            replaceUrl: true,
+          });
+        }
         return;
       }
 
@@ -174,6 +190,10 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
         : { tab, section: null },
       queryParamsHandling: 'merge',
     });
+  }
+
+  manageDocuments() {
+    this.documentsTab()?.manage();
   }
 
   selectSection(section: ProcurementSection) {
@@ -310,11 +330,12 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
 
     const ref = this.dialog.open(CreateQuotationDialogComponent, {
       disableClose: true,
-      width: '95vw',
-      maxWidth: '95vw',
-      minWidth: 'min(720px, 95vw)',
-      maxHeight: 'none',
-      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'app-dialog-pane'],
+      width: '100vw',
+      maxWidth: '100vw',
+      minWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       autoFocus: 'first-tabbable',
       data: {
@@ -333,11 +354,12 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
 
     const ref = this.dialog.open(ImportQuotationDialogComponent, {
       disableClose: true,
-      width: '95vw',
-      maxWidth: '95vw',
-      minWidth: 'min(720px, 95vw)',
-      maxHeight: 'none',
-      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'app-dialog-pane'],
+      width: '100vw',
+      maxWidth: '100vw',
+      minWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       autoFocus: 'first-tabbable',
       data: {
@@ -356,11 +378,12 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
 
     const ref = this.dialog.open(PurchaseOrderDialogComponent, {
       disableClose: true,
-      width: '95vw',
-      maxWidth: '95vw',
-      minWidth: 'min(720px, 95vw)',
-      maxHeight: 'none',
-      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'app-dialog-pane'],
+      width: '100vw',
+      maxWidth: '100vw',
+      minWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       autoFocus: 'first-tabbable',
       data: {
@@ -378,11 +401,12 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
 
     const ref = this.dialog.open(ImportPurchaseOrderDialogComponent, {
       disableClose: true,
-      width: '95vw',
-      maxWidth: '95vw',
-      minWidth: 'min(720px, 95vw)',
-      maxHeight: 'none',
-      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'app-dialog-pane'],
+      width: '100vw',
+      maxWidth: '100vw',
+      minWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       autoFocus: 'first-tabbable',
       data: {

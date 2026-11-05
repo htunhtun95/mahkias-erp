@@ -1,7 +1,14 @@
 <div class="app-dialog-container">
   <header class="app-dialog-header">
-    <h2>Labels</h2>
-    <p>A label stays with one activity type and can cover several activities or groups of that type.</p>
+    <div class="erp-modal-title">
+      <div>
+        <h2>Labels</h2>
+        <p class="erp-modal-note">A label stays with one activity type and can cover several activities or groups of that type.</p>
+      </div>
+      <button class="erp-modal-close" type="button" aria-label="Close" (click)="cancel()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
   </header>
   <div class="app-dialog-body">
     @if (data.labels.length) {
@@ -14,16 +21,16 @@
         }
       </div>
     }
-    <label class="field" [class.invalid]="submitted && !selected.size && !name.trim()">
-      <span>New label</span>
-      <input [(ngModel)]="name" name="labelName" maxlength="200" autocomplete="off" />
+    <label class="field" [class.invalid]="!data.labels.length && !name.trim() && (labelName.touched || labelName.dirty)">
+      <span>New label@if (!data.labels.length) {<span class="req" aria-hidden="true">*</span>}</span>
+      <input #labelName="ngModel" [(ngModel)]="name" name="labelName" maxlength="200" autocomplete="off" [attr.aria-invalid]="!data.labels.length && !name.trim() && (labelName.touched || labelName.dirty)" />
     </label>
-    @if (submitted && !selected.size && !name.trim()) {
+    @if (!selected.size && !name.trim() && (labelName.touched || labelName.dirty)) {
       <p class="error">Choose a label or enter a new name.</p>
     }
   </div>
   <div class="app-dialog-actions">
     <button type="button" class="btn ghost" (click)="cancel()">Cancel</button>
-    <button type="button" class="btn primary" (click)="save()">Save</button>
+    <button type="button" class="btn primary" (click)="save()" [disabled]="!selected.size && !name.trim()">Save</button>
   </div>
 </div>

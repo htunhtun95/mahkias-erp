@@ -1,6 +1,15 @@
-<h2>{{ data.title }}</h2>
-<p>{{ data.message }}</p>
-<div class="actions">
+<header class="erp-modal-header">
+  <div class="erp-modal-title">
+    <div>
+      <h2>{{ data.title }}</h2>
+      <p class="erp-modal-note">{{ data.message }}</p>
+    </div>
+    <button class="erp-modal-close" type="button" aria-label="Close" (click)="cancel()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+</header>
+<div class="actions erp-modal-footer">
   <button type="button" class="btn ghost" (click)="cancel()">{{ data.cancelLabel || 'Cancel' }}</button>
   @if (data.allowConfirm !== false) {
     <button type="button" class="btn danger" (click)="confirm()">{{ data.confirmLabel }}</button>

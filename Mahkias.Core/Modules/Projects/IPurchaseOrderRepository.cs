@@ -35,5 +35,7 @@ namespace Mahkias.Core.Modules.Projects
         Task<PurchaseOrderDocumentResult> AddDocumentAsync(CreatePurchaseOrderDocumentArgs args);
 
         Task<bool> RemoveDocumentAsync(int projectId, int purchaseOrderId, int documentId);
+
+        Task OrderDocumentsAsync(int projectId, int purchaseOrderId, IReadOnlyList<DocumentOrderItem> documents, int? originalDocumentId);
     }
 }

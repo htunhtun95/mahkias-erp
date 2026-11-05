@@ -70,22 +70,27 @@ function chargeAmount(text: string): number | null {
         @for (row of rows; track row.key) {
           <div class="charge-row">
             <input
+              #chargeName="ngModel"
               [(ngModel)]="row.name"
               [name]="'chargeName' + row.key"
               placeholder="Shipping charges"
               maxlength="200"
               autocomplete="off"
               [disabled]="disabled"
+              [class.invalid]="chargeInvalid(row, 'name') && (chargeName.touched || chargeName.dirty)"
+              [attr.aria-invalid]="chargeInvalid(row, 'name') && (chargeName.touched || chargeName.dirty)"
             />
-            <label class="amount">
+            <label class="amount" [class.invalid]="chargeInvalid(row, 'amount') && (chargeAmount.touched || chargeAmount.dirty)">
               <span>{{ symbol }}</span>
               <input
+                #chargeAmount="ngModel"
                 [(ngModel)]="row.amount"
                 [name]="'chargeAmount' + row.key"
                 placeholder="0.00"
                 inputmode="decimal"
                 autocomplete="off"
                 [disabled]="disabled"
+                [attr.aria-invalid]="chargeInvalid(row, 'amount') && (chargeAmount.touched || chargeAmount.dirty)"
               />
             </label>
             <button class="remove" type="button" [disabled]="disabled" (click)="remove(row.key)">Remove</button>
@@ -198,6 +203,13 @@ function chargeAmount(text: string): number | null {
       border-color: #1a73e8;
     }
 
+    input.invalid,
+    input.invalid:focus {
+      border-color: #d93025;
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(217, 48, 37, 0.16);
+    }
+
     .amount {
       display: flex;
       align-items: center;
@@ -211,6 +223,13 @@ function chargeAmount(text: string): number | null {
 
     .amount:focus-within {
       border-color: #1a73e8;
+    }
+
+    .amount.invalid,
+    .amount.invalid:focus-within {
+      border-color: #d93025;
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(217, 48, 37, 0.16);
     }
 
     .amount span {
@@ -245,6 +264,18 @@ export class QuotationChargesComponent {
     if (index >= 0) {
       this.rows.splice(index, 1);
     }
+  }
+
+  chargeInvalid(row: QuotationChargeRow, field: 'name' | 'amount'): boolean {
+    const name = row.name.trim();
+    const text = row.amount.trim().replace(/^\$/, '');
+    if (!name && !text) {
+      return false;
+    }
+    if (field === 'name') {
+      return !name || name.length > 200;
+    }
+    return chargeAmount(text) == null;
   }
 
   get completeCount(): number {
