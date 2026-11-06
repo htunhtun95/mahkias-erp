@@ -15,6 +15,9 @@
         <mat-icon>close</mat-icon>
       </button>
     </div>
+  </header>
+
+  <div class="app-dialog-body quotation-dialog-body">
     @if (!isVerifyStep) {
     <div class="header-fields" [class.creating-supplier]="creatingSupplier">
       <label>
@@ -92,9 +95,6 @@
       <app-quotation-date-field label="Quoted Date" [(ngModel)]="quotedDate" name="quotedDate" [disabled]="busy"></app-quotation-date-field>
       <app-quotation-date-field label="Valid Until" [(ngModel)]="validUntil" name="validUntil" [disabled]="busy" [externalError]="dateOrderError"></app-quotation-date-field>
     </div>
-  </header>
-
-  <div class="app-dialog-body quotation-dialog-body">
     @if (!isVerifyStep) {
     <label class="original-toggle">
       <input type="checkbox" [disabled]="busy" [ngModel]="spreadsheetIsOriginal" (ngModelChange)="onOriginalChoice($event)" name="spreadsheetIsOriginal" />
@@ -286,17 +286,17 @@
     @if (error) {
       <p class="hint-error">{{ error }}</p>
     }
+    <app-document-manager
+      #library
+      title="Supporting documents"
+      hint="Extra files are stored with the quotation. The spreadsheet above is still the file that is read."
+      [supportingOnly]="true"
+      [sortBase]="100"
+      [accept]="documentAccept"
+      [disabled]="busy"
+    ></app-document-manager>
   </div>
 
-  <app-document-manager
-    #library
-    title="Supporting documents"
-    hint="Extra files are stored with the quotation. The spreadsheet above is still the file that is read."
-    [supportingOnly]="true"
-    [sortBase]="100"
-    [accept]="documentAccept"
-    [disabled]="busy"
-  ></app-document-manager>
   <footer class="app-dialog-actions quotation-dialog-footer">
     @if (isVerifyStep) {
       <button class="btn" type="button" [disabled]="isImporting" (click)="showMapping()">Back</button>

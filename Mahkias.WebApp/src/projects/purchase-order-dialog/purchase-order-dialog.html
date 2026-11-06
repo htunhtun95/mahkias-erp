@@ -15,6 +15,9 @@
         <mat-icon>close</mat-icon>
       </button>
     </div>
+  </header>
+
+  <div class="quotation-dialog-body">
     <div class="header-fields">
       <label [class.invalid]="codeErrorVisible">
         <span>PO number<span class="req" aria-hidden="true">*</span></span>
@@ -95,9 +98,6 @@
     @if (willRevise) {
       <p class="status-note">Saving a sent purchase order marks it Revised. You can set it back to Sent afterwards.</p>
     }
-  </header>
-
-  <div class="quotation-dialog-body">
     @if (loading) {
       <div class="loading" role="status" aria-live="polite" aria-busy="true">
         <mat-progress-bar mode="indeterminate"></mat-progress-bar>

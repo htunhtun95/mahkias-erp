@@ -15,6 +15,9 @@
         <mat-icon>close</mat-icon>
       </button>
     </div>
+  </header>
+
+  <div class="quotation-dialog-body">
     <div class="header-fields">
       <label [class.invalid]="!code.trim() && !!(codeField?.touched || codeField?.dirty)">
         <span>PO number<span class="req" aria-hidden="true">*</span></span>
@@ -92,9 +95,6 @@
         ></textarea>
       </label>
     </div>
-  </header>
-
-  <div class="quotation-dialog-body">
     @if (!isVerifyStep) {
       <label class="original-toggle">
         <input type="checkbox" [disabled]="saving || checking || reading" [ngModel]="spreadsheetIsOriginal" (ngModelChange)="onOriginalChoice($event)" name="spreadsheetIsOriginal" />
@@ -286,17 +286,17 @@
         </div>
       </div>
     }
+    <app-document-manager
+      #library
+      title="Supporting documents"
+      hint="These files are stored with the purchase order. The spreadsheet above is still the file that is read."
+      [supportingOnly]="true"
+      [sortBase]="100"
+      [accept]="documentAccept"
+      [disabled]="saving || checking"
+    ></app-document-manager>
   </div>
 
-  <app-document-manager
-    #library
-    title="Supporting documents"
-    hint="These files are stored with the purchase order. The spreadsheet above is still the file that is read."
-    [supportingOnly]="true"
-    [sortBase]="100"
-    [accept]="documentAccept"
-    [disabled]="saving || checking"
-  ></app-document-manager>
   <footer class="quotation-dialog-footer">
     @if (error) {
       <p class="error">{{ error }}</p>
