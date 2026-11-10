@@ -6,8 +6,11 @@ import { Subscription } from 'rxjs';
 import { MaterialModule } from '../../app/material-module';
 import { AutoGrowDirective } from '../../core/auto-grow';
 import { blockEnterSubmit } from '../../core/block-enter-submit';
+import { closeOnEscape } from '../../core/close-on-escape';
 import { whileBusy } from '../../core/while-busy';
-import { ActivityType, ProjectApiService } from '../../core/services/project-api.service';
+import { ActivityType, LookupValue, ProjectApiService } from '../../core/services/project-api.service';
+import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
+import { canonicalCondition, canonicalUnit } from '../quotation-lookups';
 
 interface ActivityRowValue {
   dsnNo: string | null;
@@ -17,12 +20,19 @@ interface ActivityRowValue {
   budget: number | string | null;
   description: string | null;
   label: string | null;
+  unit: string | null;
+  condition: string | null;
+  serialNo: string | null;
+  tsn: string | null;
+  tso: string | null;
+  csn: string | null;
+  cso: string | null;
 }
 
 @Component({
   selector: 'app-add-activity-dialog',
   standalone: true,
-  imports: [FormsModule, ReactiveFormsModule, MaterialModule, AutoGrowDirective],
+  imports: [FormsModule, ReactiveFormsModule, MaterialModule, AutoGrowDirective, LookupComboboxComponent],
   templateUrl: './add-activity-dialog.html',
   styleUrl: './add-activity-dialog.css',
 })
@@ -40,6 +50,10 @@ export class AddActivityDialog implements AfterViewInit, OnDestroy {
   @ViewChild('gridScroll') private gridScroll?: ElementRef<HTMLElement>;
 
   types = this.data.types ?? [];
+  units: LookupValue[] = [];
+  conditions: LookupValue[] = [];
+  unitOptions: string[] = [];
+  conditionOptions: string[] = [];
   submitted = false;
   isSaving = false;
   error = '';
@@ -49,7 +63,20 @@ export class AddActivityDialog implements AfterViewInit, OnDestroy {
   });
 
   constructor() {
+    closeOnEscape(this.dialogRef, () => this.cancel());
     this.watchLastRow();
+    this.api.units().subscribe({
+      next: (units) => {
+        this.units = units ?? [];
+        this.unitOptions = this.units.map((unit) => unit.name).filter((name) => !!name);
+      },
+    });
+    this.api.conditions().subscribe({
+      next: (conditions) => {
+        this.conditions = conditions ?? [];
+        this.conditionOptions = this.conditions.map((condition) => condition.name).filter((name) => !!name);
+      },
+    });
     this.form.valueChanges.subscribe(() => {
       if (!this.submitted || this.isSaving || !this.error) {
         return;
@@ -99,6 +126,8 @@ export class AddActivityDialog implements AfterViewInit, OnDestroy {
         budget: null,
         description: '',
         label: '',
+        unit: 'EA',
+        condition: 'NE',
       });
       this.suppressLastRowWatch = false;
       return;
@@ -207,6 +236,13 @@ export class AddActivityDialog implements AfterViewInit, OnDestroy {
       quantity: row.quantity === null || row.quantity === '' ? 1 : Math.round(Number(row.quantity)),
       typeId: Number(row.typeId),
       label: String(row.label ?? '').trim() || null,
+      unit: canonicalUnit(String(row.unit ?? ''), this.units) || null,
+      condition: canonicalCondition(String(row.condition ?? ''), this.conditions) || null,
+      serialNo: textOrNull(row.serialNo),
+      tsn: textOrNull(row.tsn),
+      tso: textOrNull(row.tso),
+      csn: textOrNull(row.csn),
+      cso: textOrNull(row.cso),
     }));
 
     this.dialogRef.disableClose = true;
@@ -259,7 +295,14 @@ export class AddActivityDialog implements AfterViewInit, OnDestroy {
       (row.budget === null || row.budget === '') &&
       !String(row.description ?? '').trim() &&
       !String(row.label ?? '').trim() &&
-      !quantityTouched
+      !quantityTouched &&
+      this.isDefaultLookup(row.unit, 'EA') &&
+      this.isDefaultLookup(row.condition, 'NE') &&
+      !String(row.serialNo ?? '').trim() &&
+      !String(row.tsn ?? '').trim() &&
+      !String(row.tso ?? '').trim() &&
+      !String(row.csn ?? '').trim() &&
+      !String(row.cso ?? '').trim()
     );
   }
 
@@ -288,7 +331,33 @@ export class AddActivityDialog implements AfterViewInit, OnDestroy {
       budget: [null as number | null],
       description: [''],
       label: [''],
+      unit: ['EA'],
+      condition: ['NE'],
+      serialNo: [''],
+      tsn: [''],
+      tso: [''],
+      csn: [''],
+      cso: [''],
     });
+  }
+
+  setLookup(index: number, field: 'unit' | 'condition', value: string) {
+    this.rows.at(index).get(field)?.setValue(value);
+  }
+
+  normalizeUnit(index: number) {
+    const control = this.rows.at(index).get('unit');
+    control?.setValue(canonicalUnit(String(control.value ?? ''), this.units));
+  }
+
+  normalizeCondition(index: number) {
+    const control = this.rows.at(index).get('condition');
+    control?.setValue(canonicalCondition(String(control.value ?? ''), this.conditions));
+  }
+
+  private isDefaultLookup(value: string | null, fallback: string) {
+    const text = String(value ?? '').trim();
+    return !text || text.localeCompare(fallback, undefined, { sensitivity: 'accent' }) === 0;
   }
 
   private handleHostWheel(event: WheelEvent) {
@@ -316,4 +385,9 @@ export class AddActivityDialog implements AfterViewInit, OnDestroy {
 
     event.stopPropagation();
   }
+}
+
+function textOrNull(value: string | null | undefined): string | null {
+  const text = String(value ?? '').trim();
+  return text || null;
 }

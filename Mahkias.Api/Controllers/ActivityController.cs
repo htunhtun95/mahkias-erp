@@ -79,7 +79,14 @@ namespace Mahkias.Api.Controllers
                     Description = activity.Description,
                     DSNNo = activity.DSNNo,
                     Quantity = activity.Quantity,
-                    TypeId = activity.TypeId
+                    TypeId = activity.TypeId,
+                    Unit = activity.Unit,
+                    Condition = activity.Condition,
+                    SerialNo = activity.SerialNo,
+                    TSN = activity.TSN,
+                    TSO = activity.TSO,
+                    CSN = activity.CSN,
+                    CSO = activity.CSO
                 }
             }).ToList());
 
@@ -121,11 +128,6 @@ namespace Mahkias.Api.Controllers
                 return NotFound();
             }
 
-            if (current.ActivityGroupId != null && current.TypeId != request.TypeId)
-            {
-                return BadRequest(new { message = "Type cannot be changed while the activity belongs to a group." });
-            }
-
             var updated = await _uow.Activities.UpdateAsync(id, new CreateActivityArgs
             {
                 ProjectId = request.ProjectId,
@@ -134,12 +136,24 @@ namespace Mahkias.Api.Controllers
                 Description = request.Description,
                 DSNNo = request.DSNNo,
                 Quantity = request.Quantity,
-                TypeId = request.TypeId > 0 ? request.TypeId : null
+                TypeId = request.TypeId > 0 ? request.TypeId : null,
+                Unit = request.Unit,
+                Condition = request.Condition,
+                SerialNo = request.SerialNo,
+                TSN = request.TSN,
+                TSO = request.TSO,
+                CSN = request.CSN,
+                CSO = request.CSO
             });
 
             if (updated <= 0)
             {
                 return NotFound();
+            }
+
+            if (current.ActivityGroupId != null && current.TypeId != request.TypeId)
+            {
+                await _uow.ActivityGroups.AlignAfterTypeChangeAsync(request.ProjectId, id, current.ActivityGroupId.Value, request.TypeId.Value);
             }
 
             await _uow.ActivityLabels.ClearMismatchedAsync(request.ProjectId);
@@ -179,6 +193,13 @@ namespace Mahkias.Api.Controllers
                 Description = activity.Description,
                 DSNNo = activity.DSNNo,
                 Quantity = activity.Quantity,
+                Unit = activity.Unit,
+                Condition = activity.Condition,
+                SerialNo = activity.SerialNo,
+                TSN = activity.TSN,
+                TSO = activity.TSO,
+                CSN = activity.CSN,
+                CSO = activity.CSO,
                 TypeId = activity.TypeId,
                 Type = string.IsNullOrWhiteSpace(activity.Type) ? null : activity.Type,
                 CreatedAt = activity.CreatedAt,

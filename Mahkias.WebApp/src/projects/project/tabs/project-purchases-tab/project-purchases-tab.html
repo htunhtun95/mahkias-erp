@@ -59,11 +59,11 @@
               <mat-menu #orderMenu="matMenu" class="activity-row-menu">
                 <button mat-menu-item type="button" (click)="openDetails(order)" [disabled]="deletingId != null">
                   <mat-icon>visibility</mat-icon>
-                  <span>View details</span>
+                  <span>View Details</span>
                 </button>
                 <button mat-menu-item type="button" (click)="manageDocuments(order)" [disabled]="deletingId != null">
                   <mat-icon>folder</mat-icon>
-                  <span>Manage documents</span>
+                  <span>Manage Documents</span>
                 </button>
                 <button mat-menu-item type="button" (click)="edit(order)" [disabled]="deletingId != null">
                   <mat-icon>edit</mat-icon>
@@ -108,7 +108,7 @@
                         <span>{{ line.description || '—' }}</span>
                         <span>{{ line.condition || '—' }}</span>
                         <span>{{ line.unit || '—' }}</span>
-                        <span>{{ line.leadTime || '—' }}</span>
+                        <span>{{ leadTimeLabel(line.leadTime) }}</span>
                         <span>{{ line.quantity }}</span>
                         <span>{{ lineMoney(line.unitPrice, line) }}</span>
                         <span>{{ lineMoney(line.totalPrice, line) }}</span>

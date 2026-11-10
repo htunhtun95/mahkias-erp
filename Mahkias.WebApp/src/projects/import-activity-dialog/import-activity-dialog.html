@@ -13,16 +13,17 @@
     <header class="dialog-header erp-modal-header">
       <div class="erp-modal-title">
         <div>
-          <h2>Import activities</h2>
-          <p class="erp-modal-note">DSN No, Part No, and Type are required. For each one, choose a column letter or a default. A filled cell is used first; a blank cell uses the default. Label is optional and matched by name, ignoring case.</p>
+          <h2>Import Activities</h2>
+          <p class="erp-modal-note">DSN No, Part No, and Type are required. For each one, choose a column letter or a default. A filled cell is used first; a blank cell uses the default. Unit starts as EA and condition starts as NE. Label is optional and matched by name, ignoring case.</p>
         </div>
-        <button class="erp-modal-close" type="button" aria-label="Close" [disabled]="isImporting || validating" (click)="cancel()">
+        <button class="erp-modal-close" type="button" matTooltip="Close" aria-label="Close" [disabled]="isImporting || validating" (click)="cancel()">
           <mat-icon>close</mat-icon>
         </button>
       </div>
     </header>
     <div class="dialog-body">
       <app-drive-upload-card
+        class="spreadsheet-upload"
         title="Activities spreadsheet"
         hint="Excel or CSV."
         emptyLabel="Drag a spreadsheet here, or browse"
@@ -31,7 +32,7 @@
         [file]="file"
         (fileChange)="onFile($event)"
       ></app-drive-upload-card>
-
+      <div class="form-panel">
       @if (reading) {
         <div class="loading"><mat-spinner diameter="28"></mat-spinner></div>
       }
@@ -92,6 +93,101 @@
             }
           </div>
 
+          <div class="map-row" [class.flagged]="fieldFlagged('Condition')">
+            <span>Condition</span>
+            <select formControlName="condition">
+              <option value="">No column</option>
+              @for (column of columns; track column.letter) {
+                <option [value]="column.letter">{{ columnLabel(column) }}</option>
+              }
+            </select>
+            <div class="map-lookup">
+              <app-lookup-combobox
+                ariaLabel="Condition"
+                [value]="form.controls.defaultCondition.value || ''"
+                [options]="conditionOptions"
+                [disabled]="reading || validating || isImporting"
+                (valueChange)="setDefaultLookup('defaultCondition', $event)"
+                (committed)="normalizeDefaultCondition()"
+              />
+            </div>
+          </div>
+
+          <div class="map-row" [class.flagged]="fieldFlagged('Unit')">
+            <span>Unit</span>
+            <select formControlName="unit">
+              <option value="">No column</option>
+              @for (column of columns; track column.letter) {
+                <option [value]="column.letter">{{ columnLabel(column) }}</option>
+              }
+            </select>
+            <div class="map-lookup">
+              <app-lookup-combobox
+                ariaLabel="Unit"
+                [value]="form.controls.defaultUnit.value || ''"
+                [options]="unitOptions"
+                [disabled]="reading || validating || isImporting"
+                (valueChange)="setDefaultLookup('defaultUnit', $event)"
+                (committed)="normalizeDefaultUnit()"
+              />
+            </div>
+          </div>
+
+          <div class="map-row" [class.flagged]="fieldFlagged('SerialNo')">
+            <span>SerialNo</span>
+            <select formControlName="serialNo">
+              <option value="">No column</option>
+              @for (column of columns; track column.letter) {
+                <option [value]="column.letter">{{ columnLabel(column) }}</option>
+              }
+            </select>
+            <span class="default-note">Blank stays empty</span>
+          </div>
+
+          <div class="map-row" [class.flagged]="fieldFlagged('TSN')">
+            <span>TSN</span>
+            <select formControlName="tsn">
+              <option value="">No column</option>
+              @for (column of columns; track column.letter) {
+                <option [value]="column.letter">{{ columnLabel(column) }}</option>
+              }
+            </select>
+            <span class="default-note">Blank stays empty</span>
+          </div>
+
+          <div class="map-row" [class.flagged]="fieldFlagged('TSO')">
+            <span>TSO</span>
+            <select formControlName="tso">
+              <option value="">No column</option>
+              @for (column of columns; track column.letter) {
+                <option [value]="column.letter">{{ columnLabel(column) }}</option>
+              }
+            </select>
+            <span class="default-note">Blank stays empty</span>
+          </div>
+
+          <div class="map-row" [class.flagged]="fieldFlagged('CSN')">
+            <span>CSN</span>
+            <select formControlName="csn">
+              <option value="">No column</option>
+              @for (column of columns; track column.letter) {
+                <option [value]="column.letter">{{ columnLabel(column) }}</option>
+              }
+            </select>
+            <span class="default-note">Blank stays empty</span>
+          </div>
+
+          <div class="map-row" [class.flagged]="fieldFlagged('CSO')">
+            <span>CSO</span>
+            <select formControlName="cso">
+              <option value="">No column</option>
+              @for (column of columns; track column.letter) {
+                <option [value]="column.letter">{{ columnLabel(column) }}</option>
+              }
+            </select>
+            <span class="default-note">Blank stays empty</span>
+          </div>
+
           <div class="map-row" [class.flagged]="fieldFlagged('Budget')">
             <span>Budget</span>
             <select formControlName="budget">
@@ -136,7 +232,7 @@
             <span class="default-note">Blank stays unlabeled</span>
           </div>
         </div>
-        <p class="hint">Quantity becomes 1 when both the cell and the default are empty. Description, budget, and label can be left unmapped. OH, Oh, and oh use the same label.</p>
+        <p class="hint">Quantity becomes 1 when both the cell and the default are empty. A blank unit becomes EA and a blank condition becomes NE. Description, budget, and label can be left unmapped. OH, Oh, and oh use the same label.</p>
 
         <div class="status" [class.checking]="validation === 'checking'" [class.passed]="validation === 'passed'" [class.failed]="validation === 'failed'">
           @if (validation === 'checking') {
@@ -164,6 +260,7 @@
       } @else if (error) {
         <p class="error">{{ error }}</p>
       }
+      </div>
     </div>
 
     <div class="actions erp-modal-footer">

@@ -6,8 +6,11 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MaterialModule } from '../../app/material-module';
 import { AutoGrowDirective } from '../../core/auto-grow';
 import { blockEnterSubmit } from '../../core/block-enter-submit';
+import { closeOnEscape } from '../../core/close-on-escape';
 import { whileBusy } from '../../core/while-busy';
-import { Activity, ActivityType, ProjectApiService } from '../../core/services/project-api.service';
+import { Activity, ActivityType, LookupValue, ProjectApiService } from '../../core/services/project-api.service';
+import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
+import { canonicalCondition, canonicalUnit } from '../quotation-lookups';
 
 class InvalidWhenInvalidMatcher implements ErrorStateMatcher {
   isErrorState(control: AbstractControl | null): boolean {
@@ -18,7 +21,7 @@ class InvalidWhenInvalidMatcher implements ErrorStateMatcher {
 @Component({
   selector: 'app-edit-activity-dialog',
   standalone: true,
-  imports: [FormsModule, ReactiveFormsModule, MaterialModule, AutoGrowDirective],
+  imports: [FormsModule, ReactiveFormsModule, MaterialModule, AutoGrowDirective, LookupComboboxComponent],
   templateUrl: './edit-activity-dialog.html',
   styleUrl: './edit-activity-dialog.css',
   providers: [{ provide: ErrorStateMatcher, useClass: InvalidWhenInvalidMatcher }],
@@ -35,15 +38,44 @@ export class EditActivityDialog {
   isSaving = false;
   submitted = false;
   error = '';
+  units: LookupValue[] = [];
+  conditions: LookupValue[] = [];
+  unitOptions: string[] = [];
+  conditionOptions: string[] = [];
 
   form = this.fb.group({
     dsnNo: [this.data.activity.dsnNo ?? '', EditActivityDialog.requiredText],
     partNo: [this.data.activity.partNo ?? '', EditActivityDialog.requiredText],
-    typeId: [{ value: this.data.activity.typeId, disabled: !!this.data.activity.activityGroupId }, Validators.required],
+    typeId: [this.data.activity.typeId, Validators.required],
     quantity: [this.data.activity.quantity ?? 1, EditActivityDialog.wholeQuantity],
     budget: [this.data.activity.budget],
     description: [this.data.activity.description ?? ''],
+    unit: [this.data.activity.unit ?? ''],
+    condition: [this.data.activity.condition ?? ''],
+    serialNo: [this.data.activity.serialNo ?? ''],
+    tsn: [this.data.activity.tsn ?? ''],
+    tso: [this.data.activity.tso ?? ''],
+    csn: [this.data.activity.csn ?? ''],
+    cso: [this.data.activity.cso ?? ''],
   });
+
+  constructor() {
+    closeOnEscape(this.dialogRef, () => this.cancel());
+    this.api.units().subscribe({
+      next: (units) => {
+        this.units = units ?? [];
+        this.unitOptions = this.units.map((unit) => unit.name).filter((name) => !!name);
+        this.form.controls.unit.setValue(canonicalUnit(this.form.controls.unit.value ?? '', this.units), { emitEvent: false });
+      },
+    });
+    this.api.conditions().subscribe({
+      next: (conditions) => {
+        this.conditions = conditions ?? [];
+        this.conditionOptions = this.conditions.map((condition) => condition.name).filter((name) => !!name);
+        this.form.controls.condition.setValue(canonicalCondition(this.form.controls.condition.value ?? '', this.conditions), { emitEvent: false });
+      },
+    });
+  }
 
   get typeInvalid() {
     return this.showError(this.form.controls.typeId);
@@ -91,6 +123,13 @@ export class EditActivityDialog {
         quantity: value.quantity == null ? null : Number(value.quantity),
         budget: value.budget == null ? null : Number(value.budget),
         description: String(value.description ?? '').trim(),
+        unit: canonicalUnit(String(value.unit ?? ''), this.units) || null,
+        condition: canonicalCondition(String(value.condition ?? ''), this.conditions) || null,
+        serialNo: textOrNull(value.serialNo),
+        tsn: textOrNull(value.tsn),
+        tso: textOrNull(value.tso),
+        csn: textOrNull(value.csn),
+        cso: textOrNull(value.cso),
       })
       .pipe(whileBusy((busy) => {
         this.isSaving = busy;
@@ -103,6 +142,19 @@ export class EditActivityDialog {
           this.error = message || 'The activity could not be updated.';
         },
       });
+  }
+
+  setLookup(field: 'unit' | 'condition', value: string) {
+    this.form.controls[field].setValue(value);
+    this.form.controls[field].markAsDirty();
+  }
+
+  normalizeUnit() {
+    this.form.controls.unit.setValue(canonicalUnit(this.form.controls.unit.value ?? '', this.units));
+  }
+
+  normalizeCondition() {
+    this.form.controls.condition.setValue(canonicalCondition(this.form.controls.condition.value ?? '', this.conditions));
   }
 
   private showError(control: AbstractControl) {
@@ -124,4 +176,9 @@ export class EditActivityDialog {
     }
     return null;
   }
+}
+
+function textOrNull(value: string | null | undefined): string | null {
+  const text = String(value ?? '').trim();
+  return text || null;
 }

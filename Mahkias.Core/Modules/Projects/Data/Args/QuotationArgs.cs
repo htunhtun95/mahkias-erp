@@ -27,7 +27,7 @@ namespace Mahkias.Core.Modules.Projects.Data.Args
 
         public string Unit { get; set; }
 
-        public string LeadTime { get; set; }
+        public int? LeadTime { get; set; }
 
         public int? MinimumQty { get; set; }
 

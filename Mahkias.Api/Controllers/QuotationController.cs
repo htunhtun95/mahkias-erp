@@ -553,9 +553,9 @@ namespace Mahkias.Api.Controllers
                     errors.Add(new ActivityImportIssue { Row = entry.row, Field = "Unit", Message = "Unit must be 100 characters or fewer." });
                 }
 
-                if (!string.IsNullOrWhiteSpace(entry.item.LeadTime) && entry.item.LeadTime.Trim().Length > 100)
+                if (entry.item.LeadTime is < 0)
                 {
-                    errors.Add(new ActivityImportIssue { Row = entry.row, Field = "Lead Time", Message = "Lead time must be 100 characters or fewer." });
+                    errors.Add(new ActivityImportIssue { Row = entry.row, Field = "Lead Time", Message = LeadTimeDays.Message });
                 }
 
                 if (entry.item.MinimumQty is < 1)
@@ -566,7 +566,7 @@ namespace Mahkias.Api.Controllers
                 if (string.IsNullOrWhiteSpace(entry.item.DsnNo) || string.IsNullOrWhiteSpace(entry.item.PartNo)
                     || (!string.IsNullOrWhiteSpace(entry.item.Condition) && entry.item.Condition.Trim().Length > 100)
                     || (!string.IsNullOrWhiteSpace(entry.item.Unit) && entry.item.Unit.Trim().Length > 100)
-                    || (!string.IsNullOrWhiteSpace(entry.item.LeadTime) && entry.item.LeadTime.Trim().Length > 100)
+                    || entry.item.LeadTime is < 0
                     || entry.item.MinimumQty is < 1)
                 {
                     continue;
@@ -773,7 +773,7 @@ namespace Mahkias.Api.Controllers
                 PartDescription = item.Description?.Trim(),
                 Condition = TrimOptional(item.Condition),
                 Unit = TrimOptional(item.Unit),
-                LeadTime = TrimOptional(item.LeadTime),
+                LeadTime = item.LeadTime is < 0 ? null : item.LeadTime,
                 MinimumQty = item.MinimumQty is > 0 ? item.MinimumQty : null,
                 UnitPrice = unit,
                 Quantity = quantity,

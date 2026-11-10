@@ -22,7 +22,7 @@ namespace Mahkias.Api.Modules.Projects
 
         public string Unit { get; set; }
 
-        public string LeadTime { get; set; }
+        public int? LeadTime { get; set; }
 
         public int? MinimumQty { get; set; }
 

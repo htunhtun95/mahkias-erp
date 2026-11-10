@@ -19,7 +19,7 @@ namespace Mahkias.Api.Helpers
 
         public string UnitName { get; set; }
 
-        public string LeadTime { get; set; }
+        public int? LeadTime { get; set; }
 
         public int? MinimumQty { get; set; }
 
@@ -107,9 +107,10 @@ namespace Mahkias.Api.Helpers
                     errors.Add(Issue(source.RowNumber, "Unit", "Unit must be 100 characters or fewer."));
                 }
 
-                if (!string.IsNullOrWhiteSpace(leadTime) && leadTime.Trim().Length > 100)
+                int? leadDays = null;
+                if (!LeadTimeDays.TryParse(leadTime, out leadDays))
                 {
-                    errors.Add(Issue(source.RowNumber, "Lead Time", "Lead time must be 100 characters or fewer."));
+                    errors.Add(Issue(source.RowNumber, "Lead Time", LeadTimeDays.Message));
                 }
 
                 int quantity;
@@ -209,7 +210,7 @@ namespace Mahkias.Api.Helpers
                     Description = description,
                     Condition = TrimTo(condition, 100),
                     UnitName = TrimTo(unitName, 100),
-                    LeadTime = TrimTo(leadTime, 100),
+                    LeadTime = leadDays,
                     MinimumQty = minimumQty,
                     QuotedDate = quotedDate,
                     ValidUntil = validUntil,

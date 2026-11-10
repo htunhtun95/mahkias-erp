@@ -5,15 +5,16 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Subscription } from 'rxjs';
 import { MaterialModule } from '../../../../app/material-module';
-import { Project, ProjectApiService, QuotationLine, QuotationListItem } from '../../../../core/services/project-api.service';
+import { Project, ProjectApiService, PurchaseOrderListItem, QuotationLine, QuotationListItem } from '../../../../core/services/project-api.service';
 import { CreateQuotationDialogComponent } from '../../../add-quotation-dialog/add-quotation-dialog';
 import { ConfirmDialog } from '../../../confirm-dialog/confirm-dialog';
-import { PurchaseOrderDialogComponent } from '../../../purchase-order-dialog/purchase-order-dialog';
+import { PurchaseOrderDialogComponent, PurchaseOrderPresetLine } from '../../../purchase-order-dialog/purchase-order-dialog';
 import { PurchaseOrderSync } from '../../../purchase-order-sync';
 import { documentAccept, openDocumentLibrary } from '../../../document-library-dialog/document-library-dialog';
 import { QuotationDetailDialog } from './quotation-detail-dialog';
 import { QuotationSync } from '../../../quotation-sync';
 import { formatMoney } from '../../../money-format';
+import { leadTimeLabel, leadTimeText } from '../../../lead-time';
 import { quotationQuantity, quotationValidity } from '../../../quotation-terms';
 
 @Component({
@@ -24,6 +25,7 @@ import { quotationQuantity, quotationValidity } from '../../../quotation-terms';
   styleUrl: './project-quotations-tab.css',
 })
 export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
+  readonly leadTimeLabel = leadTimeLabel;
   private api = inject(ProjectApiService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
@@ -35,8 +37,10 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
   @Output() countChange = new EventEmitter<number>();
 
   quotations: QuotationListItem[] = [];
+  private orderChoices: PurchaseOrderListItem[] = [];
   loading = false;
   error = '';
+  selectionError = '';
   expanded = new Set<number>();
   lines = new Map<number, QuotationLine[]>();
   selectedLineIds = new Set<number>();
@@ -49,6 +53,11 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
         this.load();
       }
     });
+    this.syncSub.add(this.purchaseSync.changes$.subscribe((projectId) => {
+      if (projectId === this.project?.id) {
+        this.loadOrders();
+      }
+    }));
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -58,6 +67,7 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
       this.expanded.clear();
       this.lines.clear();
       this.selectedLineIds.clear();
+      this.selectionError = '';
       this.load();
     }
   }
@@ -69,9 +79,11 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
   load() {
     if (!this.project) {
       this.quotations = [];
+      this.orderChoices = [];
       this.countChange.emit(0);
       return;
     }
+    this.loadOrders();
     this.loading = true;
     this.error = '';
     this.api.quotations(this.project.id).subscribe({
@@ -115,7 +127,7 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
     this.api.quotationDocuments(this.project.id, quotation.id).subscribe({
       next: (documents) => {
         openDocumentLibrary(this.dialog, {
-          title: 'Manage documents',
+          title: 'Manage Documents',
           note: `Files for ${quotation.code}. Choose the original, then set the order.`,
           kind: 'quotation',
           projectId: this.project!.id,
@@ -177,6 +189,7 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
     } else {
       this.selectedLineIds.delete(id);
     }
+    this.selectionError = '';
   }
 
   toggleAllLines(quotationId: number, checked: boolean) {
@@ -194,13 +207,94 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
     return `${count} ${count === 1 ? 'item' : 'items'} selected`;
   }
 
+  get supplierConflict(): boolean {
+    return this.selectedSupplierIds().size > 1;
+  }
+
+  get activeOrders(): PurchaseOrderListItem[] {
+    const supplierId = this.selectedSupplierId;
+    if (supplierId == null) {
+      return [];
+    }
+    return this.orderChoices.filter((order) => order.supplierId === supplierId && (order.statusCode ?? '').trim().toLowerCase() !== 'cancelled');
+  }
+
+  private get selectedSupplierId(): number | null {
+    const supplierIds = [...this.selectedSupplierIds()];
+    return supplierIds.length === 1 ? supplierIds[0] : null;
+  }
+
+  get selectionMessage(): string {
+    if (this.supplierConflict) {
+      return 'Select lines from one supplier only.';
+    }
+    return this.selectionError;
+  }
+
   clearSelection() {
     this.selectedLineIds.clear();
+    this.selectionError = '';
+  }
+
+  private selectedSupplierIds(): Set<number> {
+    const supplierIds = new Set<number>();
+    for (const quotation of this.quotations) {
+      for (const line of this.lineItems(quotation.id)) {
+        if (this.selectedLineIds.has(line.id)) {
+          supplierIds.add(quotation.supplierId);
+        }
+      }
+    }
+    return supplierIds;
+  }
+
+  choosePurchaseOrder(select: HTMLSelectElement) {
+    const value = select.value;
+    select.value = '';
+    if (value === 'new') {
+      this.createPurchaseOrder();
+      return;
+    }
+    const orderId = Number(value);
+    if (Number.isInteger(orderId) && orderId > 0) {
+      this.addToExistingPurchaseOrder(orderId);
+    }
   }
 
   createPurchaseOrder() {
-    if (!this.project || this.deletingId != null) {
+    const request = this.selectedPoRequest();
+    if (!request) {
       return;
+    }
+    this.openPurchaseOrder({ supplierId: request.supplierId, lines: request.lines });
+  }
+
+  addToExistingPurchaseOrder(orderId: number) {
+    const request = this.selectedPoRequest();
+    if (!request || !this.activeOrders.some((order) => order.id === orderId)) {
+      return;
+    }
+    this.openPurchaseOrder({ purchaseOrderId: orderId, lines: request.lines });
+  }
+
+  private loadOrders() {
+    const projectId = this.project?.id;
+    if (!projectId) {
+      this.orderChoices = [];
+      return;
+    }
+    this.api.purchaseOrders(projectId).subscribe({
+      next: (orders) => {
+        if (this.project?.id === projectId) {
+          this.orderChoices = orders ?? [];
+        }
+      },
+    });
+  }
+
+  private selectedPoRequest() {
+    if (!this.project || this.deletingId != null) {
+      return null;
     }
     const lines = [];
     const supplierIds = new Set<number>();
@@ -210,8 +304,8 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
           continue;
         }
         if (!line.activityId) {
-          this.error = 'Every selected line needs an activity before it can go on a purchase order.';
-          return;
+          this.selectionError = 'Every selected line needs an activity before it can go on a purchase order.';
+          return null;
         }
         supplierIds.add(quotation.supplierId);
         lines.push({
@@ -224,7 +318,7 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
           description: line.description,
           condition: line.condition,
           unit: line.unit,
-          leadTime: line.leadTime,
+          leadTime: leadTimeText(line.leadTime),
           quantity: quotedQuantity(line),
           unitPrice: line.unitPrice,
           totalPrice: line.totalPrice,
@@ -232,14 +326,20 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
       }
     }
     if (!lines.length) {
-      this.error = 'Select one or more quotation lines first.';
-      return;
+      this.selectionError = 'Select one or more quotation lines first.';
+      return null;
     }
     if (supplierIds.size !== 1) {
-      this.error = 'Select lines from one supplier only.';
+      return null;
+    }
+    this.selectionError = '';
+    return { supplierId: [...supplierIds][0], lines };
+  }
+
+  private openPurchaseOrder(data: { supplierId?: number | null; purchaseOrderId?: number; lines: PurchaseOrderPresetLine[] }) {
+    if (!this.project) {
       return;
     }
-    this.error = '';
     const ref = this.dialog.open(PurchaseOrderDialogComponent, {
       disableClose: true,
       width: '100vw',
@@ -253,8 +353,9 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
       data: {
         projectId: this.project.id,
         activities: this.project.activities ?? [],
-        supplierId: [...supplierIds][0],
-        lines,
+        supplierId: data.supplierId,
+        purchaseOrderId: data.purchaseOrderId,
+        lines: data.lines,
       },
     });
     ref.afterClosed().subscribe((saved) => {
@@ -311,7 +412,7 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
       panelClass: 'add-project-dialog-panel',
       backdropClass: 'add-project-dialog-backdrop',
       data: {
-        title: 'Delete quotation',
+        title: 'Delete Quotation',
         message: 'Are you sure you want to delete this quotation? Its line items will be permanently removed.',
         confirmLabel: 'Delete',
         cancelLabel: 'Cancel',

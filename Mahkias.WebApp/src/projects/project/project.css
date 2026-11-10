@@ -264,8 +264,8 @@ h1 {
 }
 
 .quote-status-filter {
-  width: 120px;
-  flex: 0 0 120px;
+  width: 168px;
+  flex: 0 0 168px;
   margin: 0;
 }
 
@@ -304,15 +304,56 @@ h1 {
   flex-shrink: 0;
 }
 
-.activity-search input {
+.activity-search input,
+.activity-search input:hover,
+.activity-search input:focus,
+.activity-search input:focus-visible {
   flex: 1;
   min-width: 0;
+  margin: 0;
+  padding: 0;
   border: 0;
+  border-radius: 0;
   outline: none;
   background: transparent;
+  box-shadow: none;
+  appearance: none;
+  -webkit-appearance: none;
   color: #202124;
   font: inherit;
   font-size: 13px;
+}
+
+.activity-search input::-webkit-search-decoration,
+.activity-search input::-webkit-search-cancel-button,
+.activity-search input::-webkit-search-results-button,
+.activity-search input::-webkit-search-results-decoration {
+  display: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.activity-search .search-clear {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #5f6368;
+  cursor: pointer;
+}
+
+.activity-search .search-clear mat-icon {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
 }
 
 .activity-search input::placeholder {
@@ -369,6 +410,7 @@ h1 {
 :host ::ng-deep .quote-status-filter .mat-mdc-select-min-line {
   font-size: 13px;
   color: #202124;
+  white-space: nowrap;
 }
 
 :host ::ng-deep .quote-status-filter .mat-mdc-select-arrow {

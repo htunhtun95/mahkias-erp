@@ -69,7 +69,7 @@
   border: 1px solid #e8eaed;
   border-radius: 12px;
   background: #fff;
-  overflow: hidden;
+  overflow-x: auto;
 }
 
 .row {
@@ -77,9 +77,18 @@
   grid-template-columns: 36px 130px minmax(140px, 1.2fr) 110px 130px 70px 130px 120px;
   gap: 12px;
   align-items: center;
+  min-width: 980px;
   min-height: 44px;
   padding: 10px 16px;
   border-bottom: 1px solid #e0e0e0;
+}
+
+.row > span,
+.row > a {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .order-block:last-child > .row:last-child,
@@ -144,6 +153,12 @@
   border-bottom: 1px solid #e0e0e0;
   color: #202124;
   font-size: 13px;
+}
+
+.line-row > span {
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
 }
 
 .line-row:last-child {
@@ -449,11 +464,4 @@
     grid-template-columns: 1fr;
   }
 
-  .row {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .heading span:nth-child(n + 4) {
-    display: none;
-  }
 }

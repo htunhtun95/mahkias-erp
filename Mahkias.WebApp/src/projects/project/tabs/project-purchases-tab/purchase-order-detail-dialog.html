@@ -1,8 +1,8 @@
 <div class="quotation-dialog-container">
   <header class="quotation-dialog-header">
     <div class="title-row">
-      <h2>Purchase order details</h2>
-      <button class="icon-close erp-modal-close" type="button" aria-label="Close" (click)="close()">
+      <h2>Purchase Order Details</h2>
+      <button class="icon-close erp-modal-close" type="button" matTooltip="Close" aria-label="Close" (click)="close()">
         <mat-icon>close</mat-icon>
       </button>
     </div>
@@ -69,7 +69,7 @@
                 <span>{{ line.description || '—' }}</span>
                 <span>{{ line.condition || '—' }}</span>
                 <span>{{ line.unit || '—' }}</span>
-                <span>{{ line.leadTime || '—' }}</span>
+                <span>{{ leadTimeLabel(line.leadTime) }}</span>
                 <span class="num">{{ line.quantity }}</span>
                 <span class="num">{{ lineMoney(line.unitPrice, line) }}</span>
                 <span class="num">{{ lineMoney(line.totalPrice, line) }}</span>
@@ -85,7 +85,7 @@
         <section>
           <div class="files-head">
             <h3>Attached files</h3>
-            <button type="button" (click)="manageDocuments()">Manage documents</button>
+            <button type="button" (click)="manageDocuments()">Manage Documents</button>
           </div>
           @if (!documents.length) {
             <p class="empty">No files stored for this purchase order.</p>

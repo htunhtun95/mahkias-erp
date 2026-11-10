@@ -5,7 +5,7 @@
         <h2>Labels</h2>
         <p class="erp-modal-note">A label stays with one activity type and can cover several activities or groups of that type.</p>
       </div>
-      <button class="erp-modal-close" type="button" aria-label="Close" (click)="cancel()">
+      <button class="erp-modal-close" type="button" matTooltip="Close" aria-label="Close" (click)="cancel()">
         <mat-icon>close</mat-icon>
       </button>
     </div>
@@ -22,7 +22,7 @@
       </div>
     }
     <label class="field" [class.invalid]="!data.labels.length && !name.trim() && (labelName.touched || labelName.dirty)">
-      <span>New label@if (!data.labels.length) {<span class="req" aria-hidden="true">*</span>}</span>
+      <span>New Label@if (!data.labels.length) {<span class="req" aria-hidden="true">*</span>}</span>
       <input #labelName="ngModel" [(ngModel)]="name" name="labelName" maxlength="200" autocomplete="off" [attr.aria-invalid]="!data.labels.length && !name.trim() && (labelName.touched || labelName.dirty)" />
     </label>
     @if (!selected.size && !name.trim() && (labelName.touched || labelName.dirty)) {

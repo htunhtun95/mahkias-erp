@@ -393,6 +393,12 @@ a.menu-text-left.active-menu .mat-icon {
   -webkit-backdrop-filter: none;
 }
 
+.cdk-overlay-backdrop.quotation-create-backdrop {
+  background: rgba(0, 0, 0, 0.32);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 .cdk-overlay-pane.mat-mdc-dialog-panel {
   --mat-dialog-container-shape: 16px;
   --mdc-dialog-container-shape: 16px;
@@ -692,8 +698,15 @@ a.menu-text-left.active-menu .mat-icon {
 .cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-import-quotation-dialog,
 .cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-quotation-detail-dialog,
 .cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-quotation-data-dialog,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-add-activity-dialog,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-edit-activity-dialog,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-import-activity-dialog,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-group-detail-dialog,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-document-library-dialog,
 .cdk-overlay-pane.quotation-dialog-panel.po-new-panel .quotation-dialog-container,
 .cdk-overlay-pane.quotation-dialog-panel.po-new-panel .app-dialog-container,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .dialog-shell,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .dialog-form,
 .cdk-overlay-pane.quotation-dialog-panel.po-new-panel .detail {
   height: 100%;
   min-height: 0;
@@ -704,16 +717,30 @@ a.menu-text-left.active-menu .mat-icon {
 }
 
 .cdk-overlay-pane.quotation-dialog-panel.po-new-panel .quotation-dialog-header,
-.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .quotation-dialog-footer {
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .quotation-dialog-footer,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .dialog-header,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .dialog-footer,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .erp-modal-header,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .erp-modal-footer {
   flex: 0 0 auto;
 }
 
 .cdk-overlay-pane.quotation-dialog-panel.po-new-panel .quotation-dialog-body,
 .cdk-overlay-pane.quotation-dialog-panel.po-new-panel .app-dialog-body,
-.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .detail-body {
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .detail-body,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .dialog-body {
   flex: 1 1 auto;
   min-height: 0;
+  max-height: none;
   overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .grid-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-x: auto;
   overflow-y: auto;
 }
 
@@ -1175,9 +1202,9 @@ textarea.cdk-textarea-autosize-measuring-firefox {
   margin: 0;
 }
 
-.cdk-overlay-pane.po-new-panel table.sheet tbody td :is(app-activity-suggest, app-lookup-combobox, .lookup-combobox, .price-field) :is(input, select),
-.cdk-overlay-pane.po-new-panel table.import-sheet tbody td :is(app-activity-suggest, app-lookup-combobox, .lookup-combobox, .price-field) :is(input, select),
-.cdk-overlay-pane.po-new-panel table.app-grid-table tbody td :is(app-activity-suggest, app-lookup-combobox, .lookup-combobox, .price-field) :is(input, select) {
+.cdk-overlay-pane.po-new-panel table.sheet tbody td :is(app-activity-suggest, app-lookup-combobox, .lookup-combobox) :is(input, select),
+.cdk-overlay-pane.po-new-panel table.import-sheet tbody td :is(app-activity-suggest, app-lookup-combobox, .lookup-combobox) :is(input, select),
+.cdk-overlay-pane.po-new-panel table.app-grid-table tbody td :is(app-activity-suggest, app-lookup-combobox, .lookup-combobox) :is(input, select) {
   width: 100%;
   height: 100% !important;
   min-height: 0 !important;
@@ -1186,7 +1213,26 @@ textarea.cdk-textarea-autosize-measuring-firefox {
 
 .cdk-overlay-pane.po-new-panel .price-field {
   display: flex;
-  align-items: stretch;
+  align-items: center;
+}
+
+.cdk-overlay-pane.po-new-panel .price-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 22px;
+  height: 100%;
+  padding: 0 0 0 8px;
+  line-height: 1;
+}
+
+.cdk-overlay-pane.po-new-panel .price-field input {
+  flex: 1 1 auto;
+  width: auto !important;
+  min-width: 0;
+  height: 100% !important;
+  padding-left: 2px;
+  align-self: stretch;
 }
 
 .cdk-overlay-pane.po-new-panel table.sheet tbody td textarea,

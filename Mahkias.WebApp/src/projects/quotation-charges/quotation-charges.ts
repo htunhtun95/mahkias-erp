@@ -109,6 +109,7 @@ function chargeAmount(text: string): number | null {
       flex: 0 0 auto;
       width: 100%;
       min-width: 0;
+      min-height: min-content;
     }
 
     .charges {

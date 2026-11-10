@@ -330,6 +330,66 @@ WHERE Id = @Id
             return result;
         }
 
+        public async Task AlignAfterTypeChangeAsync(int projectId, int activityId, int groupId, int typeId)
+        {
+            if (_connection.State != ConnectionState.Closed)
+            {
+                _connection.Close();
+            }
+
+            _connection.Open();
+            try
+            {
+                var types = new List<int?>();
+                using (var members = new SqlCommand(@"
+SELECT ActivityTypeId
+FROM projects.Activities
+WHERE ProjectId = @ProjectId
+  AND ActivityGroupId = @GroupId
+  AND IsDeleted = 0", _connection))
+                {
+                    members.Parameters.AddInt("ProjectId", projectId);
+                    members.Parameters.AddInt("GroupId", groupId);
+                    using var reader = await members.ExecuteReaderAsync();
+                    while (await reader.ReadAsync())
+                    {
+                        types.Add(reader.ReadNullableIntValue("ActivityTypeId"));
+                    }
+                }
+
+                var shared = types.Where(type => type.HasValue).Select(type => type.Value).Distinct().ToList();
+                if (types.Count > 0 && types.All(type => type.HasValue) && shared.Count == 1 && shared[0] == typeId)
+                {
+                    using var lockType = new SqlCommand(@"
+UPDATE projects.ActivityGroups
+SET ActivityTypeId = @TypeId
+WHERE Id = @GroupId
+  AND ProjectId = @ProjectId", _connection);
+                    lockType.Parameters.AddInt("TypeId", typeId);
+                    lockType.Parameters.AddInt("GroupId", groupId);
+                    lockType.Parameters.AddInt("ProjectId", projectId);
+                    await lockType.ExecuteNonQueryAsync();
+                    return;
+                }
+
+                using var detach = new SqlCommand(@"
+UPDATE projects.Activities
+SET ActivityGroupId = NULL,
+    ModifiedAt = GETDATE()
+WHERE Id = @ActivityId
+  AND ProjectId = @ProjectId
+  AND IsDeleted = 0", _connection);
+                detach.Parameters.AddInt("ActivityId", activityId);
+                detach.Parameters.AddInt("ProjectId", projectId);
+                await detach.ExecuteNonQueryAsync();
+                await DeleteEmptyGroupsAsync(projectId);
+            }
+            finally
+            {
+                _connection.Close();
+            }
+        }
+
         public override ActivityGroupEntity PopulateRecord(SqlDataReader reader)
         {
             throw new NotImplementedException();

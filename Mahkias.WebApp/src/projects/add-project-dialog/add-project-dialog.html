@@ -10,12 +10,12 @@
 <header class="erp-modal-header">
   <div class="erp-modal-title">
     <div>
-      <h2 id="add-project-title">{{ isEdit ? 'Edit project' : "Let's create a new project" }}</h2>
+      <h2 id="add-project-title">{{ isEdit ? 'Edit Project' : "Let's Create a New Project" }}</h2>
       <p class="erp-modal-note" id="add-project-subtitle">
         {{ isEdit ? 'Update the project name, reference, and description.' : 'Store the project name, reference, and description in one place.' }}
       </p>
     </div>
-    <button class="erp-modal-close" type="button" aria-label="Close" [disabled]="isSaving" (click)="cancel()">
+    <button class="erp-modal-close" type="button" matTooltip="Close" aria-label="Close" [disabled]="isSaving" (click)="cancel()">
       <mat-icon>close</mat-icon>
     </button>
   </div>

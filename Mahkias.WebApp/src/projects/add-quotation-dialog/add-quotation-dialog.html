@@ -1,16 +1,16 @@
 <form class="app-dialog-container quotation-dialog-container" (keydown.enter)="onFieldEnter($event)" (submit)="$event.preventDefault()">
-  @if (isSaving) {
-    <div class="import-overlay" role="status" aria-live="polite" aria-busy="true">
+  @if (preparing || isSaving) {
+    <div class="import-overlay" [class.prepare-cover]="preparing" role="status" aria-live="polite" aria-busy="true">
       <mat-progress-bar mode="indeterminate"></mat-progress-bar>
       <div class="import-overlay-body">
-        <mat-spinner diameter="40"></mat-spinner>
-        <p>Saving...</p>
+        <div class="quote-spinner" [class.is-saving]="!preparing" aria-hidden="true"></div>
+        <p>{{ preparing ? 'Preparing quotation' : 'Saving...' }}</p>
       </div>
     </div>
   }
   <header class="app-dialog-header quotation-dialog-header">
     <div class="title-row">
-      <h2>{{ quotationId ? 'Edit Quotation' : 'Create Quotation' }}</h2>
+      <h2>{{ creating ? 'Create Quotation' : 'Edit Quotation' }}</h2>
       <button class="erp-modal-close" type="button" matTooltip="Close" aria-label="Close" [disabled]="isSaving" (click)="cancel()">
         <mat-icon>close</mat-icon>
       </button>
@@ -39,10 +39,13 @@
             </span>
             <button class="select-existing" type="button" [disabled]="isSaving" (click)="cancelNewSupplier()">← Select Existing Supplier</button>
           </label>
-          <label>
+          <label [class.invalid]="!!referenceError">
             <span>Supplier Reference</span>
-            <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="newSupplierReference" name="newSupplierReference" autocomplete="off" />
+            <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="newSupplierReference" name="newSupplierReference" autocomplete="off" (input)="referenceError = ''" />
           </label>
+          @if (referenceError) {
+            <p class="hint-error">{{ referenceError }}</p>
+          }
         </div>
       } @else {
         <label class="supplier-field" [class.invalid]="supplierErrorVisible">
@@ -96,6 +99,15 @@
       <span>Search</span>
       <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="rowFilter" name="rowFilter" placeholder="Filter by DSN No or Part No" autocomplete="off" />
     </label>
+    <label class="row-search type-filter">
+      <span>Activity type</span>
+      <select [disabled]="isSaving" [(ngModel)]="typeFilter" name="typeFilter">
+        <option [ngValue]="null">All types</option>
+        @for (type of activityTypeOptions; track type.id) {
+          <option [ngValue]="type.id">{{ type.name }}</option>
+        }
+      </select>
+    </label>
     @if (quoteLabels.length) {
       <div class="label-switch" role="tablist" aria-label="Activity labels">
         <button class="segment-btn" type="button" role="tab" [class.active]="labelId == null" [attr.aria-selected]="labelId == null" [disabled]="isSaving" (click)="selectLabel(null)">
@@ -133,7 +145,7 @@
             <th class="description">Description</th>
             <th>Condition</th>
             <th>Unit</th>
-            <th>Lead Time</th>
+            <th>Lead Time (days)</th>
             <th class="currency">Currency</th>
             <th class="price">Unit Price<span class="req" aria-hidden="true">*</span></th>
             <th class="qty">Quantity<span class="req" aria-hidden="true">*</span></th>
@@ -176,7 +188,7 @@
                   (committed)="normalizeUnit(row)"
                 />
               </td>
-              <td><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.leadTime" [name]="'lead' + row.key" maxlength="100" /></td>
+              <td [class.invalid]="leadBroken(row) && interacted(row, 'lead')"><input leadTimeDays [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.leadTime" (ngModelChange)="touch(row, 'lead')" (blur)="touch(row, 'lead')" [name]="'lead' + row.key" inputmode="numeric" /></td>
               <td class="cell currency">
                 <select [disabled]="isSaving" [(ngModel)]="row.currencyId" (ngModelChange)="onRowCurrency(row)" [name]="'currency' + row.key">
                   @for (currency of currencies; track currency.id) {
@@ -233,7 +245,7 @@
         @if (isSaving) {
           <mat-spinner diameter="18"></mat-spinner>
         }
-        {{ isSaving ? 'Saving...' : (quotationId ? 'Save changes' : 'Save') }}
+        {{ isSaving ? 'Saving...' : (creating ? 'Save' : 'Save changes') }}
       </button>
     </div>
   </footer>

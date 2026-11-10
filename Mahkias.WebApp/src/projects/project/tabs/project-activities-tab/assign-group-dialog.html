@@ -2,18 +2,18 @@
 <header class="app-dialog-header">
   <div class="erp-modal-title">
     <div>
-      <h2>Assign to group</h2>
+      <h2>Assign to Group</h2>
       <p class="erp-modal-note">Activities in a group must share the same type. The group takes that type from the first activity assigned to it.</p>
     </div>
-    <button class="erp-modal-close" type="button" aria-label="Close" (click)="cancel()">
+    <button class="erp-modal-close" type="button" matTooltip="Close" aria-label="Close" (click)="cancel()">
       <mat-icon>close</mat-icon>
     </button>
   </div>
 </header>
 <div class="app-dialog-body">
 <mat-radio-group class="mode-group" [(ngModel)]="mode" name="mode">
-  <mat-radio-button value="existing" [disabled]="!data.groups.length">Existing group</mat-radio-button>
-  <mat-radio-button value="new">New group</mat-radio-button>
+  <mat-radio-button value="existing" [disabled]="!data.groups.length">Existing Group</mat-radio-button>
+  <mat-radio-button value="new">New Group</mat-radio-button>
 </mat-radio-group>
 @if (mode === 'existing') {
   @if (!data.groups.length) {

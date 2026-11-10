@@ -2,6 +2,8 @@ CREATE PROCEDURE [dbo].[BulkInsertActivities]
 (
     @ProjectId INT,
     -- TextValue1 = PartNo, TextValue2 = Description, TextValue3 = DSNNo, TextValue4 = Label
+    -- TextValue5 = Condition, TextValue6 = Unit
+    -- TextValue7 = JSON {"SerialNo","TSN","TSO","CSN","CSO"}
     -- DecimalValue1 = Budget, NumericValue1 = Quantity, NumericValue2 = TypeId
     @Activities [dbo].[DefaultGenericTableType] READONLY
 )
@@ -33,7 +35,14 @@ BEGIN
                 A.TextValue3 AS DSNNo,
                 A.NumericValue1 AS Quantity,
                 A.NumericValue2 AS TypeId,
-                NULLIF(LTRIM(RTRIM(A.TextValue4)), N'') AS LabelName
+                NULLIF(LTRIM(RTRIM(A.TextValue4)), N'') AS LabelName,
+                LEFT(NULLIF(LTRIM(RTRIM(A.TextValue5)), N''), 100) AS Condition,
+                LEFT(NULLIF(LTRIM(RTRIM(A.TextValue6)), N''), 100) AS Unit,
+                LEFT(NULLIF(LTRIM(RTRIM(JSON_VALUE(A.TextValue7, '$.SerialNo'))), N''), 100) AS SerialNo,
+                LEFT(NULLIF(LTRIM(RTRIM(JSON_VALUE(A.TextValue7, '$.TSN'))), N''), 100) AS TSN,
+                LEFT(NULLIF(LTRIM(RTRIM(JSON_VALUE(A.TextValue7, '$.TSO'))), N''), 100) AS TSO,
+                LEFT(NULLIF(LTRIM(RTRIM(JSON_VALUE(A.TextValue7, '$.CSN'))), N''), 100) AS CSN,
+                LEFT(NULLIF(LTRIM(RTRIM(JSON_VALUE(A.TextValue7, '$.CSO'))), N''), 100) AS CSO
             FROM @Activities AS A
             WHERE NULLIF(LTRIM(RTRIM(REPLACE(REPLACE(A.TextValue1, CHAR(13), N' '), CHAR(10), N' '))), N'') IS NOT NULL
         ) AS Source
@@ -47,6 +56,13 @@ BEGIN
                 Description,
                 DSNNo,
                 Quantity,
+                Condition,
+                Unit,
+                SerialNo,
+                TSN,
+                TSO,
+                CSN,
+                CSO,
                 ActivityTypeId,
                 CreatedAt
             )
@@ -58,6 +74,13 @@ BEGIN
                 Source.Description,
                 Source.DSNNo,
                 Source.Quantity,
+                Source.Condition,
+                Source.Unit,
+                Source.SerialNo,
+                Source.TSN,
+                Source.TSO,
+                Source.CSN,
+                Source.CSO,
                 Source.TypeId,
                 GETDATE()
             )

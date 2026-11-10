@@ -28,10 +28,12 @@ export const documentAccept = '.pdf,.doc,.docx,.xls,.xlsx,.xlsm,.csv,.png,.jpg,.
 export function openDocumentLibrary(dialog: MatDialog, data: DocumentLibraryData) {
   return dialog.open<DocumentLibraryDialog, DocumentLibraryData, DocumentLibraryResult>(DocumentLibraryDialog, {
     disableClose: true,
-    width: '720px',
-    maxWidth: 'calc(100vw - 32px)',
-    maxHeight: 'calc(100vh - 32px)',
-    panelClass: ['add-project-dialog-panel', 'app-dialog-pane'],
+    width: '100vw',
+    maxWidth: '100vw',
+    minWidth: '100vw',
+    height: '100vh',
+    maxHeight: '100vh',
+    panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
     backdropClass: 'add-project-dialog-backdrop',
     autoFocus: 'first-tabbable',
     data,
@@ -70,7 +72,7 @@ export class DocumentLibraryDialog implements AfterViewInit {
   }
 
   save() {
-    if (this.saving || !this.library?.hasChanges || (this.library.locksOriginal && !this.library.hasOriginal)) {
+    if (this.saving || !this.library?.hasChanges) {
       return;
     }
     const ownerId = this.data.ownerId;

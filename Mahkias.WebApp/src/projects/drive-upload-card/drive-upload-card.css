@@ -1,5 +1,13 @@
+:host {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
 .upload-card {
   display: flex;
+  box-sizing: border-box;
+  width: 100%;
   flex-direction: column;
   gap: 4px;
   margin: 0;
@@ -47,6 +55,8 @@
 
 .drop-zone {
   display: flex;
+  box-sizing: border-box;
+  width: 100%;
   flex-direction: row;
   align-items: center;
   justify-content: center;
@@ -174,7 +184,8 @@
 }
 
 .upload-card.compact .drop-zone {
-  flex: 1 1 180px;
+  width: auto;
+  flex: 1 1 auto;
   justify-content: flex-start;
   min-height: 28px;
   height: 28px;

@@ -11,10 +11,10 @@
   <header class="dialog-header erp-modal-header">
     <div class="erp-modal-title">
       <div>
-        <h2>Add activities</h2>
-        <p class="erp-modal-note">Empty rows are ignored. If you fill any field, DSN no, part number, and type are required. Label is optional and matched by name, ignoring case. Tip: Use 'or' or '/' for alternative parts (e.g., P001/P002/P003).</p>
+        <h2>Add Activities</h2>
+        <p class="erp-modal-note">Empty rows are ignored. If you fill any field, DSN no, part number, and type are required. Unit starts as EA and condition starts as NE. Label is optional and matched by name, ignoring case. Tip: Use 'or' or '/' for alternative parts (e.g., P001/P002/P003).</p>
       </div>
-      <button class="erp-modal-close" type="button" aria-label="Close" [disabled]="isSaving" (click)="cancel()">
+      <button class="erp-modal-close" type="button" matTooltip="Close" aria-label="Close" [disabled]="isSaving" (click)="cancel()">
         <mat-icon>close</mat-icon>
       </button>
     </div>
@@ -32,9 +32,15 @@
           <col class="col-dsn" />
           <col class="col-part" />
           <col class="col-type" />
-          <col class="col-budget" />
-          <col class="col-qty" />
           <col class="col-description" />
+          <col class="col-qty" />
+          <col class="col-condition" />
+          <col class="col-usage" />
+          <col class="col-usage" />
+          <col class="col-usage" />
+          <col class="col-usage" />
+          <col class="col-usage" />
+          <col class="col-budget" />
           <col class="col-label" />
           <col class="col-action" />
         </colgroup>
@@ -44,9 +50,15 @@
             <th class="col-text" scope="col">DSN No<span class="req" aria-hidden="true">*</span></th>
             <th scope="col">Part No<span class="req" aria-hidden="true">*</span></th>
             <th scope="col">Type<span class="req" aria-hidden="true">*</span></th>
-            <th class="col-text" scope="col">Budget</th>
-            <th class="col-text" scope="col">Qty</th>
             <th scope="col">Description</th>
+            <th class="col-text" scope="col">Quantity</th>
+            <th scope="col">Condition</th>
+            <th scope="col">SerialNo</th>
+            <th scope="col">TSN</th>
+            <th scope="col">TSO</th>
+            <th scope="col">CSN</th>
+            <th scope="col">CSO</th>
+            <th class="col-text" scope="col">Budget</th>
             <th class="col-text" scope="col">Label</th>
             <th class="action-head" scope="col" aria-label="Action">
               <mat-icon>delete</mat-icon>
@@ -78,12 +90,6 @@
                   }
                 </select>
               </td>
-              <td class="cell col-text">
-                <input formControlName="budget" type="number" min="0" step="0.01" />
-              </td>
-              <td class="cell col-text">
-                <input formControlName="quantity" type="number" min="0" step="1" />
-              </td>
               <td class="cell">
                 <textarea
                   class="grow-field description-input"
@@ -92,6 +98,47 @@
                   formControlName="description"
                   rows="1"
                 ></textarea>
+              </td>
+              <td class="cell qty-cell">
+                <div class="qty-pair">
+                  <input formControlName="quantity" type="number" min="0" step="1" aria-label="Quantity" />
+                  <app-lookup-combobox
+                    ariaLabel="Unit"
+                    [value]="row.get('unit')?.value || ''"
+                    [options]="unitOptions"
+                    [disabled]="isSaving"
+                    (valueChange)="setLookup($index, 'unit', $event)"
+                    (committed)="normalizeUnit($index)"
+                  />
+                </div>
+              </td>
+              <td class="cell lookup">
+                <app-lookup-combobox
+                  ariaLabel="Condition"
+                  [value]="row.get('condition')?.value || ''"
+                  [options]="conditionOptions"
+                  [disabled]="isSaving"
+                  (valueChange)="setLookup($index, 'condition', $event)"
+                  (committed)="normalizeCondition($index)"
+                />
+              </td>
+              <td class="cell col-text">
+                <input formControlName="serialNo" maxlength="100" aria-label="SerialNo" />
+              </td>
+              <td class="cell col-text">
+                <input formControlName="tsn" maxlength="100" aria-label="TSN" />
+              </td>
+              <td class="cell col-text">
+                <input formControlName="tso" maxlength="100" aria-label="TSO" />
+              </td>
+              <td class="cell col-text">
+                <input formControlName="csn" maxlength="100" aria-label="CSN" />
+              </td>
+              <td class="cell col-text">
+                <input formControlName="cso" maxlength="100" aria-label="CSO" />
+              </td>
+              <td class="cell col-text">
+                <input formControlName="budget" type="number" min="0" step="0.01" />
               </td>
               <td class="cell col-text" [class.cell-invalid]="labelInvalid($index)">
                 <input formControlName="label" title="Matched by name, ignoring case. Leave blank for no label." [attr.aria-invalid]="labelInvalid($index)" />
@@ -110,7 +157,7 @@
     <footer class="dialog-footer erp-modal-footer">
       <button type="button" class="add-row" (click)="addRow()" [disabled]="isSaving">
         <mat-icon>add</mat-icon>
-        Add row
+        Add Row
       </button>
 
       <div class="footer-end">

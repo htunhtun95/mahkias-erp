@@ -20,7 +20,7 @@ CREATE TABLE [projects].[QuotationItems]
     [CreatedAt] DATETIME CONSTRAINT [DF_QuotationItems_CreatedAt] DEFAULT (GETDATE()) NOT NULL,
     [ModifiedAt] DATETIME NULL,
     [Condition] NVARCHAR(100) NULL,
-    [LeadTime] NVARCHAR(100) NULL,
+    [LeadTime] INT NULL,
     [MinimumQty] INT NULL,
     [UnitId] INT NULL,
     [ConditionId] INT NULL,

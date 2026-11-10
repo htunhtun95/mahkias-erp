@@ -17,7 +17,7 @@
       <div class="header-copy">
         <div class="title-row">
           <h1>{{ project.name }}</h1>
-          <button class="icon-btn" type="button" matTooltip="Edit project" (click)="openEditProject()" aria-label="Edit project" [disabled]="isDeleting">
+          <button class="icon-btn" type="button" matTooltip="Edit Project" (click)="openEditProject()" aria-label="Edit Project" [disabled]="isDeleting">
             <mat-icon>edit</mat-icon>
           </button>
           <button class="delete-project" type="button" matTooltip="Delete project" (click)="openDeleteProject()" [disabled]="isDeleting">
@@ -100,6 +100,11 @@
                   [attr.disabled]="isDeleting ? '' : null"
                   (input)="activityFilter = $any($event.target).value"
                 />
+                @if (activityFilter) {
+                  <button class="search-clear" type="button" aria-label="Clear filter" [disabled]="isDeleting" (click)="activityFilter = ''">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                }
               </label>
             }
           </div>
@@ -127,7 +132,7 @@
                 </svg>
                 Import Quotation
               </button>
-              <button class="action-primary" type="button" (click)="openQuotation()" [disabled]="isDeleting">
+              <button class="action-primary" type="button" (click)="openQuotation()" [disabled]="isDeleting || openingQuotation">
                 <mat-icon>add</mat-icon>
                 Create Quotation
               </button>

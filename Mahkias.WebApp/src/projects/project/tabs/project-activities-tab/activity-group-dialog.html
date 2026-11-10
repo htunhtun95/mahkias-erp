@@ -1,10 +1,10 @@
 <header class="erp-modal-header">
   <div class="erp-modal-title">
     <div>
-      <h2>{{ data?.group ? 'Edit group' : 'New activity group' }}</h2>
+      <h2>{{ data?.group ? 'Edit Group' : 'New Activity Group' }}</h2>
       <p class="erp-modal-note">Group related activities into a kit or assembly. Activities can stay ungrouped.</p>
     </div>
-    <button class="erp-modal-close" type="button" aria-label="Close" (click)="cancel()">
+    <button class="erp-modal-close" type="button" matTooltip="Close" aria-label="Close" (click)="cancel()">
       <mat-icon>close</mat-icon>
     </button>
   </div>

@@ -51,7 +51,7 @@ export class ProjectDocumentsTabComponent implements OnChanges {
       return;
     }
     openDocumentLibrary(this.dialog, {
-      title: 'Manage documents',
+      title: 'Manage Documents',
       note: 'Drag any file to set the order for this project.',
       kind: 'project',
       projectId: project.id,

@@ -352,7 +352,7 @@ ORDER BY SortOrder, Id;", _connection);
                             Description = reader.ReadStringValue("PartDescription"),
                             Condition = reader.ReadStringValue("Condition"),
                             Unit = reader.ReadStringValue("Unit"),
-                            LeadTime = reader.ReadStringValue("LeadTime"),
+                            LeadTime = reader.ReadNullableIntValue("LeadTime"),
                             MinimumQty = reader.ReadNullableIntValue("MinimumQty"),
                             UnitPrice = reader.ReadNullableDecimalValue("UnitPrice"),
                             Quantity = reader.ReadIntValue("Quantity"),
@@ -402,7 +402,7 @@ ORDER BY SortOrder, Id;", _connection);
             var links = new List<ActivityQuotationLink>();
             using var command = new SqlCommand(@"
 WITH Matched AS (
-    SELECT A.Id AS ActivityId, Q.Id AS QuotationId, I.Id AS ItemId, Q.Code AS QuotationRef, S.Name AS SupplierName,
+    SELECT A.Id AS ActivityId, Q.SupplierId AS SupplierId, Q.Id AS QuotationId, I.Id AS ItemId, Q.Code AS QuotationRef, S.Name AS SupplierName,
            Q.SupplierReference AS SupplierQuotationRef, I.PartNo, I.PartDescription AS Description,
            I.Condition, U.Name AS Unit, I.LeadTime, I.MinimumQty,
            I.Quantity,
@@ -483,7 +483,7 @@ Ranked AS (
            ROW_NUMBER() OVER (PARTITION BY ActivityId ORDER BY BaseUnitPrice ASC, QuotationId ASC, ItemId ASC) AS QuoteRank
     FROM Matched
 )
-SELECT ActivityId, ItemId, QuotationId, QuotationRef, SupplierName, SupplierQuotationRef, PartNo, Description, Condition, Unit, LeadTime, MinimumQty, Quantity, QuotedDate, ValidUntil, AlternativePart,
+SELECT ActivityId, SupplierId, ItemId, QuotationId, QuotationRef, SupplierName, SupplierQuotationRef, PartNo, Description, Condition, Unit, LeadTime, MinimumQty, Quantity, QuotedDate, ValidUntil, AlternativePart,
        UnitPrice, TotalPrice, CurrencyCode, CurrencySymbol, BaseUnitPrice, BaseTotalPrice, RecordedAt,
        CASE WHEN QuoteRank = 1 THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS Lowest
 FROM Ranked
@@ -498,6 +498,7 @@ ORDER BY ActivityId, QuoteRank, QuotationId", _connection);
                     links.Add(new ActivityQuotationLink
                     {
                         ActivityId = reader.ReadIntValue("ActivityId"),
+                        SupplierId = reader.ReadIntValue("SupplierId"),
                         ItemId = reader.ReadIntValue("ItemId"),
                         QuotationId = reader.ReadIntValue("QuotationId"),
                         QuotationRef = reader.ReadStringValue("QuotationRef"),
@@ -507,7 +508,7 @@ ORDER BY ActivityId, QuoteRank, QuotationId", _connection);
                         Description = reader.ReadStringValue("Description"),
                         Condition = reader.ReadStringValue("Condition"),
                         Unit = reader.ReadStringValue("Unit"),
-                        LeadTime = reader.ReadStringValue("LeadTime"),
+                        LeadTime = reader.ReadNullableIntValue("LeadTime"),
                         MinimumQty = reader.ReadNullableIntValue("MinimumQty"),
                         Quantity = reader.ReadIntValue("Quantity"),
                         QuotedDate = reader.ReadNullableDateTimeValue("QuotedDate"),
@@ -825,7 +826,7 @@ WHERE Id = @QuotationId;", _connection, transaction);
                     TextValue2 = item.PartNo,
                     TextValue3 = item.PartDescription,
                     TextValue4 = item.Condition,
-                    TextValue5 = item.LeadTime,
+                    TextValue5 = item.LeadTime?.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     TextValue6 = item.Unit,
                     NumericValue5 = item.CurrencyId,
                     NumericValue6 = item.MinimumQty,

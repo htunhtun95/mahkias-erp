@@ -10,8 +10,8 @@
   }
   <header class="quotation-dialog-header">
     <div class="title-row">
-      <h2>Import purchase order</h2>
-      <button class="icon-close erp-modal-close" type="button" aria-label="Close" [disabled]="saving" (click)="close()">
+      <h2>Import Purchase Order</h2>
+      <button class="icon-close erp-modal-close" type="button" matTooltip="Close" aria-label="Close" [disabled]="saving" (click)="close()">
         <mat-icon>close</mat-icon>
       </button>
     </div>
@@ -134,9 +134,6 @@
           }
         </div>
       }
-      @if (!originalReady) {
-        <p class="hint-error">An original file is required.</p>
-      }
       @if (columns.length) {
         <div class="map-panel">
           <div class="map-grid">
@@ -148,7 +145,7 @@
                   <option [value]="column.letter">{{ column.letter }}{{ column.header ? ' · ' + column.header : '' }}</option>
                 }
               </select>
-              <input #fallback="ngModel" [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping(); noteMap(field.def)" (blur)="noteMap(field.def)" [class.invalid]="fieldInvalid(field.key) && (columnModel.touched || columnModel.dirty || fallback.touched || fallback.dirty)" placeholder="Default" />
+              <input #fallback="ngModel" [leadTimeDays]="field.def === 'defaultLeadTime'" [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping(); noteMap(field.def)" (blur)="noteMap(field.def)" [class.invalid]="fieldInvalid(field.key) && (columnModel.touched || columnModel.dirty || fallback.touched || fallback.dirty)" [attr.inputmode]="field.def === 'defaultLeadTime' ? 'numeric' : null" placeholder="Default" />
             }
           </div>
           @if (requiredMissing && mappingNoted) {
@@ -204,7 +201,7 @@
                 <th>Description</th>
                 <th>Condition</th>
                 <th>Unit</th>
-                <th>Lead Time</th>
+                <th>Lead Time (days)</th>
                 <th class="qty">Quantity<span class="req" aria-hidden="true">*</span></th>
                 <th class="price">Unit Price<span class="req" aria-hidden="true">*</span></th>
                 <th class="price">Total Price</th>
@@ -243,7 +240,7 @@
                       (committed)="normalizeUnit(line)"
                     />
                   </td>
-                  <td><input [attr.disabled]="saving ? '' : null" [(ngModel)]="line.leadTime" [name]="'lead' + line.row" maxlength="100" /></td>
+                  <td [class.invalid]="lineInvalid(line, 'lead')"><input leadTimeDays [attr.disabled]="saving ? '' : null" [(ngModel)]="line.leadTime" [name]="'lead' + line.row" inputmode="numeric" /></td>
                   <td [class.invalid]="lineInvalid(line, 'qty')">
                     <input [attr.disabled]="saving ? '' : null" [(ngModel)]="line.quantity" (ngModelChange)="onQuantity(line)" (blur)="onQuantityBlur(line)" [name]="'qty' + line.row" inputmode="numeric" />
                   </td>

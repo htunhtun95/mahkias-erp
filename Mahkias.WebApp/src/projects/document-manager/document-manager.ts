@@ -60,6 +60,7 @@ export class DocumentManagerComponent implements OnChanges {
   @Input() sortBase = 0;
   @Input() title = 'Documents';
   @Input() hint = 'PDF, Excel, Word, or image. Add more than one file and set the order.';
+  @Input() persistentDrop = false;
 
   entries: DocumentEntry[] = [];
   dragging = false;
@@ -101,10 +102,6 @@ export class DocumentManagerComponent implements OnChanges {
 
   get visible(): DocumentEntry[] {
     return this.entries;
-  }
-
-  get hasOriginal(): boolean {
-    return this.entries.some((entry) => entry.isOriginal);
   }
 
   onDragOver(event: DragEvent) {

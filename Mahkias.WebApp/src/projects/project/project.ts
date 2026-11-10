@@ -62,6 +62,7 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
   section: ProcurementSection = 'quotations';
   loading = true;
   isDeleting = false;
+  openingQuotation = false;
   activityFilter = '';
   quoteFilter: 'all' | 'quoted' | 'unquoted' = 'all';
   quotationCount = 0;
@@ -324,27 +325,37 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
   }
 
   openQuotation() {
-    if (!this.project || this.isDeleting) {
+    if (!this.project || this.isDeleting || this.openingQuotation) {
       return;
     }
 
-    const ref = this.dialog.open(CreateQuotationDialogComponent, {
-      disableClose: true,
-      width: '100vw',
-      maxWidth: '100vw',
-      minWidth: '100vw',
-      height: '100vh',
-      maxHeight: '100vh',
-      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
-      backdropClass: 'add-project-dialog-backdrop',
-      autoFocus: 'first-tabbable',
-      data: {
-        projectId: this.project.id,
-        activities: this.project.activities ?? [],
-        groups: this.activitiesTab()?.groups ?? [],
-      },
-    });
-    this.afterQuotationSaved(ref);
+    this.openingQuotation = true;
+    try {
+      const ref = this.dialog.open(CreateQuotationDialogComponent, {
+        disableClose: true,
+        width: '100vw',
+        maxWidth: '100vw',
+        minWidth: '100vw',
+        height: '100vh',
+        maxHeight: '100vh',
+        panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
+        backdropClass: 'quotation-create-backdrop',
+        autoFocus: 'first-tabbable',
+        data: {
+          projectId: this.project.id,
+          activities: this.project.activities ?? [],
+          groups: this.activitiesTab()?.groups ?? [],
+        },
+      });
+      const finishOpening = () => {
+        this.openingQuotation = false;
+      };
+      ref.afterOpened().subscribe(finishOpening);
+      ref.afterClosed().subscribe(finishOpening);
+      this.afterQuotationSaved(ref);
+    } catch {
+      this.openingQuotation = false;
+    }
   }
 
   openImportQuotation() {

@@ -10,11 +10,41 @@
   </header>
 
   <div class="app-dialog-body">
+    @if (data.kind === 'item') {
+      <section class="card usage-card">
+        <h3>Activity</h3>
+        <dl>
+          <div><dt>SerialNo</dt><dd>{{ data.serialNo || '—' }}</dd></div>
+          <div><dt>TSN</dt><dd>{{ data.tsn || '—' }}</dd></div>
+          <div><dt>TSO</dt><dd>{{ data.tso || '—' }}</dd></div>
+          <div><dt>CSN</dt><dd>{{ data.csn || '—' }}</dd></div>
+          <div><dt>CSO</dt><dd>{{ data.cso || '—' }}</dd></div>
+        </dl>
+      </section>
+    }
     <section class="card">
       <h3>{{ heading }}</h3>
+      @if (selectedCount) {
+        <div class="selection-bar">
+          <span class="selection-note" [class.error]="!!selectionMessage">{{ selectionMessage || selectionNote }}</span>
+          <div class="selection-actions">
+            <select class="po-select" #poSelect aria-label="Purchase order" [disabled]="!canCreate" (change)="choosePurchaseOrder(poSelect)">
+              <option value="" disabled selected>Purchase Order</option>
+              <option value="new">Create New PO</option>
+              @for (order of activeOrders; track order.id) {
+                <option [value]="order.id">{{ order.code }} · {{ order.statusName || 'Draft' }}</option>
+              }
+            </select>
+            <button class="selection-clear" type="button" (click)="clearSelection()">Clear</button>
+          </div>
+        </div>
+      }
       @if (rows.length) {
         <div class="quote-table">
           <div class="quote-line heading" [class.group]="isGroup">
+            <label class="line-check">
+              <input type="checkbox" [checked]="allSelected" [indeterminate]="someSelected" (change)="toggleAll($any($event.target).checked)" aria-label="Select all quotation lines" [disabled]="!selectableRows.length" />
+            </label>
             @if (isGroup) {
               <span>DSN no</span>
               <span>Part no</span>
@@ -34,6 +64,11 @@
           </div>
           @for (row of rows; track (row.link?.itemId ?? row.dsnNo) + '-' + $index) {
             <div class="quote-line" [class.group]="isGroup" [class.lowest]="!isGroup && !!row.link?.lowest">
+              <label class="line-check">
+                @if (row.link) {
+                  <input type="checkbox" [checked]="isSelected(row)" (change)="toggleRow(row, $any($event.target).checked)" [attr.aria-label]="'Select ' + (row.link.quotationRef || 'quotation line')" />
+                }
+              </label>
               @if (isGroup) {
                 <span>{{ row.dsnNo || '—' }}</span>
                 <span class="part">
@@ -62,7 +97,7 @@
               <span>{{ row.link?.condition || '—' }}</span>
               <span>{{ row.link?.unit || '—' }}</span>
 
-              <span>{{ row.link?.leadTime || '—' }}</span>
+              <span>{{ leadTimeLabel(row.link?.leadTime) }}</span>
               <span class="price">
                 {{ row.link ? quotedUnit(row.link) : '—' }}
                 @if (!isGroup && row.link?.lowest) {

@@ -595,6 +595,11 @@ namespace Mahkias.Api.Controllers
                 return "Each purchase order line needs a quantity greater than zero.";
             }
 
+            if (item.LeadTime is < 0)
+            {
+                return LeadTimeDays.Message;
+            }
+
             var quantity = item.Quantity.Value;
             var unitPrice = item.UnitPrice.Value;
             var totalPrice = item.TotalPrice ?? decimal.Round(unitPrice * quantity, 2, MidpointRounding.AwayFromZero);
@@ -612,7 +617,7 @@ namespace Mahkias.Api.Controllers
                 PartDescription = TrimTo(item.Description, 500),
                 Condition = TrimTo(item.Condition, 100),
                 Unit = TrimTo(item.Unit, 100),
-                LeadTime = TrimTo(item.LeadTime, 100),
+                LeadTime = item.LeadTime,
                 Quantity = decimal.Round(quantity, 2, MidpointRounding.AwayFromZero),
                 UnitPrice = decimal.Round(unitPrice, 2, MidpointRounding.AwayFromZero),
                 TotalPrice = decimal.Round(totalPrice, 2, MidpointRounding.AwayFromZero),

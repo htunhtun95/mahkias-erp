@@ -4,7 +4,7 @@
   box-sizing: border-box;
   width: 100%;
   height: 100%;
-  max-height: 92vh;
+  max-height: none;
   min-height: 0;
   color: #111827;
   font-family: Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -17,7 +17,7 @@
   flex-direction: column;
   flex: 1 1 auto;
   height: 100%;
-  max-height: 92vh;
+  max-height: none;
   min-height: 0;
   overflow: hidden;
 }
@@ -44,18 +44,17 @@
 .grid-scroll {
   flex: 1 1 auto;
   min-height: 0;
-  max-height: calc(92vh - 160px);
   overflow-x: auto;
   overflow-y: auto;
   overscroll-behavior: contain;
-  margin: 0 24px;
-  border: 1px solid #e0e0e0;
+  margin: 16px 32px 0;
+  border: 0;
   background: #fff;
 }
 
 .sheet {
   width: 100%;
-  min-width: 1120px;
+  min-width: 1964px;
   border-collapse: collapse;
   table-layout: fixed;
   background: #fff;
@@ -77,12 +76,31 @@
   width: 140px;
 }
 
+.col-condition,
+.col-unit,
+.col-usage {
+  width: 120px;
+}
+
 .col-label {
   width: 140px;
 }
 
 .col-qty {
-  width: 84px;
+  width: 200px;
+}
+
+.qty-pair {
+  display: grid;
+  grid-template-columns: minmax(64px, 0.8fr) minmax(88px, 1fr);
+  gap: 4px;
+  align-items: center;
+}
+
+.qty-pair app-lookup-combobox {
+  display: block;
+  height: 38px;
+  min-width: 0;
 }
 
 .col-budget {
@@ -91,6 +109,7 @@
 
 .col-description {
   width: auto;
+  min-width: 280px;
 }
 
 .col-action {
@@ -120,6 +139,70 @@
   text-align: center;
 }
 
+.sheet th:nth-child(1),
+.sheet td:nth-child(1),
+.sheet th:nth-child(2),
+.sheet td:nth-child(2),
+.sheet th:nth-child(3),
+.sheet td:nth-child(3),
+.sheet th:last-child,
+.sheet td:last-child {
+  background-clip: padding-box;
+}
+
+.sheet th:nth-child(1),
+.sheet td:nth-child(1) {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background-color: #fff;
+}
+
+.sheet th:nth-child(2),
+.sheet td:nth-child(2) {
+  position: sticky;
+  left: 40px;
+  z-index: 3;
+  background-color: #fff;
+}
+
+.sheet th:nth-child(3),
+.sheet td:nth-child(3) {
+  position: sticky;
+  left: 136px;
+  z-index: 3;
+  background-color: #fff;
+  border-right: 1px solid #e0e0e0 !important;
+  box-shadow: inset -1px 0 0 #e0e0e0, 4px 0 4px -2px rgba(0, 0, 0, 0.1);
+}
+
+.sheet th:last-child,
+.sheet td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 3;
+  background-color: #fff;
+  border-left: 1px solid #e0e0e0 !important;
+  box-shadow: inset 1px 0 0 #e0e0e0, -4px 0 4px -2px rgba(0, 0, 0, 0.1);
+}
+
+.sheet thead th:nth-child(-n+3),
+.sheet thead th:last-child {
+  z-index: 6;
+  background-color: #f8f9fa;
+}
+
+.sheet tbody th:nth-child(1) {
+  background-color: #f8f9fa;
+}
+
+.sheet td.cell:focus-within:nth-child(-n+3),
+.sheet td.cell:focus-within:last-child,
+.sheet td.action-cell:focus-within {
+  position: sticky;
+  z-index: 4;
+}
+
 .sheet thead th.col-text {
   text-align: left;
   padding-left: 14px;
@@ -141,10 +224,25 @@
   background: #fff;
 }
 
-.sheet td.cell:focus-within,
-.sheet td.action-cell:focus-within {
+td.lookup {
+  padding: 0;
+}
+
+td.lookup app-lookup-combobox {
+  display: block;
+  height: 44px;
+}
+
+.sheet td.cell:focus-within:not(:nth-child(-n+3)):not(:last-child) {
   position: relative;
   z-index: 1;
+  border: 2px solid #1a73e8;
+}
+
+.sheet td.cell:focus-within:nth-child(-n+3),
+.sheet td.cell:focus-within:last-child,
+.sheet td.action-cell:focus-within {
+  z-index: 4;
   border: 2px solid #1a73e8;
 }
 

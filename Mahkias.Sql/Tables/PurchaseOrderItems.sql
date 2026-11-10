@@ -9,7 +9,7 @@ CREATE TABLE [projects].[PurchaseOrderItems]
     [PartDescription] NVARCHAR(500) NULL,
     [Condition] NVARCHAR(100) NULL,
     [Unit] NVARCHAR(100) NULL,
-    [LeadTime] NVARCHAR(100) NULL,
+    [LeadTime] INT NULL,
     [Quantity] DECIMAL(18, 2) NOT NULL,
     [UnitPrice] DECIMAL(18, 2) NOT NULL,
     [TotalPrice] DECIMAL(18, 2) NOT NULL,

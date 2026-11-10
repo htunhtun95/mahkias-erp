@@ -163,7 +163,7 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
 
         public string Unit { get; set; }
 
-        public string LeadTime { get; set; }
+        public int? LeadTime { get; set; }
 
         public int? MinimumQty { get; set; }
 
@@ -218,6 +218,8 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
     {
         public int ActivityId { get; set; }
 
+        public int SupplierId { get; set; }
+
         public int ItemId { get; set; }
 
         public int QuotationId { get; set; }
@@ -236,7 +238,7 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
 
         public string Unit { get; set; }
 
-        public string LeadTime { get; set; }
+        public int? LeadTime { get; set; }
 
         public int? MinimumQty { get; set; }
 

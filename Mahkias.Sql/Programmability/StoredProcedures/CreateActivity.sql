@@ -6,7 +6,14 @@ CREATE PROCEDURE [dbo].[CreateActivity]
     @Description NVARCHAR(MAX) = NULL,
     @DSNNo NVARCHAR(100) = NULL,
     @Quantity INT = NULL,
-    @TypeId INT = NULL
+    @TypeId INT = NULL,
+    @Unit NVARCHAR(100) = NULL,
+    @Condition NVARCHAR(100) = NULL,
+    @SerialNo NVARCHAR(100) = NULL,
+    @TSN NVARCHAR(100) = NULL,
+    @TSO NVARCHAR(100) = NULL,
+    @CSN NVARCHAR(100) = NULL,
+    @CSO NVARCHAR(100) = NULL
 )
 AS
 BEGIN
@@ -27,6 +34,13 @@ BEGIN
         Description,
         DSNNo,
         Quantity,
+        Unit,
+        Condition,
+        SerialNo,
+        TSN,
+        TSO,
+        CSN,
+        CSO,
         ActivityTypeId,
         CreatedAt
     )
@@ -38,6 +52,13 @@ BEGIN
         @Description,
         @DSNNo,
         @Quantity,
+        NULLIF(LTRIM(RTRIM(@Unit)), N''),
+        NULLIF(LTRIM(RTRIM(@Condition)), N''),
+        NULLIF(LTRIM(RTRIM(@SerialNo)), N''),
+        NULLIF(LTRIM(RTRIM(@TSN)), N''),
+        NULLIF(LTRIM(RTRIM(@TSO)), N''),
+        NULLIF(LTRIM(RTRIM(@CSN)), N''),
+        NULLIF(LTRIM(RTRIM(@CSO)), N''),
         @TypeId,
         GETDATE()
     );

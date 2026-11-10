@@ -11,6 +11,13 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
         public string Description { get; set; }
         public string DSNNo { get; set; }
         public decimal? Quantity { get; set; }
+        public string Unit { get; set; }
+        public string Condition { get; set; }
+        public string SerialNo { get; set; }
+        public string TSN { get; set; }
+        public string TSO { get; set; }
+        public string CSN { get; set; }
+        public string CSO { get; set; }
         public int? TypeId { get; set; }
         public string Type { get; set; }
         public DateTime CreatedAt { get; set; }

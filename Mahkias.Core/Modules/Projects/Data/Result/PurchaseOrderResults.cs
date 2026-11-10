@@ -59,7 +59,7 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
 
         public string Unit { get; set; }
 
-        public string LeadTime { get; set; }
+        public int? LeadTime { get; set; }
 
         public decimal Quantity { get; set; }
 
@@ -204,7 +204,7 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
 
         public string Unit { get; set; }
 
-        public string LeadTime { get; set; }
+        public int? LeadTime { get; set; }
 
         public decimal Quantity { get; set; }
 

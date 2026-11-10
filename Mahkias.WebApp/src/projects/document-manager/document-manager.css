@@ -1,3 +1,11 @@
+:host {
+  display: block;
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: min-content;
+}
+
 .library {
   display: flex;
   flex-direction: column;
@@ -18,6 +26,11 @@
 
 .library.dragging {
   border-color: #1a73e8;
+}
+
+.library.dragging .empty {
+  border-color: #1a73e8;
+  background: #f8fbff;
 }
 
 .library-head,
@@ -57,10 +70,30 @@ button {
 }
 
 .empty {
+  box-sizing: border-box;
+  width: 100%;
   padding: 16px;
   border: 1px dashed #dadce0;
   border-radius: 8px;
   color: #5f6368;
+}
+
+:host(.embedded) .empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 93px;
+  padding: 6px 10px;
+  border: 1.5px dashed #dadce0;
+  border-radius: 10px;
+  background: #f8f9fa;
+  color: #5f6368;
+  font-size: 13px;
+}
+
+:host(.embedded) .library.dragging .empty {
+  border-color: #1a73e8;
+  background: #e8f0fe;
 }
 
 button:disabled {

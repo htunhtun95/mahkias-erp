@@ -6,6 +6,7 @@ import { ProjectApiService, PurchaseOrderDetail, PurchaseOrderDocument, Purchase
 import { formatFileSize } from '../../../document-manager/document-manager';
 import { documentAccept, openDocumentLibrary } from '../../../document-library-dialog/document-library-dialog';
 import { formatMoney } from '../../../money-format';
+import { leadTimeLabel } from '../../../lead-time';
 
 export interface PurchaseOrderDetailDialogData {
   projectId: number;
@@ -20,6 +21,7 @@ export interface PurchaseOrderDetailDialogData {
   styleUrl: './purchase-order-detail-dialog.css',
 })
 export class PurchaseOrderDetailDialog implements OnInit {
+  readonly leadTimeLabel = leadTimeLabel;
   private api = inject(ProjectApiService);
   private dialog = inject(MatDialog);
   private dialogRef = inject(MatDialogRef<PurchaseOrderDetailDialog>);
@@ -159,7 +161,7 @@ export class PurchaseOrderDetailDialog implements OnInit {
 
   manageDocuments() {
     openDocumentLibrary(this.dialog, {
-      title: 'Manage documents',
+      title: 'Manage Documents',
       note: `Files for ${this.data.order.code}. Choose the original, then set the order.`,
       kind: 'purchase-order',
       projectId: this.data.projectId,

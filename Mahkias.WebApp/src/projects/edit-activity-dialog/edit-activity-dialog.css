@@ -3,7 +3,11 @@
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
   padding: 0;
+  overflow: hidden;
   color: #202124;
   font-family: Roboto, "Helvetica Neue", Arial, sans-serif;
 }
@@ -18,13 +22,111 @@ h2 {
 
 form {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  gap: 14px;
-  padding: 8px 24px 0;
+  min-height: 0;
+  max-height: none;
+  padding: 0;
+  overflow: auto;
 }
 
-mat-form-field {
+.form-panel {
+  box-sizing: border-box;
+  width: min(1040px, calc(100% - 64px));
+  margin: 28px auto 24px;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 16px 20px;
+  align-items: start;
+}
+
+.field-grid > mat-form-field,
+.field-grid > .lookup-field {
+  grid-column: span 2;
   width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+.field-grid > .wide {
+  grid-column: 1 / -1;
+}
+
+.field-grid > .half {
+  grid-column: span 3;
+}
+
+.lookup-field {
+  position: relative;
+  display: block;
+  height: 56px;
+  margin: 0;
+  padding: 0;
+}
+
+.lookup-field > span {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  left: 16px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--mat-sys-on-surface-variant, #44474e);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 24px;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.lookup-field.filled > span,
+.lookup-field:focus-within > span {
+  top: 0;
+  left: 12px;
+  padding: 0 4px;
+  background: #fff;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.lookup-field:focus-within > span {
+  color: var(--mat-sys-primary, #005cbb);
+}
+
+.lookup-box {
+  box-sizing: border-box;
+  height: 56px;
+  border: 1px solid var(--mat-sys-outline, #74777f);
+  border-radius: 4px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.lookup-box:hover {
+  border-color: var(--mat-sys-on-surface, #1a1b1f);
+}
+
+.lookup-box:focus-within {
+  border-color: var(--mat-sys-primary, #005cbb);
+  box-shadow: 0 0 0 1px var(--mat-sys-primary, #005cbb);
+}
+
+.lookup-box app-lookup-combobox {
+  display: block;
+  height: 100%;
+}
+
+:host ::ng-deep .lookup-box input {
+  box-sizing: border-box;
+  height: 100%;
+  padding: 0 36px 0 15px;
+  color: var(--mat-sys-on-surface, #1a1b1f);
+  font-size: 16px;
+  line-height: 24px;
 }
 
 textarea {
@@ -39,7 +141,7 @@ textarea.is-multiline {
 }
 
 .error {
-  margin: 0;
+  margin: 12px 0 0;
   color: #c5221f;
   font-size: 0.75rem;
 }
@@ -49,9 +151,31 @@ textarea.is-multiline {
   justify-content: flex-end;
   align-items: center;
   gap: 12px;
-  margin: 8px -24px 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin-top: auto;
   padding: 16px 24px;
   border-top: 1px solid #e0e0e0;
+  background: #fff;
+}
+
+@media (max-width: 840px) {
+  .form-panel {
+    width: calc(100% - 32px);
+    margin-top: 16px;
+  }
+
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .field-grid > mat-form-field,
+  .field-grid > .lookup-field,
+  .field-grid > .wide,
+  .field-grid > .half {
+    grid-column: auto;
+  }
 }
 
 .btn {

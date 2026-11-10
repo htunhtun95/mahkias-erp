@@ -18,6 +18,7 @@ import {
 import { DocumentManagerComponent, syncDocumentDrafts } from '../document-manager/document-manager';
 import { DriveUploadCardComponent } from '../drive-upload-card/drive-upload-card';
 import { formatMoney } from '../money-format';
+import { leadTimeDays, leadTimeInvalid, leadTimeText, LeadTimeDaysDirective } from '../lead-time';
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
 import { QuotationChargeRow, QuotationChargesComponent, quotationChargeTotal, readQuotationCharges } from '../quotation-charges/quotation-charges';
 import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-date-field';
@@ -52,7 +53,7 @@ interface PreviewLine {
 @Component({
   selector: 'app-import-purchase-order-dialog',
   standalone: true,
-  imports: [FormsModule, TextFieldModule, MaterialModule, QuotationDateFieldComponent, QuotationChargesComponent, DriveUploadCardComponent, LookupComboboxComponent, SheetCellFocusDirective, DocumentManagerComponent],
+  imports: [FormsModule, TextFieldModule, MaterialModule, QuotationDateFieldComponent, QuotationChargesComponent, DriveUploadCardComponent, LookupComboboxComponent, SheetCellFocusDirective, DocumentManagerComponent, LeadTimeDaysDirective],
   templateUrl: './import-purchase-order-dialog.html',
   styleUrls: ['../purchase-order-dialog/purchase-order-dialog.css'],
 })
@@ -92,7 +93,7 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
     { key: 'descriptionColumn', def: 'defaultDescription', label: 'Description', required: false },
     { key: 'conditionColumn', def: 'defaultCondition', label: 'Condition', required: false },
     { key: 'unitColumn', def: 'defaultUnit', label: 'Unit', required: false },
-    { key: 'leadTimeColumn', def: 'defaultLeadTime', label: 'Lead Time', required: false },
+    { key: 'leadTimeColumn', def: 'defaultLeadTime', label: 'Lead Time (days)', required: false },
     { key: 'unitPriceColumn', def: 'defaultUnitPrice', label: 'Unit Price', required: false },
     { key: 'quantityColumn', def: 'defaultQuantity', label: 'Quantity', required: false },
     { key: 'totalPriceColumn', def: 'defaultTotalPrice', label: 'Total Price', required: false },
@@ -177,16 +178,12 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
     }
   }
 
-  get originalReady(): boolean {
-    return this.spreadsheetIsOriginal ? !!this.file : !!this.originalFile;
-  }
-
   get canCheck(): boolean {
-    return !!this.file && this.originalReady && this.columns.length > 0 && !this.requiredMissing && !!this.code.trim() && !!this.supplierId && !readQuotationCharges(this.charges).error && !this.checking && !this.reading && !this.saving;
+    return !!this.file && this.columns.length > 0 && !this.requiredMissing && !!this.code.trim() && !!this.supplierId && !readQuotationCharges(this.charges).error && !this.checking && !this.reading && !this.saving;
   }
 
   get canImport(): boolean {
-    return this.isVerifyStep && this.originalReady && this.lines.length > 0 && this.previewIssues.length === 0 && !!this.supplierId && !!this.code.trim() && !readQuotationCharges(this.charges).error && !this.saving;
+    return this.isVerifyStep && this.lines.length > 0 && this.previewIssues.length === 0 && !!this.supplierId && !!this.code.trim() && !readQuotationCharges(this.charges).error && !this.saving;
   }
 
   get activityIssueCount(): number {
@@ -208,6 +205,9 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
       const messages: string[] = [];
       if (line.activityWarning) {
         messages.push(line.activityWarning);
+      }
+      if (leadTimeInvalid(line.leadTime)) {
+        messages.push('Lead time must be a whole number of days, or left blank.');
       }
       if (!this.validQuantity(line.quantity)) {
         messages.push('Quantity must be a whole number greater than zero.');
@@ -287,7 +287,10 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
     );
   }
 
-  lineInvalid(line: PreviewLine, field: 'dsn' | 'part' | 'qty' | 'price'): boolean {
+  lineInvalid(line: PreviewLine, field: 'dsn' | 'part' | 'qty' | 'price' | 'lead'): boolean {
+    if (field === 'lead') {
+      return leadTimeInvalid(line.leadTime);
+    }
     if (field === 'dsn' || field === 'part') {
       return !!line.activityWarning;
     }
@@ -548,7 +551,7 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
       description: item.description ?? '',
       condition: item.condition ?? '',
       unit: item.unit ?? '',
-      leadTime: item.leadTime ?? '',
+      leadTime: leadTimeText(item.leadTime),
       quantity: item.quantity == null ? '' : String(item.quantity),
       unitPrice: unitText,
       totalPrice: totalText,
@@ -631,7 +634,7 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
         description: line.description.trim(),
         condition: line.condition.trim(),
         unit: line.unit.trim(),
-        leadTime: line.leadTime.trim(),
+        leadTime: leadTimeDays(line.leadTime),
         quantity,
         unitPrice,
         totalPrice,
@@ -657,6 +660,10 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
       this.error = this.activityIssueCount
         ? 'Each row must match an activity on this project before it can be imported.'
         : 'Fix the highlighted cells before importing.';
+      return;
+    }
+    if (this.lines.some((line) => leadTimeInvalid(line.leadTime))) {
+      this.error = 'Lead time must be a whole number of days, or left blank.';
       return;
     }
     const charges = readQuotationCharges(this.charges);

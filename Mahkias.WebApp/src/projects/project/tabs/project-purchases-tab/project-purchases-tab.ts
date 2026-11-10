@@ -7,6 +7,7 @@ import { MaterialModule } from '../../../../app/material-module';
 import { Project, ProjectApiService, PurchaseOrderDetail, PurchaseOrderDocument, PurchaseOrderLine, PurchaseOrderListItem, QuotationCharge } from '../../../../core/services/project-api.service';
 import { formatFileSize } from '../../../document-manager/document-manager';
 import { formatMoney } from '../../../money-format';
+import { leadTimeLabel } from '../../../lead-time';
 import { ConfirmDialog } from '../../../confirm-dialog/confirm-dialog';
 import { PurchaseOrderDialogComponent } from '../../../purchase-order-dialog/purchase-order-dialog';
 import { documentAccept, openDocumentLibrary } from '../../../document-library-dialog/document-library-dialog';
@@ -22,6 +23,7 @@ import { PurchaseOrderSync } from '../../../purchase-order-sync';
   styleUrl: './project-purchases-tab.css',
 })
 export class ProjectPurchasesTabComponent implements OnChanges, OnDestroy {
+  readonly leadTimeLabel = leadTimeLabel;
   private api = inject(ProjectApiService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
@@ -229,7 +231,7 @@ export class ProjectPurchasesTabComponent implements OnChanges, OnDestroy {
     this.api.purchaseOrderDocuments(projectId, order.id).subscribe({
       next: (documents) => {
         openDocumentLibrary(this.dialog, {
-          title: 'Manage documents',
+          title: 'Manage Documents',
           note: `Files for ${order.code}. Choose the original, then set the order.`,
           kind: 'purchase-order',
           projectId,
@@ -303,7 +305,7 @@ export class ProjectPurchasesTabComponent implements OnChanges, OnDestroy {
       panelClass: 'add-project-dialog-panel',
       backdropClass: 'add-project-dialog-backdrop',
       data: {
-        title: 'Delete purchase order',
+        title: 'Delete Purchase Order',
         message: 'Are you sure you want to delete this purchase order?',
         confirmLabel: 'Delete',
         cancelLabel: 'Cancel',

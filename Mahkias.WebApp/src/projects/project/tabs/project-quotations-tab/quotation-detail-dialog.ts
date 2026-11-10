@@ -7,6 +7,7 @@ import { closeOnEscape } from '../../../../core/close-on-escape';
 import { formatFileSize } from '../../../document-manager/document-manager';
 import { documentAccept, openDocumentLibrary } from '../../../document-library-dialog/document-library-dialog';
 import { formatMoney } from '../../../money-format';
+import { leadTimeLabel } from '../../../lead-time';
 import { quotationQuantity, quotationValidity } from '../../../quotation-terms';
 
 export interface QuotationDetailDialogData {
@@ -22,6 +23,7 @@ export interface QuotationDetailDialogData {
   styleUrl: './quotation-detail-dialog.css',
 })
 export class QuotationDetailDialog implements OnInit {
+  readonly leadTimeLabel = leadTimeLabel;
   private api = inject(ProjectApiService);
   private dialog = inject(MatDialog);
   private dialogRef = inject(MatDialogRef<QuotationDetailDialog>);
@@ -123,7 +125,7 @@ export class QuotationDetailDialog implements OnInit {
 
   manageDocuments() {
     openDocumentLibrary(this.dialog, {
-      title: 'Manage documents',
+      title: 'Manage Documents',
       note: `Files for ${this.data.quotation.code}. Choose the original, then set the order.`,
       kind: 'quotation',
       projectId: this.data.projectId,

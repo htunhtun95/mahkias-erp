@@ -20,6 +20,7 @@ import {
 import { DocumentManagerComponent, syncDocumentDrafts } from '../document-manager/document-manager';
 import { documentAccept as acceptedDocuments } from '../document-library-dialog/document-library-dialog';
 import { formatMoney } from '../money-format';
+import { leadTimeDays, leadTimeInvalid, leadTimeText, LeadTimeDaysDirective } from '../lead-time';
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
 import { QuotationChargeRow, QuotationChargesComponent, quotationChargeTotal, readQuotationCharges } from '../quotation-charges/quotation-charges';
 import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-date-field';
@@ -70,6 +71,8 @@ interface PoLine {
   quantity: string;
   unitPrice: string;
   totalPrice: string;
+  typeId: number | null;
+  typeName: string;
   edited: PoEdits;
 }
 
@@ -95,6 +98,7 @@ interface PoEdits {
     ActivitySuggestComponent,
     SheetCellFocusDirective,
     DocumentManagerComponent,
+    LeadTimeDaysDirective,
   ],
   templateUrl: './purchase-order-dialog.html',
   styleUrl: './purchase-order-dialog.css',
@@ -103,6 +107,7 @@ export class PurchaseOrderDialogComponent implements OnInit {
   private api = inject(ProjectApiService);
   private dialogRef = inject(MatDialogRef<PurchaseOrderDialogComponent, boolean>);
   readonly data = inject<PurchaseOrderDialogData>(MAT_DIALOG_DATA);
+  private readonly startedAsNew = !this.data.purchaseOrderId;
 
   suppliers: Supplier[] = [];
   currencies: Currency[] = [];
@@ -132,6 +137,7 @@ export class PurchaseOrderDialogComponent implements OnInit {
   poDate = todayIso();
   shipToAddress = '';
   search = '';
+  typeFilter: number | null = null;
   loading = true;
   saving = false;
   submitted = false;
@@ -172,6 +178,10 @@ export class PurchaseOrderDialogComponent implements OnInit {
           this.originalStatus = this.statusCode;
           this.history = result.detail.history ?? [];
           this.rows = result.detail.items.map((item) => this.lineFromDetail(item));
+          const added = (this.data.lines ?? []).map((line) => this.lineFromPreset(line));
+          if (added.length) {
+            this.rows = [...this.rows, ...added];
+          }
           this.charges = (result.detail.charges ?? []).map((charge) => ({
             key: crypto.randomUUID(),
             name: charge.name,
@@ -237,7 +247,7 @@ export class PurchaseOrderDialogComponent implements OnInit {
   }
 
   get title(): string {
-    return this.data.purchaseOrderId ? 'Edit purchase order' : 'New purchase order';
+    return this.startedAsNew ? 'New Purchase Order' : 'Edit Purchase Order';
   }
 
   get symbol(): string {
@@ -264,23 +274,72 @@ export class PurchaseOrderDialogComponent implements OnInit {
     return formatMoney(value, this.symbol, this.currencyCode);
   }
 
+  lowerPriceWarning(row: PoLine): string {
+    const quotes = this.quotesForPart(row);
+    if (quotes.length < 2) {
+      return '';
+    }
+    const source = this.sourceQuote(row, quotes);
+    const mine = this.rowBaseUnit(row, source);
+    if (mine == null) {
+      return '';
+    }
+    let best: ActivityQuotationLink | null = null;
+    let bestPrice = Number.POSITIVE_INFINITY;
+    for (const link of quotes) {
+      if (source && sameQuoteLine(link, source)) {
+        continue;
+      }
+      const price = linkBaseUnit(link);
+      if (price == null || price >= bestPrice) {
+        continue;
+      }
+      best = link;
+      bestPrice = price;
+    }
+    if (!best || !priceIsHigher(mine, bestPrice)) {
+      return '';
+    }
+    const amount = formatMoney(best.unitPrice ?? best.baseUnitPrice ?? bestPrice, best.currencySymbol || '$', best.currencyCode || 'USD');
+    const supplier = best.supplierName?.trim() || 'another supplier';
+    const quote = best.quotationRef?.trim();
+    return quote
+      ? `A lower price of ${amount} is available from ${supplier} (${quote}).`
+      : `A lower price of ${amount} is available from ${supplier}.`;
+  }
+
   private poVisibleKey = Number.NaN;
   private poVisibleCache: PoLine[] = [];
 
   get visibleRows(): PoLine[] {
     const term = this.search.trim().toLowerCase();
-    if (!term) {
+    const typeId = this.typeFilter;
+    if (!term && typeId == null) {
       return this.rows;
     }
-    const key = this.poSearchKey(term);
+    const key = this.poSearchKey(term) ^ (typeId ?? 0);
     if (key === this.poVisibleKey) {
       return this.poVisibleCache;
     }
     this.poVisibleKey = key;
-    this.poVisibleCache = this.rows.filter((row) =>
-      [row.dsnNo, row.partNo, row.description, row.quotationCode].some((value) => value.toLowerCase().includes(term)),
-    );
+    this.poVisibleCache = this.rows.filter((row) => {
+      const matchesType = typeId == null || row.typeId === typeId;
+      const matchesTerm = !term || [row.dsnNo, row.partNo, row.description, row.quotationCode].some((value) => value.toLowerCase().includes(term));
+      return matchesType && matchesTerm;
+    });
     return this.poVisibleCache;
+  }
+
+  get activityTypeOptions(): { id: number; name: string }[] {
+    const names = new Map<number, string>();
+    for (const row of this.rows) {
+      if (row.typeId != null && !names.has(row.typeId)) {
+        names.set(row.typeId, row.typeName || 'Type');
+      }
+    }
+    return [...names.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((left, right) => left.name.localeCompare(right.name));
   }
 
   private poSearchKey(term: string): number {
@@ -341,10 +400,12 @@ export class PurchaseOrderDialogComponent implements OnInit {
     row.edited = blankEdits();
     if (activity) {
       const details = this.activityDetails(activity);
+      row.typeId = activity.typeId ?? null;
+      row.typeName = row.typeId == null ? '' : (activity.type?.trim() || 'Type');
       row.description = details.description;
       row.quantity = activityQuantity(activity) || '1';
-      row.condition = this.whenMissing(canonicalCondition(details.condition, this.conditions), 'NE');
-      row.unit = this.whenMissing(canonicalUnit(details.unit, this.units), 'EA');
+      row.condition = this.activityLookup(activity, 'condition');
+      row.unit = this.activityLookup(activity, 'unit');
       row.leadTime = details.leadTime;
       if (row.unitPrice.trim()) {
         this.syncFromUnit(row);
@@ -373,6 +434,7 @@ export class PurchaseOrderDialogComponent implements OnInit {
 
   onLead(row: PoLine) {
     this.mark(row, 'leadTime');
+    this.touch(row, 'lead');
   }
 
   onCondition(row: PoLine, value: string) {
@@ -394,6 +456,8 @@ export class PurchaseOrderDialogComponent implements OnInit {
     row.partNo = part;
     row.activityId = nextId;
     const activity = nextId ? (this.data.activities ?? []).find((item) => item.id === nextId) : undefined;
+    row.typeId = activity?.typeId ?? null;
+    row.typeName = row.typeId == null ? '' : (activity?.type?.trim() || 'Type');
     if (!activity) {
       return;
     }
@@ -401,8 +465,8 @@ export class PurchaseOrderDialogComponent implements OnInit {
     this.applying = true;
     this.fill(row, 'description', details.description);
     this.fill(row, 'quantity', activityQuantity(activity) || '1');
-    this.fill(row, 'condition', this.whenMissing(canonicalCondition(details.condition, this.conditions), 'NE'));
-    this.fill(row, 'unit', this.whenMissing(canonicalUnit(details.unit, this.units), 'EA'));
+    this.fill(row, 'condition', this.activityLookup(activity, 'condition'));
+    this.fill(row, 'unit', this.activityLookup(activity, 'unit'));
     this.fill(row, 'leadTime', details.leadTime);
     if (!row.edited.dsn && !row.dsnNo.trim() && activity.dsnNo?.trim()) {
       row.dsnNo = activity.dsnNo.trim();
@@ -465,18 +529,7 @@ export class PurchaseOrderDialogComponent implements OnInit {
     if (charges) {
       return charges;
     }
-    if (!this.hasOriginalFile) {
-      return 'An original file is required.';
-    }
     return '';
-  }
-
-  private get hasOriginalFile(): boolean {
-    const library = this.library;
-    if (library && (library.hasChanges || library.entries.length > 0)) {
-      return library.hasOriginal;
-    }
-    return this.documents.some((document) => !!document.isOriginal);
   }
 
   get canSave(): boolean {
@@ -484,9 +537,6 @@ export class PurchaseOrderDialogComponent implements OnInit {
   }
 
   get visibleValidationMessage(): string {
-    if (this.validationMessage === 'An original file is required.') {
-      return this.validationMessage;
-    }
     if (!this.validationMessage) {
       return '';
     }
@@ -496,13 +546,13 @@ export class PurchaseOrderDialogComponent implements OnInit {
     if (this.supplierInvalid) {
       return this.supplierErrorVisible ? this.validationMessage : '';
     }
-    if (readQuotationCharges(this.charges).error || this.seen.size) {
+    if (readQuotationCharges(this.charges).error || this.seen.size || this.rows.some((row) => lineProblem(row) === 'lead')) {
       return this.validationMessage;
     }
     return '';
   }
 
-  invalid(row: PoLine, field: 'dsn' | 'part' | 'qty' | 'price'): boolean {
+  invalid(row: PoLine, field: 'dsn' | 'part' | 'qty' | 'price' | 'lead'): boolean {
     const problem = lineProblem(row);
     if (problem === 'skip' || problem == null) {
       return false;
@@ -521,6 +571,13 @@ export class PurchaseOrderDialogComponent implements OnInit {
 
   private whenMissing(value: string, fallback: string): string {
     return value.trim() || fallback;
+  }
+
+  private activityLookup(activity: Activity, field: 'unit' | 'condition'): string {
+    if (field === 'unit') {
+      return this.whenMissing(canonicalUnit(activity.unit ?? '', this.units), 'EA');
+    }
+    return this.whenMissing(canonicalCondition(activity.condition ?? '', this.conditions), 'NE');
   }
 
   private fill(row: PoLine, field: keyof PoEdits, value: string) {
@@ -547,7 +604,7 @@ export class PurchaseOrderDialogComponent implements OnInit {
       description: (activity.description ?? '').trim() || agreed(links, (link) => link.description),
       condition: agreed(links, (link) => link.condition),
       unit: agreed(links, (link) => link.unit),
-      leadTime: agreed(links, (link) => link.leadTime),
+      leadTime: agreed(links, (link) => link.leadTime == null ? '' : String(link.leadTime)),
     };
   }
 
@@ -647,7 +704,7 @@ export class PurchaseOrderDialogComponent implements OnInit {
         description: row.description.trim(),
         condition: textOrNull(canonicalCondition(row.condition, this.conditions)),
         unit: textOrNull(canonicalUnit(row.unit, this.units)),
-        leadTime: row.leadTime,
+        leadTime: leadTimeDays(row.leadTime),
         quantity,
         unitPrice: roundMoney(unitPrice as number),
         totalPrice: roundMoney(totalPrice as number),
@@ -717,7 +774,6 @@ export class PurchaseOrderDialogComponent implements OnInit {
   }
 
   private lineFromActivity(activity: Activity): PoLine {
-    const details = this.activityDetails(activity);
     return {
       key: crypto.randomUUID(),
       activityId: activity.id,
@@ -729,12 +785,14 @@ export class PurchaseOrderDialogComponent implements OnInit {
       dsnNo: (activity.dsnNo ?? '').trim(),
       partNo: (activity.mainPartNo || activity.partNo || '').trim(),
       description: (activity.description ?? '').trim(),
-      condition: this.whenMissing(canonicalCondition(details.condition, this.conditions), 'NE'),
-      unit: this.whenMissing(canonicalUnit(details.unit, this.units), 'EA'),
+      condition: this.activityLookup(activity, 'condition'),
+      unit: this.activityLookup(activity, 'unit'),
       leadTime: '',
       quantity: activityQuantity(activity) || '1',
       unitPrice: '',
       totalPrice: '',
+      typeId: activity.typeId ?? null,
+      typeName: activity.typeId == null ? '' : (activity.type?.trim() || 'Type'),
     };
   }
 
@@ -759,10 +817,11 @@ export class PurchaseOrderDialogComponent implements OnInit {
       description: line.description ?? '',
       condition: this.whenMissing(canonicalCondition(line.condition ?? '', this.conditions), 'NE'),
       unit: this.whenMissing(canonicalUnit(line.unit ?? '', this.units), 'EA'),
-      leadTime: line.leadTime ?? '',
+      leadTime: leadTimeText(line.leadTime),
       quantity,
       unitPrice,
       totalPrice,
+      ...this.typeFields(line.activityId),
     };
   }
 
@@ -782,10 +841,11 @@ export class PurchaseOrderDialogComponent implements OnInit {
       description: line.description ?? '',
       condition: canonicalCondition(line.condition ?? '', this.conditions),
       unit: canonicalUnit(line.unit ?? '', this.units),
-      leadTime: line.leadTime ?? '',
+      leadTime: leadTimeText(line.leadTime),
       quantity: line.quantity == null ? '1' : String(line.quantity),
       unitPrice: String(line.unitPrice ?? ''),
       totalPrice: String(line.totalPrice ?? ''),
+      ...this.typeFields(activityId),
     };
   }
 
@@ -807,8 +867,84 @@ export class PurchaseOrderDialogComponent implements OnInit {
       quantity: '1',
       unitPrice: '',
       totalPrice: '',
+      typeId: null,
+      typeName: '',
     };
   }
+
+  private quotesForPart(row: PoLine): ActivityQuotationLink[] {
+    const part = partKey(row.partNo);
+    if (!part && row.activityId == null) {
+      return [];
+    }
+    return this.links.filter((link) => {
+      if (linkBaseUnit(link) == null) {
+        return false;
+      }
+      if (part) {
+        return partKey(link.partNo) === part;
+      }
+      return link.activityId === row.activityId;
+    });
+  }
+
+  private sourceQuote(row: PoLine, quotes: ActivityQuotationLink[]): ActivityQuotationLink | null {
+    if (row.quotationId == null) {
+      return null;
+    }
+    const matches = quotes.filter((link) => link.quotationId === row.quotationId && (row.activityId == null || link.activityId === row.activityId));
+    if (!matches.length) {
+      return null;
+    }
+    const entered = numeric(row.unitPrice);
+    if (entered == null) {
+      return matches[0];
+    }
+    return matches.slice().sort((left, right) => Math.abs(Number(left.unitPrice ?? left.baseUnitPrice) - entered) - Math.abs(Number(right.unitPrice ?? right.baseUnitPrice) - entered))[0];
+  }
+
+  private rowBaseUnit(row: PoLine, source: ActivityQuotationLink | null): number | null {
+    const entered = numeric(row.unitPrice);
+    if (!source) {
+      return this.currencyCode === 'USD' ? entered : null;
+    }
+    const base = linkBaseUnit(source);
+    const quoted = source.unitPrice == null ? null : Number(source.unitPrice);
+    if (base == null) {
+      return null;
+    }
+    if (entered == null || quoted == null || quoted === 0 || Math.abs(entered - quoted) < 0.0001) {
+      return base;
+    }
+    return base * (entered / quoted);
+  }
+
+  private typeFields(activityId: number | null): { typeId: number | null; typeName: string } {
+    const activity = activityId == null ? undefined : (this.data.activities ?? []).find((item) => item.id === activityId);
+    const typeId = activity?.typeId ?? null;
+    return { typeId, typeName: typeId == null ? '' : (activity?.type?.trim() || 'Type') };
+  }
+}
+
+function partKey(value: string | null | undefined): string {
+  return (value ?? '').trim().toLowerCase();
+}
+
+function linkBaseUnit(link: ActivityQuotationLink): number | null {
+  const value = link.baseUnitPrice ?? link.unitPrice;
+  const price = value == null ? Number.NaN : Number(value);
+  return Number.isFinite(price) ? price : null;
+}
+
+function sameQuoteLine(left: ActivityQuotationLink, right: ActivityQuotationLink): boolean {
+  if (left.itemId != null && right.itemId != null) {
+    return left.quotationId === right.quotationId && left.itemId === right.itemId;
+  }
+  return left === right;
+}
+
+function priceIsHigher(left: number, right: number): boolean {
+  return Math.round(left * 10000) > Math.round(right * 10000);
 }
 
 function quotedPart(line: PurchaseOrderPresetLine, activities: Activity[]): string {
@@ -859,9 +995,12 @@ function lineAmount(row: PoLine): number | null {
   return roundMoney(row.totalPrice.trim() && totalPrice != null ? totalPrice : unitPrice * quantity);
 }
 
-function lineProblem(row: PoLine): 'dsn' | 'part' | 'qty' | 'price' | 'skip' | null {
+function lineProblem(row: PoLine): 'dsn' | 'part' | 'qty' | 'price' | 'lead' | 'skip' | null {
   if (skippable(row)) {
     return 'skip';
+  }
+  if (leadTimeInvalid(row.leadTime)) {
+    return 'lead';
   }
   if (!row.fromQuotation && !row.activityId) {
     if (!row.dsnNo.trim()) {
@@ -883,7 +1022,7 @@ function lineProblem(row: PoLine): 'dsn' | 'part' | 'qty' | 'price' | 'skip' | n
   return null;
 }
 
-function lineMessage(problem: 'dsn' | 'part' | 'qty' | 'price'): string {
+function lineMessage(problem: 'dsn' | 'part' | 'qty' | 'price' | 'lead'): string {
   if (problem === 'dsn') {
     return 'Enter a DSN No for each line that is not linked to an activity.';
   }
@@ -892,6 +1031,9 @@ function lineMessage(problem: 'dsn' | 'part' | 'qty' | 'price'): string {
   }
   if (problem === 'qty') {
     return 'Each purchase order line needs a quantity greater than zero.';
+  }
+  if (problem === 'lead') {
+    return 'Lead time must be a whole number of days, or left blank.';
   }
   return 'Enter a valid unit price of zero or more.';
 }

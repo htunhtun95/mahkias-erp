@@ -11,9 +11,9 @@
   <div class="erp-modal-title">
     <div>
       <h2>{{ isEdit ? 'Edit Supplier' : 'Add Supplier' }}</h2>
-      <p class="erp-modal-note">{{ isEdit ? 'Update the supplier name and reference.' : 'Add a supplier name and an optional reference.' }}</p>
+      <p class="erp-modal-note">{{ isEdit ? 'Update the supplier name and reference.' : 'Add a supplier name. Leave the reference blank to create one from the name.' }}</p>
     </div>
-    <button class="erp-modal-close" type="button" aria-label="Close" [disabled]="isSaving" (click)="cancel()">
+    <button class="erp-modal-close" type="button" matTooltip="Close" aria-label="Close" [disabled]="isSaving" (click)="cancel()">
       <mat-icon>close</mat-icon>
     </button>
   </div>
@@ -28,11 +28,12 @@
     <p class="error">@if (nameInvalid) { Supplier name is required }</p>
   </div>
 
-  <div class="field">
+  <div class="field" [class.invalid]="!!referenceError">
     <label class="control">
       <span class="label">Reference</span>
-      <input formControlName="reference" autocomplete="off" />
+      <input formControlName="reference" autocomplete="off" (input)="referenceError = ''" />
     </label>
+    <p class="error">@if (referenceError) { {{ referenceError }} }</p>
   </div>
 
   @if (error) {

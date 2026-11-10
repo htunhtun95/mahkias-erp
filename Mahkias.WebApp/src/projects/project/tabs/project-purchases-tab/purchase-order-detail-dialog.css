@@ -190,6 +190,12 @@ h3 {
   font-size: 13px;
 }
 
+.line-row > span {
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
 .line-row:last-child { border-bottom: 0; }
 
 .line-row.heading {

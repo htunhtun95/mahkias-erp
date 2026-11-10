@@ -51,6 +51,13 @@ export interface Activity {
   description: string | null;
   dsnNo: string | null;
   quantity: number | null;
+  unit?: string | null;
+  condition?: string | null;
+  serialNo?: string | null;
+  tsn?: string | null;
+  tso?: string | null;
+  csn?: string | null;
+  cso?: string | null;
   typeId: number | null;
   type: string | null;
   createdAt?: string | null;
@@ -100,6 +107,13 @@ export interface CreateActivityRequest {
   quantity: number | null;
   typeId: number | null;
   label?: string | null;
+  unit?: string | null;
+  condition?: string | null;
+  serialNo?: string | null;
+  tsn?: string | null;
+  tso?: string | null;
+  csn?: string | null;
+  cso?: string | null;
 }
 
 export interface ExcelColumn {
@@ -118,6 +132,13 @@ export interface ActivityExcelMapping {
     quantity?: string;
     budget?: string;
     label?: string;
+    unit?: string;
+    condition?: string;
+    serialNo?: string;
+    tsn?: string;
+    tso?: string;
+    csn?: string;
+    cso?: string;
   };
 }
 
@@ -211,7 +232,7 @@ export interface QuotationLine {
   description?: string | null;
   condition?: string | null;
   unit?: string | null;
-  leadTime?: string | null;
+  leadTime?: number | null;
   minimumQty?: number | null;
   unitPrice?: number | null;
   quantity: number;
@@ -248,6 +269,7 @@ export interface QuotationDetail extends QuotationListItem {
 
 export interface ActivityQuotationLink {
   activityId: number;
+  supplierId?: number;
   itemId?: number;
   quotationId: number;
   quotationRef: string;
@@ -257,7 +279,7 @@ export interface ActivityQuotationLink {
   description?: string | null;
   condition?: string | null;
   unit?: string | null;
-  leadTime?: string | null;
+  leadTime?: number | null;
   minimumQty?: number | null;
   quotedDate?: string | null;
   validUntil?: string | null;
@@ -279,7 +301,7 @@ export interface QuotationItemInput {
   description: string;
   condition?: string | null;
   unit?: string | null;
-  leadTime?: string | null;
+  leadTime?: number | null;
   minimumQty?: number | null;
   unitPrice: number | null;
   quantity: number;
@@ -377,7 +399,7 @@ export interface PurchaseOrderLine {
   description?: string | null;
   condition?: string | null;
   unit?: string | null;
-  leadTime?: string | null;
+  leadTime?: number | null;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
@@ -400,7 +422,7 @@ export interface PurchaseOrderTraceLine {
   description?: string | null;
   condition?: string | null;
   unit?: string | null;
-  leadTime?: string | null;
+  leadTime?: number | null;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
@@ -436,7 +458,7 @@ export interface PurchaseOrderItemInput {
   description?: string | null;
   condition?: string | null;
   unit?: string | null;
-  leadTime?: string | null;
+  leadTime?: number | null;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
@@ -505,11 +527,20 @@ export interface ActivityExcelUpload {
   quantityColumn: string;
   budgetColumn: string;
   labelColumn: string;
+  unitColumn: string;
+  conditionColumn: string;
+  serialNoColumn: string;
+  tsnColumn: string;
+  tsoColumn: string;
+  csnColumn: string;
+  csoColumn: string;
   defaultDsnNo: string;
   defaultPartNo: string;
   defaultTypeId: number | null;
   defaultQuantity: number | null;
   defaultBudget: number | null;
+  defaultUnit: string;
+  defaultCondition: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -652,7 +683,9 @@ export class ProjectApiService {
   }
 
   updateActivity(id: number, body: CreateActivityRequest & { projectId: number }) {
-    return this.http.put<Activity>(`${this.baseUrl}/activities/${id}`, body);
+    return this.http.put<Activity>(`${this.baseUrl}/activities/${id}`, body).pipe(
+      tap(() => this.forgetProject(body.projectId)),
+    );
   }
 
   updateActivities(
@@ -790,6 +823,13 @@ export class ProjectApiService {
     body.append('quantityColumn', mapping.quantityColumn ?? '');
     body.append('budgetColumn', mapping.budgetColumn ?? '');
     body.append('labelColumn', mapping.labelColumn ?? '');
+    body.append('unitColumn', mapping.unitColumn ?? '');
+    body.append('conditionColumn', mapping.conditionColumn ?? '');
+    body.append('serialNoColumn', mapping.serialNoColumn ?? '');
+    body.append('tsnColumn', mapping.tsnColumn ?? '');
+    body.append('tsoColumn', mapping.tsoColumn ?? '');
+    body.append('csnColumn', mapping.csnColumn ?? '');
+    body.append('csoColumn', mapping.csoColumn ?? '');
     body.append('defaultDsnNo', mapping.defaultDsnNo ?? '');
     body.append('defaultPartNo', mapping.defaultPartNo ?? '');
     if (mapping.defaultTypeId) {
@@ -801,6 +841,8 @@ export class ProjectApiService {
     if (mapping.defaultBudget != null) {
       body.append('defaultBudget', String(mapping.defaultBudget));
     }
+    body.append('defaultUnit', mapping.defaultUnit ?? '');
+    body.append('defaultCondition', mapping.defaultCondition ?? '');
     return body;
   }
 

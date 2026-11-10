@@ -11,7 +11,7 @@
   <header class="quotation-dialog-header">
     <div class="title-row">
       <h2>{{ title }}</h2>
-      <button class="icon-close erp-modal-close" type="button" aria-label="Close" [disabled]="saving" (click)="close()">
+      <button class="icon-close erp-modal-close" type="button" matTooltip="Close" aria-label="Close" [disabled]="saving" (click)="close()">
         <mat-icon>close</mat-icon>
       </button>
     </div>
@@ -105,10 +105,18 @@
       </div>
     } @else {
       <div class="sheet-tools">
-        <input class="row-search" [(ngModel)]="search" placeholder="Search DSN, part, or description" />
+        <div class="line-filters">
+          <input class="row-search" [(ngModel)]="search" name="lineSearch" placeholder="Search DSN, part, or description" autocomplete="off" />
+          <select class="type-filter" [(ngModel)]="typeFilter" name="typeFilter" aria-label="Activity type">
+            <option [ngValue]="null">All types</option>
+            @for (type of activityTypeOptions; track type.id) {
+              <option [ngValue]="type.id">{{ type.name }}</option>
+            }
+          </select>
+        </div>
         <div class="sheet-actions">
           <span>{{ visibleRows.length }} lines</span>
-          <button class="add-line" type="button" (click)="addLine()" [disabled]="saving">Add item</button>
+          <button class="add-line" type="button" (click)="addLine()" [disabled]="saving">Add Item</button>
         </div>
       </div>
       <div class="sheet-wrap">
@@ -133,7 +141,7 @@
               <th class="description">Description</th>
               <th>Condition</th>
               <th>Unit</th>
-              <th>Lead Time</th>
+              <th>Lead Time (days)</th>
               <th class="price">Unit Price<span class="req" aria-hidden="true">*</span></th>
               <th class="qty">Quantity<span class="req" aria-hidden="true">*</span></th>
               <th class="price">Total Price</th>
@@ -145,19 +153,26 @@
             @for (row of visibleRows; track row.key) {
               <tr>
                 <td class="cell dsn" [class.locked]="row.fromQuotation" [class.invalid]="invalid(row, 'dsn') && interacted(row, 'dsn')">
-                  @if (row.fromQuotation) {
-                    <input readonly [disabled]="saving" [(ngModel)]="row.dsnNo" (blur)="touch(row, 'dsn')" [name]="'dsn' + row.key" maxlength="100" />
-                  } @else {
-                    <app-activity-suggest
-                      [value]="row.dsnNo"
-                      [activities]="data.activities"
-                      ariaLabel="DSN No"
-                      [disabled]="saving"
-                      (valueChange)="setDsn(row, $event); touch(row, 'dsn')"
-                      (blurred)="touch(row, 'dsn')"
-                      (picked)="chooseActivity(row, $event)"
-                    />
-                  }
+                  <span class="dsn-field">
+                    <span class="dsn-warning" [attr.aria-hidden]="lowerPriceWarning(row) ? null : 'true'" [attr.aria-label]="lowerPriceWarning(row) ? 'Not the lowest price' : null">
+                      @if (lowerPriceWarning(row)) {
+                        <mat-icon>warning</mat-icon>
+                      }
+                    </span>
+                    @if (row.fromQuotation) {
+                      <input readonly [disabled]="saving" [(ngModel)]="row.dsnNo" (blur)="touch(row, 'dsn')" [name]="'dsn' + row.key" maxlength="100" />
+                    } @else {
+                      <app-activity-suggest
+                        [value]="row.dsnNo"
+                        [activities]="data.activities"
+                        ariaLabel="DSN No"
+                        [disabled]="saving"
+                        (valueChange)="setDsn(row, $event); touch(row, 'dsn')"
+                        (blurred)="touch(row, 'dsn')"
+                        (picked)="chooseActivity(row, $event)"
+                      />
+                    }
+                  </span>
                 </td>
                 <td class="cell part" [class.locked]="row.fromQuotation" [class.invalid]="invalid(row, 'part') && interacted(row, 'part')">
                   @if (row.fromQuotation) {
@@ -192,7 +207,7 @@
                 <td>
                   <app-lookup-combobox ariaLabel="Unit" [value]="row.unit" [options]="unitOptions" [disabled]="saving" (valueChange)="onUnit(row, $event)" (committed)="normalizeUnit(row)" />
                 </td>
-                <td><input [disabled]="saving" [(ngModel)]="row.leadTime" (ngModelChange)="onLead(row)" [name]="'lead' + row.key" maxlength="100" /></td>
+                <td [class.invalid]="invalid(row, 'lead') && interacted(row, 'lead')"><input leadTimeDays [disabled]="saving" [(ngModel)]="row.leadTime" (ngModelChange)="onLead(row)" (blur)="touch(row, 'lead')" [name]="'lead' + row.key" inputmode="numeric" /></td>
                 <td class="cell price" [class.invalid]="invalid(row, 'price') && interacted(row, 'unit')">
                   <span class="price-field">
                     <span class="price-mark">{{ symbol }}</span>

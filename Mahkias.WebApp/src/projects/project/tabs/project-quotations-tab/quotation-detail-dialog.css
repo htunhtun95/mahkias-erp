@@ -47,6 +47,7 @@
 }
 
 .detail-footer button {
+  margin-left: auto;
   min-height: 36px;
   padding: 0 16px;
   border: 0;
@@ -179,7 +180,7 @@ section {
 
 .line-row {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1.3fr) minmax(0, 1.2fr) 72px 56px 80px 64px 96px 88px 104px;
+  grid-template-columns: 64px minmax(120px, 1.3fr) minmax(140px, 1.2fr) 72px 56px 80px 64px 96px 88px 104px;
   min-width: 980px;
   gap: 8px;
   align-items: center;
@@ -188,6 +189,12 @@ section {
   border-bottom: 1px solid #e0e0e0;
   color: #202124;
   font-size: 13px;
+}
+
+.line-row > span {
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
 }
 
 .line-row:last-child {

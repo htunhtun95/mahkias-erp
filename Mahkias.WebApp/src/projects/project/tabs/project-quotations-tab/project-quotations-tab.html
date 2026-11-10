@@ -17,9 +17,17 @@
   @if (selectedCount) {
     <div class="selection-dock">
     <div class="selection-bar">
-      <span class="selection-note" [class.error]="!!error">{{ error || selectionNote }}</span>
-      <button class="selection-primary" type="button" (click)="createPurchaseOrder()" [disabled]="deletingId != null">Create purchase order</button>
-      <button class="selection-clear" type="button" (click)="clearSelection()" [disabled]="deletingId != null">Clear</button>
+      <span class="selection-note" [class.error]="!!selectionMessage">{{ selectionMessage || selectionNote }}</span>
+      <div class="selection-actions">
+        <select class="po-select" #poSelect aria-label="Purchase order" [disabled]="deletingId != null || supplierConflict" (change)="choosePurchaseOrder(poSelect)">
+          <option value="" disabled selected>Purchase Order</option>
+          <option value="new">Create New PO</option>
+          @for (order of activeOrders; track order.id) {
+            <option [value]="order.id">{{ order.code }} · {{ order.statusName || 'Draft' }}</option>
+          }
+        </select>
+        <button class="selection-clear" type="button" (click)="clearSelection()" [disabled]="deletingId != null">Clear</button>
+      </div>
     </div>
     </div>
   }
@@ -87,11 +95,11 @@
               <mat-menu #quotationMenu="matMenu" class="activity-row-menu">
                 <button mat-menu-item type="button" (click)="openDetails(quotation)" [disabled]="deletingId != null">
                   <mat-icon>visibility</mat-icon>
-                  <span>View details</span>
+                  <span>View Details</span>
                 </button>
                 <button mat-menu-item type="button" (click)="manageDocuments(quotation)" [disabled]="deletingId != null">
                   <mat-icon>folder</mat-icon>
-                  <span>Manage documents</span>
+                  <span>Manage Documents</span>
                 </button>
                 <button mat-menu-item type="button" (click)="edit(quotation)" [disabled]="deletingId != null">
                   <mat-icon>edit</mat-icon>
@@ -140,7 +148,7 @@
                     <span>{{ line.description || '—' }}</span>
                     <span>{{ line.condition || '—' }}</span>
                     <span>{{ line.unit || '—' }}</span>
-                    <span>{{ line.leadTime || '—' }}</span>
+                    <span>{{ leadTimeLabel(line.leadTime) }}</span>
                     <span>{{ line.currencyCode || 'USD' }}</span>
                     <span>{{ money(line.unitPrice, line.currencySymbol, line.currencyCode) }}</span>
                     <span class="qty-stack">

@@ -20,5 +20,7 @@ namespace Mahkias.Core.Modules.Projects
         Task<ActivityGroupAssignResult> AssignAsync(int projectId, int activityId, int? activityGroupId);
 
         Task<ActivityGroupAssignResult> AssignManyAsync(int projectId, IReadOnlyList<int> activityIds, int? activityGroupId);
+
+        Task AlignAfterTypeChangeAsync(int projectId, int activityId, int groupId, int typeId);
     }
 }

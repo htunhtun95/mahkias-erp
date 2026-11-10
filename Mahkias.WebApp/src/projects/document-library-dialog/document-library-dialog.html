@@ -4,13 +4,13 @@
       <h2>{{ data.title }}</h2>
       <p class="erp-modal-note">{{ data.note }}</p>
     </div>
-    <button class="erp-modal-close" type="button" aria-label="Close" [disabled]="saving" (click)="cancel()">
+    <button class="erp-modal-close" type="button" matTooltip="Close" aria-label="Close" [disabled]="saving" (click)="cancel()">
       <mat-icon>close</mat-icon>
     </button>
   </div>
 </header>
 
-<div class="body">
+<div class="dialog-body">
   <app-document-manager
     #library
     class="embedded"
@@ -21,6 +21,7 @@
     [supportingOnly]="!!data.supportingOnly"
     [lockOriginal]="data.kind !== 'project' && !data.supportingOnly"
     [sortBase]="data.sortBase ?? 0"
+    [persistentDrop]="true"
     [hint]="data.kind === 'project' ? 'Drag a file to change its order.' : (data.supportingOnly ? 'These files are stored with the record. The spreadsheet is still the file that is read.' : 'The original file stays first. Drag the other files to set their order.')"
   ></app-document-manager>
   @if (error) {
@@ -30,7 +31,7 @@
 
 <div class="actions">
   <button class="btn ghost" type="button" [disabled]="saving" (click)="cancel()">Cancel</button>
-  <button class="btn primary" type="button" [disabled]="saving || !library?.hasChanges || (!!library?.locksOriginal && !library?.hasOriginal)" (click)="save()">
+  <button class="btn primary" type="button" [disabled]="saving || !library?.hasChanges" (click)="save()">
     @if (saving) {
       <mat-spinner diameter="18"></mat-spinner>
       Saving...

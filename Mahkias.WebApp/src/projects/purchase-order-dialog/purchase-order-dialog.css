@@ -33,10 +33,12 @@
 
 .po-totals {
   align-self: flex-end;
+  flex: 0 0 auto;
   box-sizing: border-box;
   width: 33.333%;
   min-width: min(100%, 320px);
   max-width: 100%;
+  min-height: min-content;
   overflow: hidden;
   border: 1px solid #e0e0e0;
   border-radius: 12px;
@@ -72,6 +74,11 @@
   flex-direction: column;
   gap: 16px;
   padding: 16px 24px;
+}
+
+.quotation-dialog-body > * {
+  flex: 0 0 auto;
+  min-height: min-content;
 }
 
 .title-row,
@@ -362,6 +369,35 @@ textarea {
 
 .row-search {
   max-width: 360px;
+  height: 36px;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  padding: 0 12px;
+  background: #fff;
+  color: #202124;
+  font: inherit;
+  font-size: 13px;
+}
+
+.line-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.type-filter {
+  flex: 0 1 220px;
+  height: 36px;
+  min-width: 160px;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #fff;
+  color: #202124;
+  font: inherit;
+  font-size: 13px;
 }
 
 .add-line,
@@ -428,7 +464,7 @@ table.sheet {
   table-layout: fixed;
 }
 
-.col-dsn { width: 100px; }
+.col-dsn { width: 124px; }
 .col-part { width: 160px; }
 .col-description { width: auto; }
 .col-condition { width: 110px; }
@@ -467,13 +503,20 @@ table.sheet thead th {
   box-shadow: 0 1px 0 #e0e0e0;
 }
 
-table.sheet th.dsn,
-table.sheet td.dsn,
 table.sheet th.qty,
 table.sheet td.qty,
 table.sheet th.action,
 table.sheet td.action {
   text-align: center;
+}
+
+table.sheet th.dsn,
+table.sheet td.dsn {
+  text-align: left;
+}
+
+table.sheet thead th.dsn {
+  padding-left: 42px;
 }
 
 table.sheet th.part,
@@ -534,6 +577,44 @@ table.sheet td.quote {
   align-items: center;
   min-width: 0;
   height: 44px;
+}
+
+.dsn-field {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  box-sizing: border-box;
+  min-width: 0;
+  height: 100%;
+  padding-left: 10px;
+  gap: 6px;
+}
+
+.dsn-field input,
+.dsn-field app-activity-suggest {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+}
+
+.dsn-field > input {
+  padding: 6px 8px;
+}
+
+.dsn-warning {
+  display: inline-flex;
+  flex: 0 0 18px;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: #e37400;
+}
+
+.dsn-warning mat-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
 }
 
 .price-mark {
@@ -693,6 +774,8 @@ label.original-toggle input {
 
 .original-file {
   display: flex;
+  box-sizing: border-box;
+  width: 100%;
   flex-direction: row;
   align-items: center;
   gap: 10px;

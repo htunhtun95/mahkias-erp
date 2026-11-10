@@ -8,7 +8,7 @@ import { MaterialModule } from '../../../../app/material-module';
 import { AutoGrowDirective } from '../../../../core/auto-grow';
 import { blockEnterSubmit } from '../../../../core/block-enter-submit';
 import { whileBusy } from '../../../../core/while-busy';
-import { Activity, ActivityGroup, ActivityLabel, ActivityQuotationLink, ActivityType, Project, ProjectApiService, PurchaseOrderTraceLine } from '../../../../core/services/project-api.service';
+import { Activity, ActivityGroup, ActivityLabel, ActivityQuotationLink, ActivityType, LookupValue, Project, ProjectApiService, PurchaseOrderTraceLine } from '../../../../core/services/project-api.service';
 import { QuotationDataDialog, QuotationDataRow, QuotationDataState } from './quotation-data-dialog';
 import { formatMoney } from '../../../money-format';
 import { PurchaseOrderSync } from '../../../purchase-order-sync';
@@ -21,6 +21,8 @@ import { AddActivityDialog } from '../../../add-activity-dialog/add-activity-dia
 import { ConfirmDialog } from '../../../confirm-dialog/confirm-dialog';
 import { EditActivityDialog } from '../../../edit-activity-dialog/edit-activity-dialog';
 import { ImportActivityDialog } from '../../../import-activity-dialog/import-activity-dialog';
+import { LookupComboboxComponent } from '../../../lookup-combobox/lookup-combobox';
+import { canonicalCondition, canonicalUnit } from '../../../quotation-lookups';
 import {
   activityHasLabel,
   activitySharesType,
@@ -48,7 +50,7 @@ import {
 @Component({
   selector: 'app-project-activities-tab',
   standalone: true,
-  imports: [FormsModule, MaterialModule, AutoGrowDirective],
+  imports: [FormsModule, MaterialModule, AutoGrowDirective, LookupComboboxComponent],
   templateUrl: './project-activities-tab.html',
   styleUrl: './project-activities-tab.css',
 })
@@ -61,9 +63,12 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
   private host = inject(ElementRef<HTMLElement>);
   private syncSub: Subscription;
   private poSyncSub: Subscription;
+  private unitSub: Subscription;
+  private conditionSub: Subscription;
   private linkRequest = 0;
   private poRequest = 0;
   private seenProjectId = 0;
+  private listVersion = 0;
   private poLinesLoaded = false;
   private detailState: QuotationDataState | null = null;
   private linksVersion = 0;
@@ -99,6 +104,10 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
   selectionError = '';
   batchSubmitted = false;
   batchError = '';
+  units: LookupValue[] = [];
+  conditions: LookupValue[] = [];
+  unitOptions: string[] = [];
+  conditionOptions: string[] = [];
   readonly searchThreshold = 10;
   private editing = new Set<string>();
   private drafts = new Map<number, ActivityDraft>();
@@ -114,11 +123,23 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
         this.loadPurchaseOrderLines();
       }
     });
+    this.unitSub = this.api.units().subscribe((units) => {
+      this.units = units ?? [];
+      this.unitOptions = this.units.map((unit) => unit.name).filter((name) => !!name);
+      this.normalizeOpenDrafts();
+    });
+    this.conditionSub = this.api.conditions().subscribe((conditions) => {
+      this.conditions = conditions ?? [];
+      this.conditionOptions = this.conditions.map((condition) => condition.name).filter((name) => !!name);
+      this.normalizeOpenDrafts();
+    });
   }
 
   ngOnDestroy() {
     this.syncSub.unsubscribe();
     this.poSyncSub.unsubscribe();
+    this.unitSub.unsubscribe();
+    this.conditionSub.unsubscribe();
   }
 
   get hasActivities(): boolean {
@@ -232,10 +253,16 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       kind: 'item',
       activityId: activity.id,
       projectId: this.project.id,
-      title: 'Activity details',
+      title: 'Activity Details',
       subtitle: this.itemSubtitle(activity),
       requiredQuantity: activity.quantity,
+      serialNo: activity.serialNo,
+      tsn: activity.tsn,
+      tso: activity.tso,
+      csn: activity.csn,
+      cso: activity.cso,
       rows: this.itemQuoteRows(activity),
+      activities: this.project.activities ?? [],
       orders: [],
     };
     this.ensurePurchaseOrders();
@@ -249,9 +276,10 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       kind: 'group',
       groupId: group.id,
       projectId: this.project.id,
-      title: 'Group details',
+      title: 'Group Details',
       subtitle: group.name,
       rows: this.groupQuoteRows(activities),
+      activities: this.project.activities ?? [],
       orders: [],
     };
     this.ensurePurchaseOrders();
@@ -330,6 +358,7 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       mix(sum);
     };
     mix(this.project?.id ?? 0);
+    mix(this.listVersion);
     mix(this.linksVersion);
     mix(this.types.length);
     mix(this.groups.length);
@@ -349,11 +378,20 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       mix(activity.quantity ?? 0);
       fold(activity.dsnNo);
       fold(activity.partNo);
+      fold(activity.description);
+      fold(activity.serialNo);
+      fold(activity.tsn);
+      fold(activity.tso);
+      fold(activity.csn);
+      fold(activity.cso);
+      fold(activity.unit);
+      fold(activity.condition);
     }
     for (const group of this.groups) {
       mix(group.id);
       mix(group.typeId ?? 0);
       fold(group.name);
+      fold(group.description);
     }
     for (const label of this.labels) {
       mix(label.id);
@@ -477,6 +515,17 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     return !this.wholeQuantity(draft.quantity);
   }
 
+  setDraftLookup(activity: Activity, field: 'unit' | 'condition', value: string) {
+    this.draft(activity)[field] = value;
+  }
+
+  normalizeDraftLookup(activity: Activity, field: 'unit' | 'condition') {
+    const draft = this.draft(activity);
+    draft[field] = field === 'unit'
+      ? canonicalUnit(draft.unit, this.units)
+      : canonicalCondition(draft.condition, this.conditions);
+  }
+
   saveBatch() {
     if (this.isSaving) {
       return;
@@ -508,6 +557,13 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
           quantity: draft.quantity,
           budget: activity.budget,
           typeId: activity.typeId,
+          serialNo: draft.serialNo.trim(),
+          tsn: draft.tsn.trim(),
+          tso: draft.tso.trim(),
+          csn: draft.csn.trim(),
+          cso: draft.cso.trim(),
+          unit: draft.unit.trim(),
+          condition: draft.condition.trim(),
         })),
       )
       .pipe(whileBusy((busy) => (this.isSaving = busy)))
@@ -528,10 +584,12 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     const projectId = this.project.id;
     const ref = this.dialog.open(ImportActivityDialog, {
       disableClose: true,
-      width: '1080px',
-      maxWidth: 'calc(100vw - 32px)',
-      maxHeight: '92vh',
-      panelClass: 'activity-dialog-panel',
+      width: '100vw',
+      maxWidth: '100vw',
+      minWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       data: { projectId, types: this.types },
     });
@@ -547,10 +605,12 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     const projectId = this.project.id;
     const ref = this.dialog.open(AddActivityDialog, {
       disableClose: true,
-      width: '1440px',
-      maxWidth: 'calc(100vw - 32px)',
-      maxHeight: '92vh',
-      panelClass: 'activity-dialog-panel',
+      width: '100vw',
+      maxWidth: '100vw',
+      minWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       data: { projectId, types: this.types },
     });
@@ -565,9 +625,12 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
   openEditActivity(activity: Activity) {
     const ref = this.dialog.open(EditActivityDialog, {
       disableClose: true,
-      width: '680px',
-      maxWidth: 'calc(100vw - 32px)',
-      panelClass: 'add-project-dialog-panel',
+      width: '100vw',
+      maxWidth: '100vw',
+      minWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       data: {
         activity,
@@ -588,6 +651,7 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
         draft.description = updated.description ?? '';
         draft.quantity = updated.quantity == null ? null : Number(updated.quantity);
       }
+      this.listVersion++;
       this.activitiesChange.emit();
     });
   }
@@ -604,7 +668,7 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       panelClass: 'add-project-dialog-panel',
       backdropClass: 'add-project-dialog-backdrop',
       data: {
-        title: 'Delete activity',
+        title: 'Delete Activity',
         message: 'Are you sure you want to delete this activity?',
         confirmLabel: 'Delete',
       },
@@ -859,11 +923,12 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     }
     const ref = this.dialog.open(GroupDetailDialog, {
       disableClose: true,
-      width: '90vw',
-      maxWidth: '960px',
-      minWidth: 'min(560px, 96vw)',
-      maxHeight: '90vh',
-      panelClass: ['add-project-dialog-panel', 'app-dialog-pane'],
+      width: '100vw',
+      maxWidth: '100vw',
+      minWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       data: {
         group,
@@ -1336,6 +1401,11 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       }
       state.subtitle = this.itemSubtitle(activity);
       state.requiredQuantity = activity.quantity;
+      state.serialNo = activity.serialNo;
+      state.tsn = activity.tsn;
+      state.tso = activity.tso;
+      state.csn = activity.csn;
+      state.cso = activity.cso;
       state.rows = this.itemQuoteRows(activity);
       state.orders = this.ordersFor(activity.id);
       state.ordersLoading = this.poLinesLoading;
@@ -1377,7 +1447,17 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
         ? this.api.updateActivityGroup(this.project.id, group.id, saved.name, saved.description ?? '')
         : this.api.createActivityGroup(this.project.id, saved.name, saved.description ?? '');
       request.subscribe({
-        next: () => this.loadGroups(),
+        next: (savedGroup) => {
+          if (savedGroup) {
+            const known = this.groups.some((item) => item.id === savedGroup.id);
+            this.groups = known
+              ? this.groups.map((item) => (item.id === savedGroup.id ? savedGroup : item))
+              : [...this.groups, savedGroup];
+          }
+          this.listVersion++;
+          this.loadGroups();
+          this.activitiesChange.emit();
+        },
         error: () => this.failed.emit('The group could not be saved.'),
       });
     });
@@ -1520,6 +1600,20 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       .sort((left, right) => left.group.name.localeCompare(right.group.name));
   }
 
+  private normalizeOpenDrafts() {
+    for (const draft of this.drafts.values()) {
+      draft.unit = canonicalUnit(draft.unit, this.units);
+      draft.condition = canonicalCondition(draft.condition, this.conditions);
+    }
+  }
+
+  private displayLookup(value: string | null | undefined, field: 'unit' | 'condition'): string {
+    const canonical = field === 'unit'
+      ? canonicalUnit(value ?? '', this.units)
+      : canonicalCondition(value ?? '', this.conditions);
+    return canonical || (field === 'unit' ? 'EA' : 'NE');
+  }
+
   private typeKey(typeId: number | null): string {
     return typeId == null ? 'untyped' : String(typeId);
   }
@@ -1534,6 +1628,13 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       partNo: activity.partNo ?? '',
       description: activity.description ?? '',
       quantity: activity.quantity == null ? null : Number(activity.quantity),
+      serialNo: activity.serialNo ?? '',
+      tsn: activity.tsn ?? '',
+      tso: activity.tso ?? '',
+      csn: activity.csn ?? '',
+      cso: activity.cso ?? '',
+      unit: this.displayLookup(activity.unit, 'unit'),
+      condition: this.displayLookup(activity.condition, 'condition'),
     };
     this.drafts.set(activity.id, draft);
     return draft;
@@ -1569,7 +1670,39 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     return (activity.dsnNo ?? '') !== draft.dsnNo.trim()
       || (activity.partNo ?? '') !== draft.partNo
       || (activity.description ?? '') !== draft.description.trim()
-      || quantity !== draft.quantity;
+      || quantity !== draft.quantity
+      || (activity.serialNo ?? '') !== draft.serialNo.trim()
+      || (activity.tsn ?? '') !== draft.tsn.trim()
+      || (activity.tso ?? '') !== draft.tso.trim()
+      || (activity.csn ?? '') !== draft.csn.trim()
+      || (activity.cso ?? '') !== draft.cso.trim()
+      || this.displayLookup(activity.unit, 'unit') !== draft.unit.trim()
+      || this.displayLookup(activity.condition, 'condition') !== draft.condition.trim();
+  }
+
+  quantityLabel(activity: Activity): string {
+    const quantity = activity.quantity == null ? '' : this.compactQuantity(Number(activity.quantity));
+    const unit = (activity.unit ?? '').trim();
+    return `${quantity}${unit}` || '—';
+  }
+
+  usageDetails(activity: Activity): { label: string; value: string }[] {
+    return [
+      { label: 'SerialNo', value: activity.serialNo },
+      { label: 'TSN', value: activity.tsn },
+      { label: 'TSO', value: activity.tso },
+      { label: 'CSN', value: activity.csn },
+      { label: 'CSO', value: activity.cso },
+    ]
+      .map((field) => ({ label: field.label, value: (field.value ?? '').trim() }))
+      .filter((field) => field.value.length > 0);
+  }
+
+  private compactQuantity(value: number): string {
+    if (!Number.isFinite(value)) {
+      return '';
+    }
+    return Number.isInteger(value) ? String(value) : String(value);
   }
 
   private wholeQuantity(value: number | null): boolean {
@@ -1601,6 +1734,13 @@ interface ActivityDraft {
   partNo: string;
   description: string;
   quantity: number | null;
+  serialNo: string;
+  tsn: string;
+  tso: string;
+  csn: string;
+  cso: string;
+  unit: string;
+  condition: string;
 }
 
 export function compareDsnNo(left: string | null | undefined, right: string | null | undefined) {

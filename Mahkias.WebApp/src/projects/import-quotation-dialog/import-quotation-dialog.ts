@@ -12,6 +12,8 @@ import { SheetCellFocusDirective } from '../sheet-cell-focus';
 import { whileBusy } from '../../core/while-busy';
 import { Activity, ActivityImportIssue, Currency, ProjectApiService, QuotationItemInput, Supplier } from '../../core/services/project-api.service';
 import { directActivityId } from '../quotation-map';
+import { duplicateSupplierReferenceMessage, hasDuplicateSupplierReference } from '../../suppliers/supplier-reference';
+import { leadTimeDays, leadTimeInvalid, leadTimeText, LeadTimeDaysDirective } from '../lead-time';
 import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-date-field';
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
 import { LookupValue, canonicalCondition, canonicalUnit } from '../quotation-lookups';
@@ -71,7 +73,7 @@ type CheckState = 'idle' | 'checking' | 'passed' | 'failed';
 @Component({
   selector: 'app-import-quotation-dialog',
   standalone: true,
-  imports: [FormsModule, MaterialModule, DriveUploadCardComponent, QuotationDateFieldComponent, LookupComboboxComponent, QuotationChargesComponent, SheetCellFocusDirective, DocumentManagerComponent],
+  imports: [FormsModule, MaterialModule, DriveUploadCardComponent, QuotationDateFieldComponent, LookupComboboxComponent, QuotationChargesComponent, SheetCellFocusDirective, DocumentManagerComponent, LeadTimeDaysDirective],
   templateUrl: './import-quotation-dialog.html',
   styleUrl: './import-quotation-dialog.css',
 })
@@ -97,6 +99,7 @@ export class ImportQuotationDialogComponent {
   currencyId: number | null = null;
   newSupplierName = '';
   newSupplierReference = '';
+  referenceError = '';
   submitted = false;
   lines: ImportLine[] = [];
   file: File | null = null;
@@ -126,7 +129,7 @@ export class ImportQuotationDialogComponent {
     { key: 'descriptionColumn', def: 'defaultDescription', label: 'Description', required: false },
     { key: 'conditionColumn', def: 'defaultCondition', label: 'Condition', required: false },
     { key: 'unitColumn', def: 'defaultUnit', label: 'Unit', required: false },
-    { key: 'leadTimeColumn', def: 'defaultLeadTime', label: 'Lead Time', required: false },
+    { key: 'leadTimeColumn', def: 'defaultLeadTime', label: 'Lead Time (days)', required: false },
     { key: 'minimumQtyColumn', def: 'defaultMinimumQty', label: 'MOQ', required: false },
     { key: 'unitPriceColumn', def: 'defaultUnitPrice', label: 'Unit Price', required: false },
     { key: 'quantityColumn', def: 'defaultQuantity', label: 'Quantity', required: false },
@@ -233,24 +236,23 @@ export class ImportQuotationDialogComponent {
     return this.creatingSupplier ? !this.newSupplierName.trim() : !this.supplierId;
   }
 
-  get originalReady(): boolean {
-    return this.spreadsheetIsOriginal ? !!this.file : !!this.originalFile;
-  }
-
   get canStartImport(): boolean {
-    if (this.isImporting || this.checkState !== 'passed' || this.supplierMissing || this.datesInvalid || !!this.dateOrderError || !this.originalReady) {
+    if (this.isImporting || this.checkState !== 'passed' || this.supplierMissing || this.datesInvalid || !!this.dateOrderError) {
       return false;
     }
     if (!this.lines.some((line) => this.isPriced(line))) {
       return false;
     }
-    if (this.lines.some((line) => this.isPriced(line) && (this.lineInvalid(line, 'dsn') || this.lineInvalid(line, 'part') || this.lineInvalid(line, 'qty') || this.lineInvalid(line, 'moq') || this.lineInvalid(line, 'price')))) {
+    if (this.lines.some((line) => this.isPriced(line) && (this.lineInvalid(line, 'dsn') || this.lineInvalid(line, 'part') || this.lineInvalid(line, 'qty') || this.lineInvalid(line, 'moq') || this.lineInvalid(line, 'price') || this.lineInvalid(line, 'lead')))) {
       return false;
     }
     return !readQuotationCharges(this.charges).error;
   }
 
-  lineInvalid(line: ImportLine, field: 'dsn' | 'part' | 'price' | 'qty' | 'moq'): boolean {
+  lineInvalid(line: ImportLine, field: 'dsn' | 'part' | 'price' | 'qty' | 'moq' | 'lead'): boolean {
+    if (field === 'lead') {
+      return leadTimeInvalid(line.leadTime);
+    }
     if (!this.isPriced(line)) {
       return false;
     }
@@ -338,7 +340,7 @@ export class ImportQuotationDialogComponent {
   }
 
   get canCheck(): boolean {
-    return !!this.file && this.originalReady && this.columns.length > 0 && !this.requiredMissing && !this.supplierMissing && !this.datesInvalid && !this.dateOrderError && this.checkState !== 'checking' && !this.isImporting;
+    return !!this.file && this.columns.length > 0 && !this.requiredMissing && !this.supplierMissing && !this.datesInvalid && !this.dateOrderError && this.checkState !== 'checking' && !this.isImporting;
   }
 
   get busy(): boolean {
@@ -610,6 +612,10 @@ export class ImportQuotationDialogComponent {
       this.error = 'DSN number, part number, and quantity are required. Check the highlighted rows.';
       return;
     }
+    if (this.lines.some((line) => this.isPriced(line) && leadTimeInvalid(line.leadTime))) {
+      this.error = 'Lead time must be a whole number of days, or left blank.';
+      return;
+    }
     if (!this.supplierReady()) {
       this.isVerifyStep = false;
       return;
@@ -648,7 +654,8 @@ export class ImportQuotationDialogComponent {
         error: (error: HttpErrorResponse) => {
           this.dialogRef.disableClose = false;
           if (this.creatingSupplier) {
-            this.error = error.error?.message || 'The supplier could not be created.';
+            this.referenceError = error.error?.message || 'The supplier could not be created.';
+            this.error = this.referenceError;
             return;
           }
           const issues = (error.error?.errors as ActivityImportIssue[] | undefined) ?? [];
@@ -680,6 +687,12 @@ export class ImportQuotationDialogComponent {
     if (this.creatingSupplier) {
       if (!this.newSupplierName.trim()) {
         this.error = 'Supplier name is required.';
+        return false;
+      }
+      const reference = this.newSupplierReference.trim();
+      if (reference && hasDuplicateSupplierReference(reference, this.suppliers)) {
+        this.referenceError = duplicateSupplierReferenceMessage(reference);
+        this.error = this.referenceError;
         return false;
       }
       return true;
@@ -759,7 +772,7 @@ export class ImportQuotationDialogComponent {
     description?: string | null;
     condition?: string | null;
     unit?: string | null;
-    leadTime?: string | null;
+    leadTime?: number | null;
     minimumQty?: number | null;
     unitPrice?: number | null;
     quantity?: number | null;
@@ -780,7 +793,7 @@ export class ImportQuotationDialogComponent {
       description: source.description ?? '',
       condition: source.condition ?? '',
       unit: source.unit?.trim() || '',
-      leadTime: source.leadTime ?? '',
+      leadTime: leadTimeText(source.leadTime),
       minimumQty: source.minimumQty ? String(source.minimumQty) : '',
       unitPrice: unitText,
       quantity: String(source.quantity ?? 1),
@@ -828,7 +841,7 @@ export class ImportQuotationDialogComponent {
         description: line.description.trim(),
         condition: line.condition.trim(),
         unit: line.unit.trim(),
-        leadTime: line.leadTime.trim(),
+        leadTime: leadTimeDays(line.leadTime),
         minimumQty: this.optionalQuantity(line.minimumQty),
         unitPrice: this.money(line.unitPrice),
         quantity: this.quantity(line),

@@ -1,15 +1,20 @@
 <section class="library" [class.dragging]="dragging" (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
-  <div class="library-head">
-    @if (title) {
-      <h3>{{ title }}</h3>
-    }
-    <button type="button" [disabled]="disabled" (click)="browse(picker)">Add files</button>
-  </div>
+  @if (title || !persistentDrop) {
+    <div class="library-head">
+      @if (title) {
+        <h3>{{ title }}</h3>
+      }
+      @if (!persistentDrop) {
+        <button type="button" [disabled]="disabled" (click)="browse(picker)">Add Files</button>
+      }
+    </div>
+  }
   <input #picker class="picker" type="file" multiple [accept]="accept" [disabled]="disabled" (change)="onBrowse($event)" />
 
-  @if (!entries.length) {
+  @if (!entries.length || persistentDrop) {
     <button class="empty" type="button" [disabled]="disabled" (click)="browse(picker)">Drag files here, or browse</button>
-  } @else {
+  }
+  @if (entries.length) {
     <ol
       cdkDropList
       [cdkDropListData]="entries"
@@ -50,16 +55,13 @@
           </span>
           <span class="actions">
             @if (locksOriginal) {
-              <button type="button" [disabled]="disabled || entry.isOriginal" (click)="markOriginal(entry)">{{ entry.isOriginal ? 'Original' : 'Make original' }}</button>
+              <button type="button" [disabled]="disabled || entry.isOriginal" (click)="markOriginal(entry)">{{ entry.isOriginal ? 'Original' : 'Make Original' }}</button>
             }
             <button type="button" [disabled]="disabled" (click)="remove(entry)">Remove</button>
           </span>
         </li>
       }
     </ol>
-  }
-  @if (locksOriginal && !hasOriginal) {
-    <p class="missing">An original file is required.</p>
   }
   @if (hint) {
     <p>{{ hint }}</p>

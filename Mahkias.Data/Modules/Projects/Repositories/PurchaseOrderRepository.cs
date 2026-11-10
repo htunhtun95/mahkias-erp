@@ -125,7 +125,7 @@ ORDER BY P.Id DESC, I.SortOrder, I.Id;", _connection);
                         Description = reader.ReadNullableStringValue("PartDescription"),
                         Condition = reader.ReadNullableStringValue("Condition"),
                         Unit = reader.ReadNullableStringValue("Unit"),
-                        LeadTime = reader.ReadNullableStringValue("LeadTime"),
+                        LeadTime = reader.ReadNullableIntValue("LeadTime"),
                         Quantity = reader.ReadDecimalValue("Quantity"),
                         UnitPrice = reader.ReadDecimalValue("UnitPrice"),
                         TotalPrice = reader.ReadDecimalValue("TotalPrice"),
@@ -205,7 +205,7 @@ ORDER BY H.CreatedAt DESC, H.Id DESC;", _connection);
                         Description = reader.ReadNullableStringValue("PartDescription"),
                         Condition = reader.ReadNullableStringValue("Condition"),
                         Unit = reader.ReadNullableStringValue("Unit"),
-                        LeadTime = reader.ReadNullableStringValue("LeadTime"),
+                        LeadTime = reader.ReadNullableIntValue("LeadTime"),
                         Quantity = reader.ReadDecimalValue("Quantity"),
                         UnitPrice = reader.ReadDecimalValue("UnitPrice"),
                         TotalPrice = reader.ReadDecimalValue("TotalPrice"),
@@ -750,7 +750,7 @@ SELECT @PurchaseOrderId,
        NULLIF(LTRIM(RTRIM(@Description)), N''),
        NULLIF(LTRIM(RTRIM(@Condition)), N''),
        NULLIF(LTRIM(RTRIM(@Unit)), N''),
-       NULLIF(LTRIM(RTRIM(@LeadTime)), N''),
+       @LeadTime,
        @Quantity, @UnitPrice, @TotalPrice, @LineCurrencyId, @Rate,
        ROUND(@UnitPrice * @Rate, 2), ROUND(@TotalPrice * @Rate, 2), @SortOrder
 FROM (SELECT 1 AS Anchor) AS Anchor
@@ -773,7 +773,7 @@ WHERE (@ActivityId IS NULL AND NULLIF(LTRIM(RTRIM(@DsnNo)), N'') IS NOT NULL AND
                 insert.Parameters.AddNVarChar("Description", item.PartDescription ?? string.Empty, 500);
                 insert.Parameters.AddNVarChar("Condition", item.Condition ?? string.Empty, 100);
                 insert.Parameters.AddNVarChar("Unit", item.Unit ?? string.Empty, 100);
-                insert.Parameters.AddNVarChar("LeadTime", item.LeadTime ?? string.Empty, 100);
+                insert.Parameters.AddNullableInt("LeadTime", item.LeadTime);
                 insert.Parameters.AddNullableDecimal("Quantity", item.Quantity, 18, 2);
                 insert.Parameters.AddNullableDecimal("UnitPrice", item.UnitPrice, 18, 2);
                 insert.Parameters.AddNullableDecimal("TotalPrice", item.TotalPrice, 18, 2);
