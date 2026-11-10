@@ -19,10 +19,21 @@ CREATE TABLE [projects].[QuotationItems]
     [AwardedQuantity] INT CONSTRAINT [DF_QuotationItems_AwardedQuantity] DEFAULT (0) NOT NULL,
     [CreatedAt] DATETIME CONSTRAINT [DF_QuotationItems_CreatedAt] DEFAULT (GETDATE()) NOT NULL,
     [ModifiedAt] DATETIME NULL,
+    [Condition] NVARCHAR(100) NULL,
+    [LeadTime] INT NULL,
+    [MinimumQty] INT NULL,
+    [UnitId] INT NULL,
+    [ConditionId] INT NULL,
     CONSTRAINT [PK_QuotationItems] PRIMARY KEY CLUSTERED ([Id] ASC),
     CONSTRAINT [FK_QuotationItems_Quotations] FOREIGN KEY ([QuotationId]) REFERENCES [projects].[Quotations] ([Id]) ON DELETE CASCADE,
     CONSTRAINT [FK_QuotationItems_Activities] FOREIGN KEY ([ActivityId]) REFERENCES [projects].[Activities] ([Id]) ON DELETE SET NULL,
     CONSTRAINT [FK_QuotationItems_ActivityGroups] FOREIGN KEY ([ActivityGroupId]) REFERENCES [projects].[ActivityGroups] ([Id]),
     CONSTRAINT [FK_QuotationItems_ActivityAlternativeParts] FOREIGN KEY ([AlternativePartId]) REFERENCES [projects].[ActivityAlternativeParts] ([Id]),
-    CONSTRAINT [FK_QuotationItems_Currencies] FOREIGN KEY ([CurrencyId]) REFERENCES [dbo].[Currencies] ([Id])
+    CONSTRAINT [FK_QuotationItems_Currencies] FOREIGN KEY ([CurrencyId]) REFERENCES [dbo].[Currencies] ([Id]),
+    CONSTRAINT [FK_QuotationItems_Units] FOREIGN KEY ([UnitId]) REFERENCES [dbo].[Units] ([Id]),
+    CONSTRAINT [FK_QuotationItems_Conditions] FOREIGN KEY ([ConditionId]) REFERENCES [dbo].[Conditions] ([Id])
 );
+
+CREATE INDEX [IX_QuotationItems_QuotationId]
+    ON [projects].[QuotationItems] ([QuotationId])
+    INCLUDE ([ActivityId], [UnitPrice], [TotalPrice], [Quantity], [AwardedQuantity]);

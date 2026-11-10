@@ -3,6 +3,7 @@ using Mahkias.Core.Modules.Projects.Data;
 using Mahkias.Core.Modules.Projects.Data.Args;
 using Mahkias.Core.Modules.Projects.Data.Result;
 using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace Mahkias.Api.Helpers
 {
@@ -14,7 +15,7 @@ namespace Mahkias.Api.Helpers
 
     public static class ActivityImportValidator
     {
-        public static ActivityImportPlan Plan(ActivitySheet sheet, ActivityExcelUploadForm form, IReadOnlyList<ActivityType> types)
+        public static ActivityImportPlan Plan(ActivitySheet sheet, ActivityExcelUploadForm form, IReadOnlyList<ActivityType> types, IReadOnlyList<LookupValueResult> units, IReadOnlyList<LookupValueResult> conditions)
         {
             var plan = new ActivityImportPlan();
             var defaultTypeId = ParsePositiveInt(form?.DefaultTypeId);
@@ -38,7 +39,15 @@ namespace Mahkias.Api.Helpers
                 var typeRaw = Cell(row.Cells, form?.TypeColumn);
                 var quantityRaw = Cell(row.Cells, form?.QuantityColumn);
                 var budgetRaw = Cell(row.Cells, form?.BudgetColumn);
+                var label = NormalizeLabel(Cell(row.Cells, form?.LabelColumn));
+                var unit = CanonicalLookup(TextOrDefault(Cell(row.Cells, form?.UnitColumn), form?.DefaultUnit), "EA", units);
+                var condition = CanonicalLookup(TextOrDefault(Cell(row.Cells, form?.ConditionColumn), form?.DefaultCondition), "NE", conditions);
                 var rowErrors = new List<ActivityImportIssue>();
+                var serialNo = OptionalText(Cell(row.Cells, form?.SerialNoColumn), "SerialNo", row.RowNumber, rowErrors);
+                var tsn = OptionalText(Cell(row.Cells, form?.TsnColumn), "TSN", row.RowNumber, rowErrors);
+                var tso = OptionalText(Cell(row.Cells, form?.TsoColumn), "TSO", row.RowNumber, rowErrors);
+                var csn = OptionalText(Cell(row.Cells, form?.CsnColumn), "CSN", row.RowNumber, rowErrors);
+                var cso = OptionalText(Cell(row.Cells, form?.CsoColumn), "CSO", row.RowNumber, rowErrors);
 
                 var dsnNo = TextOrDefault(dsnRaw, form?.DefaultDsnNo);
                 if (string.IsNullOrWhiteSpace(dsnNo))
@@ -86,6 +95,11 @@ namespace Mahkias.Api.Helpers
                     rowErrors.Add(Issue(row.RowNumber, "Budget", $"'{budgetRaw}' is not a valid number."));
                 }
 
+                if (label != null && label.Length > 200)
+                {
+                    rowErrors.Add(Issue(row.RowNumber, "Label", "Label name must be 200 characters or fewer."));
+                }
+
                 plan.Errors.AddRange(rowErrors);
                 if (rowErrors.Count > 0)
                 {
@@ -100,7 +114,15 @@ namespace Mahkias.Api.Helpers
                     Description = Cell(row.Cells, form?.DescriptionColumn),
                     Budget = budget,
                     Quantity = quantity,
-                    TypeId = typeId
+                    TypeId = typeId,
+                    Label = label != null && label.Length <= 200 ? label : null,
+                    Unit = unit,
+                    Condition = condition,
+                    SerialNo = serialNo,
+                    TSN = tsn,
+                    TSO = tso,
+                    CSN = csn,
+                    CSO = cso
                 });
             }
 
@@ -117,6 +139,23 @@ namespace Mahkias.Api.Helpers
             };
         }
 
+        private static string OptionalText(string value, string field, int row, List<ActivityImportIssue> errors)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            var text = value.Trim();
+            if (text.Length > 100)
+            {
+                errors.Add(Issue(row, field, field + " must be 100 characters or fewer."));
+                return null;
+            }
+
+            return text;
+        }
+
         private static string Cell(IReadOnlyDictionary<string, string> row, string columnLetter)
         {
             if (row == null || string.IsNullOrWhiteSpace(columnLetter))
@@ -129,6 +168,11 @@ namespace Mahkias.Api.Helpers
                 : null;
         }
 
+        private static string NormalizeLabel(string raw)
+        {
+            return string.IsNullOrWhiteSpace(raw) ? null : raw.Trim();
+        }
+
         private static string TextOrDefault(string raw, string fallback)
         {
             if (!string.IsNullOrWhiteSpace(raw))
@@ -137,6 +181,20 @@ namespace Mahkias.Api.Helpers
             }
 
             return string.IsNullOrWhiteSpace(fallback) ? null : fallback.Trim();
+        }
+
+        private static string CanonicalLookup(string value, string fallback, IReadOnlyList<LookupValueResult> lookups)
+        {
+            var text = string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return null;
+            }
+
+            var match = lookups?.FirstOrDefault(item =>
+                string.Equals(item.Name, text, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(item.Code, text, StringComparison.OrdinalIgnoreCase));
+            return string.IsNullOrWhiteSpace(match?.Name) ? text : match.Name;
         }
 
         private static int? ResolveType(string raw, int? defaultTypeId, IReadOnlyList<ActivityType> types, out string error)
@@ -251,21 +309,38 @@ namespace Mahkias.Api.Helpers
             return false;
         }
 
+        private static readonly Regex BudgetUnitToken = new Regex(@"\b(EA|PCS|PC|QTY|UNITS|UNIT)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
         private static bool TryParseDecimal(string raw, out decimal value)
         {
             value = 0;
-            var text = raw?.Trim();
-            if (string.IsNullOrEmpty(text))
+            var text = SanitizeBudget(raw);
+            if (string.IsNullOrWhiteSpace(text) || text.Any(character => char.IsLetter(character)))
             {
                 return false;
             }
 
-            if (text.StartsWith("$", StringComparison.Ordinal))
+            if (!decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out value)
+                && !decimal.TryParse(text, NumberStyles.Number, CultureInfo.CurrentCulture, out value))
             {
-                text = text.Substring(1).Trim();
+                return false;
             }
 
-            return decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out value);
+            return value >= 0;
+        }
+
+        private static string SanitizeBudget(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            var text = value.Trim();
+            text = text.Replace("$", string.Empty).Replace("€", string.Empty).Replace("£", string.Empty).Replace("¥", string.Empty);
+            text = text.Replace(",", string.Empty);
+            text = BudgetUnitToken.Replace(text, " ");
+            return Regex.Replace(text, @"\s+", " ").Trim();
         }
     }
 }

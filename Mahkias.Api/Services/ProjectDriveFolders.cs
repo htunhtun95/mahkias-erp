@@ -1,6 +1,6 @@
+using System.Text.RegularExpressions;
 using Mahkias.Core.Data;
 using Mahkias.Core.Modules.Projects;
-using Microsoft.Extensions.Logging;
 
 namespace Mahkias.Api.Services
 {
@@ -8,13 +8,11 @@ namespace Mahkias.Api.Services
     {
         private readonly IUow _uow;
         private readonly IGoogleDriveService _drive;
-        private readonly ILogger<ProjectDriveFolders> _logger;
 
-        public ProjectDriveFolders(IUow uow, IGoogleDriveService drive, ILogger<ProjectDriveFolders> logger)
+        public ProjectDriveFolders(IUow uow, IGoogleDriveService drive)
         {
             _uow = uow;
             _drive = drive;
-            _logger = logger;
         }
 
         public async Task<string> EnsureProjectFolderAsync(int projectId, CancellationToken cancellationToken = default)
@@ -26,22 +24,56 @@ namespace Mahkias.Api.Services
             }
 
             var folderName = ProjectFolderName(project.Reference, project.Name);
-            if (!string.IsNullOrWhiteSpace(project.GoogleDriveFolderId))
+            var parentFolderId = await _drive.EnsureProjectParentFolderAsync(cancellationToken);
+            var folderId = await _drive.CreateFolderAsync(folderName, parentFolderId, cancellationToken);
+            if (!string.Equals(folderId, project.GoogleDriveFolderId, StringComparison.Ordinal))
             {
-                try
-                {
-                    await _drive.EnsureFolderNameAsync(project.GoogleDriveFolderId, folderName, cancellationToken);
-                }
-                catch (InvalidOperationException ex)
-                {
-                    _logger.LogWarning(ex, "Google Drive folder {FolderId} for project {ProjectId} could not be renamed to {FolderName}.", project.GoogleDriveFolderId, projectId, folderName);
-                }
-
-                return project.GoogleDriveFolderId;
+                folderId = await _uow.ProjectDocuments.SetDriveFolderAsync(projectId, folderId);
             }
 
-            var folderId = await _drive.CreateFolderAsync(folderName, null, cancellationToken);
-            return await _uow.ProjectDocuments.SetDriveFolderAsync(projectId, folderId);
+            return folderId;
+        }
+
+        public async Task<string> EnsureManagedFoldersAsync(int projectId, CancellationToken cancellationToken = default)
+        {
+            var projectFolderId = await EnsureProjectFolderAsync(projectId, cancellationToken);
+            if (string.IsNullOrWhiteSpace(projectFolderId))
+            {
+                return null;
+            }
+
+            await EnsureProcurementFolderAsync(projectId, cancellationToken);
+            await EnsureDocumentsFolderAsync(projectId, cancellationToken);
+            return projectFolderId;
+        }
+
+        public async Task<string> EnsureDocumentsFolderAsync(int projectId, CancellationToken cancellationToken = default)
+        {
+            var projectFolderId = await EnsureProjectFolderAsync(projectId, cancellationToken);
+            if (string.IsNullOrWhiteSpace(projectFolderId))
+            {
+                return null;
+            }
+
+            var project = await _uow.ProjectDocuments.GetDriveFolderAsync(projectId);
+            var folderId = await EnsureChildFolderAsync(projectFolderId, cancellationToken, "Documents", "Document");
+            if (!string.Equals(folderId, project.DocumentsFolderId, StringComparison.Ordinal))
+            {
+                folderId = await _uow.ProjectDocuments.SetDocumentsFolderAsync(projectId, folderId);
+            }
+
+            return folderId;
+        }
+
+        public async Task RenameProjectFolderAsync(int projectId, CancellationToken cancellationToken = default)
+        {
+            var project = await _uow.ProjectDocuments.GetDriveFolderAsync(projectId);
+            if (!project.Exists || string.IsNullOrWhiteSpace(project.GoogleDriveFolderId))
+            {
+                return;
+            }
+
+            await _drive.RenameFolderAsync(project.GoogleDriveFolderId, ProjectFolderName(project.Reference, project.Name), cancellationToken);
         }
 
         public async Task<string> EnsureProcurementFolderAsync(int projectId, CancellationToken cancellationToken = default)
@@ -53,19 +85,75 @@ namespace Mahkias.Api.Services
             }
 
             var project = await _uow.ProjectDocuments.GetDriveFolderAsync(projectId);
-            if (!string.IsNullOrWhiteSpace(project.ProcurementFolderId))
+            var folderId = await EnsureChildFolderAsync(projectFolderId, cancellationToken, "Procurement");
+            if (!string.Equals(folderId, project.ProcurementFolderId, StringComparison.Ordinal))
             {
-                return project.ProcurementFolderId;
+                folderId = await _uow.ProjectDocuments.SetProcurementFolderAsync(projectId, folderId);
             }
 
-            var folderId = await _drive.CreateFolderAsync("Procurement", projectFolderId, cancellationToken);
-            return await _uow.ProjectDocuments.SetProcurementFolderAsync(projectId, folderId);
+            await EnsureChildFolderAsync(folderId, cancellationToken, "Quotations", "Quotation");
+            await EnsurePurchasesChildAsync(folderId, cancellationToken);
+            return folderId;
+        }
+
+        public async Task<string> EnsureQuotationsFolderAsync(int projectId, CancellationToken cancellationToken = default)
+        {
+            var procurementFolderId = await EnsureProcurementFolderAsync(projectId, cancellationToken);
+            if (string.IsNullOrWhiteSpace(procurementFolderId))
+            {
+                return null;
+            }
+
+            return await EnsureChildFolderAsync(procurementFolderId, cancellationToken, "Quotations", "Quotation");
+        }
+
+        public async Task<string> EnsurePurchasesFolderAsync(int projectId, CancellationToken cancellationToken = default)
+        {
+            var procurementFolderId = await EnsureProcurementFolderAsync(projectId, cancellationToken);
+            if (string.IsNullOrWhiteSpace(procurementFolderId))
+            {
+                return null;
+            }
+
+            return await EnsurePurchasesChildAsync(procurementFolderId, cancellationToken);
+        }
+
+        private async Task<string> EnsurePurchasesChildAsync(string procurementFolderId, CancellationToken cancellationToken)
+        {
+            var purchasesId = await _drive.FindFolderAsync("Purchases", procurementFolderId, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(purchasesId))
+            {
+                return purchasesId;
+            }
+
+            var legacyId = await _drive.FindFolderAsync("Purchase", procurementFolderId, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(legacyId))
+            {
+                await _drive.RenameFolderAsync(legacyId, "Purchases", cancellationToken);
+                return legacyId;
+            }
+
+            return await _drive.CreateFolderAsync("Purchases", procurementFolderId, cancellationToken);
+        }
+
+        private async Task<string> EnsureChildFolderAsync(string parentFolderId, CancellationToken cancellationToken, string canonicalName, params string[] alternateNames)
+        {
+            foreach (var name in new[] { canonicalName }.Concat(alternateNames ?? Array.Empty<string>()))
+            {
+                var existingId = await _drive.FindFolderAsync(name, parentFolderId, cancellationToken);
+                if (!string.IsNullOrWhiteSpace(existingId))
+                {
+                    return existingId;
+                }
+            }
+
+            return await _drive.CreateFolderAsync(canonicalName, parentFolderId, cancellationToken);
         }
 
         public static string ProjectFolderName(string reference, string name)
         {
-            var referenceText = (reference ?? string.Empty).Trim();
-            var nameText = (name ?? string.Empty).Trim();
+            var referenceText = NormalizeFolderName(reference);
+            var nameText = NormalizeFolderName(name);
             var label = string.IsNullOrEmpty(referenceText)
                 ? nameText
                 : string.IsNullOrEmpty(nameText) ? referenceText : referenceText + " " + nameText;
@@ -79,13 +167,24 @@ namespace Mahkias.Api.Services
                 label = label.Replace(character, ' ');
             }
 
-            label = string.Join(" ", label.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries));
+            label = NormalizeFolderName(label);
             if (label.Length > 180)
             {
                 label = label.Substring(0, 180).Trim();
             }
 
             return label;
+        }
+
+        public static string NormalizeFolderName(string value)
+        {
+            var text = (value ?? string.Empty).Trim();
+            if (text.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            return Regex.Replace(text, @"\s+", " ");
         }
     }
 }

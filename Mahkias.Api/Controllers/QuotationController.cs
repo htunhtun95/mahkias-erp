@@ -1,12 +1,16 @@
 using Mahkias.Api.Helpers;
 using Mahkias.Api.Security;
 using Mahkias.Api.Modules.Projects;
+using Mahkias.Api.Services;
 using Mahkias.Core.Data;
+using Mahkias.Core.Modules.Projects;
 using Mahkias.Core.Modules.Projects.Data.Args;
 using Mahkias.Core.Modules.Projects.Data.Result;
 using Mahkias.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
+using System.Text.Json;
 
 namespace Mahkias.Api.Controllers
 {
@@ -14,13 +18,20 @@ namespace Mahkias.Api.Controllers
     [RequireApiKey]
     public class QuotationController : Controller
     {
+        private const long MaxImportFileBytes = 52_428_800;
+        private const long MaxImportRequestBytes = 104_857_600;
+
         private readonly MahkiasDbContext _context;
         private readonly IUow _uow;
+        private readonly IGoogleDriveService _drive;
+        private readonly ProjectDriveFolders _folders;
 
-        public QuotationController(MahkiasDbContext context, IUow uow)
+        public QuotationController(MahkiasDbContext context, IUow uow, IGoogleDriveService drive, ProjectDriveFolders folders)
         {
             _context = context;
             _uow = uow;
+            _drive = drive;
+            _folders = folders;
         }
 
         [HttpGet("/api/projects/{projectId}/quotations")]
@@ -107,10 +118,229 @@ namespace Mahkias.Api.Controllers
                 return prepared.Error;
             }
 
-            var id = await _uow.Quotations.CreateAsync(prepared.Args);
             var projectId = prepared.Args.ProjectIds.First();
+            var id = await _uow.Quotations.ImportAsync(prepared.Args, null, HttpContext.RequestAborted);
             var saved = (await _uow.Quotations.GetByProjectAsync(projectId)).FirstOrDefault(item => item.Id == id);
             return Ok(saved);
+        }
+
+        [HttpPost("/api/projects/{projectId:int}/quotations/import")]
+        [RequestSizeLimit(MaxImportRequestBytes)]
+        [RequestFormLimits(MultipartBodyLengthLimit = MaxImportRequestBytes)]
+        public async Task<IActionResult> Import(int projectId, [FromForm] QuotationImportForm form, CancellationToken cancellationToken)
+        {
+            if (form == null)
+            {
+                return BadRequest(new { message = "Quotation details are required." });
+            }
+
+            List<QuotationItemRequest> items;
+            try
+            {
+                items = string.IsNullOrWhiteSpace(form.Items)
+                    ? new List<QuotationItemRequest>()
+                    : JsonSerializer.Deserialize<List<QuotationItemRequest>>(form.Items, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                      ?? new List<QuotationItemRequest>();
+            }
+            catch (JsonException)
+            {
+                return BadRequest(new { message = "Quotation items could not be read." });
+            }
+
+            var charges = ReadFormCharges(form.Charges);
+            if (charges.Error != null)
+            {
+                return BadRequest(new { message = charges.Error });
+            }
+
+            var request = new CreateQuotationRequest
+            {
+                SupplierId = form.SupplierId,
+                SupplierReference = form.SupplierReference,
+                CurrencyId = form.CurrencyId,
+                ProjectIds = new List<int> { projectId },
+                Items = items,
+                Charges = charges.Charges,
+            };
+            var dateError = ApplyFormDates(form, request);
+            if (dateError != null)
+            {
+                return dateError;
+            }
+
+            var prepared = await PrepareAsync(request);
+            if (prepared.Error != null)
+            {
+                return prepared.Error;
+            }
+
+            MemoryStream buffer = null;
+            string uploadName = null;
+            string contentType = null;
+            string fileType = null;
+            var file = form.File;
+            if (file != null && file.Length > 0)
+            {
+                if (file.Length > MaxImportFileBytes)
+                {
+                    return BadRequest(new { message = "Each document must be 50 MB or smaller." });
+                }
+
+                if (!DriveDocumentTypes.TryDescribe(file.FileName, out uploadName, out contentType, out fileType, out var fileError))
+                {
+                    return BadRequest(new { message = fileError });
+                }
+
+                buffer = new MemoryStream();
+                await file.CopyToAsync(buffer, cancellationToken);
+                buffer.Position = 0;
+            }
+
+            try
+            {
+                var id = await _uow.Quotations.ImportAsync(
+                    prepared.Args,
+                    buffer == null ? null : (quotationId, token) => UploadQuotationFileAsync(projectId, quotationId, 0, uploadName, contentType, fileType, buffer, token),
+                    cancellationToken);
+                var saved = (await _uow.Quotations.GetByProjectAsync(projectId)).FirstOrDefault(item => item.Id == id);
+                return Ok(saved);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            finally
+            {
+                if (buffer != null)
+                {
+                    await buffer.DisposeAsync();
+                }
+            }
+        }
+
+        [HttpPost("/api/projects/{projectId:int}/quotations/{quotationId:int}/save")]
+        [RequestSizeLimit(MaxImportRequestBytes)]
+        [RequestFormLimits(MultipartBodyLengthLimit = MaxImportRequestBytes)]
+        public async Task<IActionResult> Save(int projectId, int quotationId, [FromForm] QuotationImportForm form, CancellationToken cancellationToken)
+        {
+            if (form == null)
+            {
+                return BadRequest(new { message = "Quotation details are required." });
+            }
+
+            if (form.File == null || form.File.Length == 0)
+            {
+                return BadRequest(new { message = "Choose a document to upload." });
+            }
+
+            List<QuotationItemRequest> items;
+            try
+            {
+                items = string.IsNullOrWhiteSpace(form.Items)
+                    ? new List<QuotationItemRequest>()
+                    : JsonSerializer.Deserialize<List<QuotationItemRequest>>(form.Items, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                      ?? new List<QuotationItemRequest>();
+            }
+            catch (JsonException)
+            {
+                return BadRequest(new { message = "Quotation items could not be read." });
+            }
+
+            var charges = ReadFormCharges(form.Charges);
+            if (charges.Error != null)
+            {
+                return BadRequest(new { message = charges.Error });
+            }
+
+            var request = new CreateQuotationRequest
+            {
+                SupplierId = form.SupplierId,
+                SupplierReference = form.SupplierReference,
+                CurrencyId = form.CurrencyId,
+                ProjectIds = new List<int> { projectId },
+                Items = items,
+                Charges = charges.Charges,
+            };
+            var dateError = ApplyFormDates(form, request);
+            if (dateError != null)
+            {
+                return dateError;
+            }
+
+            var prepared = await PrepareAsync(request);
+            if (prepared.Error != null)
+            {
+                return prepared.Error;
+            }
+
+            if (form.File.Length > MaxImportFileBytes)
+            {
+                return BadRequest(new { message = "Each document must be 50 MB or smaller." });
+            }
+
+            if (!DriveDocumentTypes.TryDescribe(form.File.FileName, out var uploadName, out var contentType, out var fileType, out var fileError))
+            {
+                return BadRequest(new { message = fileError });
+            }
+
+            var buffer = new MemoryStream();
+            await form.File.CopyToAsync(buffer, cancellationToken);
+            buffer.Position = 0;
+            try
+            {
+                await _uow.Quotations.SaveExistingAsync(
+                    quotationId,
+                    prepared.Args,
+                    (id, token) => UploadQuotationFileAsync(projectId, id, form.DocumentId, uploadName, contentType, fileType, buffer, token),
+                    cancellationToken);
+                var saved = await _uow.Quotations.GetDetailAsync(quotationId);
+                return saved == null ? NotFound() : Ok(saved);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            finally
+            {
+                await buffer.DisposeAsync();
+            }
+        }
+
+        private async Task<CreateQuotationDocumentArgs> UploadQuotationFileAsync(int projectId, int quotationId, int documentId, string uploadName, string contentType, string fileType, MemoryStream buffer, CancellationToken cancellationToken)
+        {
+            var folderId = await _folders.EnsureQuotationsFolderAsync(projectId, cancellationToken);
+            if (string.IsNullOrWhiteSpace(folderId))
+            {
+                throw new InvalidOperationException("The quotation folder could not be prepared.");
+            }
+
+            buffer.Position = 0;
+            var uploaded = await _drive.UploadAsync(folderId, uploadName, contentType, buffer, cancellationToken);
+            if (documentId > 0)
+            {
+                return new UpdateQuotationDocumentArgs
+                {
+                    ProjectId = projectId,
+                    QuotationId = quotationId,
+                    DocumentId = documentId,
+                    FileName = string.IsNullOrWhiteSpace(uploaded.FileName) ? uploadName : uploaded.FileName,
+                    FileType = fileType,
+                    GoogleDriveFileId = uploaded.FileId,
+                    WebViewLink = uploaded.WebViewLink ?? string.Empty,
+                    FileSize = buffer.Length,
+                };
+            }
+
+            return new CreateQuotationDocumentArgs
+            {
+                ProjectId = projectId,
+                QuotationId = quotationId,
+                FileName = string.IsNullOrWhiteSpace(uploaded.FileName) ? uploadName : uploaded.FileName,
+                FileType = fileType,
+                GoogleDriveFileId = uploaded.FileId,
+                WebViewLink = uploaded.WebViewLink ?? string.Empty,
+                FileSize = buffer.Length,
+            };
         }
 
         [HttpPost("/api/projects/{projectId}/quotations/excel/mapping")]
@@ -137,6 +367,12 @@ namespace Mahkias.Api.Controllers
                     dsnNo = Suggest(sheet.Columns, "dsnno", "dsn", "dsnnumber"),
                     partNo = Suggest(sheet.Columns, "partno", "partnumber", "part"),
                     description = Suggest(sheet.Columns, "description", "desc"),
+                    condition = Suggest(sheet.Columns, "condition", "itemcondition", "cond"),
+                    unit = Suggest(sheet.Columns, "uom", "unitofmeasure", "unitcode", "unit"),
+                    leadTime = Suggest(sheet.Columns, "leadtime", "lead", "deliveryleadtime"),
+                    minimumQty = Suggest(sheet.Columns, "minimumqty", "moq", "minqty", "minimumorderqty", "minimumquantity"),
+                    quotedDate = Suggest(sheet.Columns, "quoteddate", "quotedate", "quotationdate", "quotedon"),
+                    validUntil = Suggest(sheet.Columns, "validuntil", "validto", "expirydate", "expiry", "validthru"),
                     unitPrice = Suggest(sheet.Columns, "unitprice", "price", "unitcost"),
                     quantity = Suggest(sheet.Columns, "quantity", "qty"),
                     totalPrice = Suggest(sheet.Columns, "totalprice", "total", "linetotal"),
@@ -187,12 +423,24 @@ namespace Mahkias.Api.Controllers
             var errors = plan.Errors.ToList();
             var items = new List<object>();
             var choices = new List<object>();
+            DateTime? quotedDate = null;
+            DateTime? validUntil = null;
             if (errors.Count == 0)
             {
                 foreach (var row in plan.Rows)
                 {
+                    if (!SameDate(ref quotedDate, row.QuotedDate))
+                    {
+                        errors.Add(new ActivityImportIssue { Row = row.Row, Field = "Quoted Date", Message = "Quoted date does not match the other rows." });
+                    }
+
+                    if (!SameDate(ref validUntil, row.ValidUntil))
+                    {
+                        errors.Add(new ActivityImportIssue { Row = row.Row, Field = "Valid Until", Message = "Valid until does not match the other rows." });
+                    }
+
                     var quantity = row.Quantity < 1 ? 1 : row.Quantity;
-                    TryPrice(row.UnitPrice, row.TotalPrice, quantity, out var unit, out var total);
+                    TryPrice(row.UnitPrice, row.TotalPrice, EffectiveQuantity(row.MinimumQty, quantity), out var unit, out var total);
                     var match = QuotationAllocator.Direct(row.DsnNo, row.PartNo, activities);
                     items.Add(new
                     {
@@ -200,6 +448,10 @@ namespace Mahkias.Api.Controllers
                         dsnNo = row.DsnNo,
                         partNo = row.PartNo,
                         description = row.Description,
+                        condition = row.Condition,
+                        unit = row.UnitName,
+                        leadTime = row.LeadTime,
+                        minimumQty = row.MinimumQty,
                         unitPrice = unit,
                         quantity,
                         totalPrice = total,
@@ -215,6 +467,11 @@ namespace Mahkias.Api.Controllers
                 }
             }
 
+            if (errors.Count == 0 && quotedDate.HasValue && validUntil.HasValue && validUntil.Value.Date < quotedDate.Value.Date)
+            {
+                errors.Add(new ActivityImportIssue { Row = 0, Field = "Valid Until", Message = "Valid until cannot be earlier than the quoted date." });
+            }
+
             return Ok(new
             {
                 valid = errors.Count == 0,
@@ -222,8 +479,10 @@ namespace Mahkias.Api.Controllers
                 rowCount = sheet.Rows.Count,
                 errorCount = errors.Count,
                 errors,
-                items,
-                choices,
+                items = errors.Count == 0 ? items : new List<object>(),
+                choices = errors.Count == 0 ? choices : new List<object>(),
+                quotedDate = errors.Count == 0 ? quotedDate : null,
+                validUntil = errors.Count == 0 ? validUntil : null,
             });
         }
 
@@ -237,6 +496,11 @@ namespace Mahkias.Api.Controllers
             if (request.SupplierId <= 0)
             {
                 return (BadRequest(new { message = "Supplier is required." }), null);
+            }
+
+            if (request.QuotedDate.HasValue && request.ValidUntil.HasValue && request.ValidUntil.Value.Date < request.QuotedDate.Value.Date)
+            {
+                return (BadRequest(new { message = "Valid until cannot be earlier than the quoted date." }), null);
             }
 
             var projectIds = (request.ProjectIds ?? new List<int>()).Where(id => id > 0).Distinct().ToList();
@@ -279,7 +543,31 @@ namespace Mahkias.Api.Controllers
                     errors.Add(new ActivityImportIssue { Row = entry.row, Field = "Part No", Message = "Part number is required." });
                 }
 
-                if (string.IsNullOrWhiteSpace(entry.item.DsnNo) || string.IsNullOrWhiteSpace(entry.item.PartNo))
+                if (!string.IsNullOrWhiteSpace(entry.item.Condition) && entry.item.Condition.Trim().Length > 100)
+                {
+                    errors.Add(new ActivityImportIssue { Row = entry.row, Field = "Condition", Message = "Condition must be 100 characters or fewer." });
+                }
+
+                if (!string.IsNullOrWhiteSpace(entry.item.Unit) && entry.item.Unit.Trim().Length > 100)
+                {
+                    errors.Add(new ActivityImportIssue { Row = entry.row, Field = "Unit", Message = "Unit must be 100 characters or fewer." });
+                }
+
+                if (entry.item.LeadTime is < 0)
+                {
+                    errors.Add(new ActivityImportIssue { Row = entry.row, Field = "Lead Time", Message = LeadTimeDays.Message });
+                }
+
+                if (entry.item.MinimumQty is < 1)
+                {
+                    errors.Add(new ActivityImportIssue { Row = entry.row, Field = "MOQ", Message = "Minimum quantity must be a positive number." });
+                }
+
+                if (string.IsNullOrWhiteSpace(entry.item.DsnNo) || string.IsNullOrWhiteSpace(entry.item.PartNo)
+                    || (!string.IsNullOrWhiteSpace(entry.item.Condition) && entry.item.Condition.Trim().Length > 100)
+                    || (!string.IsNullOrWhiteSpace(entry.item.Unit) && entry.item.Unit.Trim().Length > 100)
+                    || entry.item.LeadTime is < 0
+                    || entry.item.MinimumQty is < 1)
                 {
                     continue;
                 }
@@ -291,7 +579,7 @@ namespace Mahkias.Api.Controllers
                     continue;
                 }
 
-                if (!TryPrice(entry.item.UnitPrice, entry.item.TotalPrice, quantity, out var unit, out var total))
+                if (!TryPrice(entry.item.UnitPrice, entry.item.TotalPrice, EffectiveQuantity(entry.item.MinimumQty, quantity), out var unit, out var total))
                 {
                     errors.Add(new ActivityImportIssue { Row = entry.row, Field = "Unit Price", Message = "Price must be a valid number." });
                     continue;
@@ -318,6 +606,12 @@ namespace Mahkias.Api.Controllers
                 }), null);
             }
 
+            var charges = NormalizeCharges(request.Charges);
+            if (charges.Error != null)
+            {
+                return (BadRequest(new { message = charges.Error }), null);
+            }
+
             int? currencyId = headerCurrencyId;
 
             return (null, new CreateQuotationArgs
@@ -326,9 +620,80 @@ namespace Mahkias.Api.Controllers
                 SupplierReference = TrimTo(request.SupplierReference, 100),
                 DriveFileLink = request.DriveFileLink?.Trim(),
                 CurrencyId = currencyId,
+                QuotedDate = request.QuotedDate?.Date,
+                ValidUntil = request.ValidUntil?.Date,
                 ProjectIds = projectIds,
                 Items = writes,
+                Charges = charges.Charges,
             });
+        }
+
+        private static (string Error, List<QuotationChargeRequest> Charges) ReadFormCharges(string json)
+        {
+            if (json == null)
+            {
+                return (null, null);
+            }
+
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return (null, new List<QuotationChargeRequest>());
+            }
+
+            try
+            {
+                var charges = JsonSerializer.Deserialize<List<QuotationChargeRequest>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                    ?? new List<QuotationChargeRequest>();
+                return (null, charges);
+            }
+            catch (JsonException)
+            {
+                return ("Additional charges could not be read.", null);
+            }
+        }
+
+        private static (string Error, List<QuotationChargeWrite> Charges) NormalizeCharges(IEnumerable<QuotationChargeRequest> charges)
+        {
+            if (charges == null)
+            {
+                return (null, null);
+            }
+
+            var writes = new List<QuotationChargeWrite>();
+            var sort = 0;
+            foreach (var charge in charges)
+            {
+                var name = charge?.Name?.Trim() ?? string.Empty;
+                var hasAmount = charge?.Amount != null;
+                if (name.Length == 0 && !hasAmount)
+                {
+                    continue;
+                }
+
+                if (name.Length == 0)
+                {
+                    return ("Each additional charge needs a name.", null);
+                }
+
+                if (name.Length > 200)
+                {
+                    return ("Additional charge names must be 200 characters or fewer.", null);
+                }
+
+                if (!hasAmount || charge.Amount < 0)
+                {
+                    return ("Each additional charge needs an amount of zero or more.", null);
+                }
+
+                writes.Add(new QuotationChargeWrite
+                {
+                    Name = name,
+                    Amount = decimal.Round(charge.Amount.Value, 2, MidpointRounding.AwayFromZero),
+                    SortOrder = sort++,
+                });
+            }
+
+            return (null, writes);
         }
 
         private async Task<IReadOnlyList<QuotationMapGroup>> GroupsForAsync(IReadOnlyList<int> projectIds)
@@ -406,6 +771,10 @@ namespace Mahkias.Api.Controllers
                 DsnNo = string.IsNullOrWhiteSpace(dsnNo) ? item.DsnNo?.Trim() : dsnNo.Trim(),
                 PartNo = item.PartNo.Trim(),
                 PartDescription = item.Description?.Trim(),
+                Condition = TrimOptional(item.Condition),
+                Unit = TrimOptional(item.Unit),
+                LeadTime = item.LeadTime is < 0 ? null : item.LeadTime,
+                MinimumQty = item.MinimumQty is > 0 ? item.MinimumQty : null,
                 UnitPrice = unit,
                 Quantity = quantity,
                 TotalPrice = total,
@@ -469,7 +838,7 @@ namespace Mahkias.Api.Controllers
                     var quantity = group.Sum(item => item.Quantity);
                     decimal? total = group.All(item => item.TotalPrice == null && item.UnitPrice == null)
                         ? null
-                        : group.Sum(item => item.TotalPrice ?? (item.UnitPrice.HasValue ? decimal.Round(item.UnitPrice.Value * item.Quantity, 4, MidpointRounding.AwayFromZero) : 0));
+                        : group.Sum(item => item.TotalPrice ?? (item.UnitPrice.HasValue ? decimal.Round(item.UnitPrice.Value * EffectiveQuantity(item.MinimumQty, item.Quantity), 4, MidpointRounding.AwayFromZero) : 0));
                     decimal? unit = total.HasValue && quantity > 0
                         ? decimal.Round(total.Value / quantity, 4, MidpointRounding.AwayFromZero)
                         : null;
@@ -482,6 +851,10 @@ namespace Mahkias.Api.Controllers
                         DsnNo = first.DsnNo,
                         PartNo = first.PartNo,
                         PartDescription = first.PartDescription,
+                Condition = first.Condition,
+                Unit = first.Unit,
+                LeadTime = first.LeadTime,
+                        MinimumQty = first.MinimumQty,
                         UnitPrice = unit,
                         Quantity = quantity,
                         TotalPrice = total,
@@ -494,6 +867,65 @@ namespace Mahkias.Api.Controllers
         private async Task<bool> ProjectExists(int projectId)
         {
             return await _context.Projects.AsNoTracking().AnyAsync(project => project.Id == projectId);
+        }
+
+        private static bool SameDate(ref DateTime? current, DateTime? next)
+        {
+            if (!next.HasValue)
+            {
+                return true;
+            }
+
+            if (!current.HasValue)
+            {
+                current = next.Value.Date;
+                return true;
+            }
+
+            return current.Value.Date == next.Value.Date;
+        }
+
+        private IActionResult ApplyFormDates(QuotationImportForm form, CreateQuotationRequest request)
+        {
+            if (!TryFormDate(form?.QuotedDate, out var quotedDate, out var quotedError))
+            {
+                return BadRequest(new { message = "Quoted date " + quotedError });
+            }
+
+            if (!TryFormDate(form?.ValidUntil, out var validUntil, out var validError))
+            {
+                return BadRequest(new { message = "Valid until " + validError });
+            }
+
+            request.QuotedDate = quotedDate;
+            request.ValidUntil = validUntil;
+            return null;
+        }
+
+        private static bool TryFormDate(string value, out DateTime? date, out string error)
+        {
+            date = null;
+            error = null;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return true;
+            }
+
+            if (DateTime.TryParse(value.Trim(), CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out var parsed)
+                || DateTime.TryParse(value.Trim(), CultureInfo.CurrentCulture, DateTimeStyles.AllowWhiteSpaces, out parsed))
+            {
+                date = parsed.Date;
+                return true;
+            }
+
+            error = "'" + value.Trim() + "' is not a valid date.";
+            return false;
+        }
+
+        private static string TrimOptional(string value)
+        {
+            var text = value?.Trim();
+            return string.IsNullOrEmpty(text) ? null : text;
         }
 
         private static bool IsBlank(QuotationItemRequest item)
@@ -542,6 +974,16 @@ namespace Mahkias.Api.Controllers
 
             var token = code.Trim();
             return currencies.FirstOrDefault(currency => string.Equals(currency.Code, token, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static int EffectiveQuantity(int? minimumQty, int quantity)
+        {
+            if (minimumQty is > 0)
+            {
+                return minimumQty.Value;
+            }
+
+            return quantity > 0 ? quantity : 1;
         }
 
         private static bool TryPrice(decimal? unitPrice, decimal? totalPrice, int quantity, out decimal? unit, out decimal? total)

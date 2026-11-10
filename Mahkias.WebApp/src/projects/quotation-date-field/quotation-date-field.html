@@ -1,0 +1,27 @@
+<span class="caption">{{ label }}</span>
+<mat-form-field class="quote-date-field" appearance="outline" subscriptSizing="dynamic" [class.invalid]="showError || !!externalError">
+  <input
+    #dateBox
+    matInput
+    [matDatepicker]="picker"
+    [disabled]="disabled"
+    [attr.aria-invalid]="showError || !!externalError"
+    placeholder="dd/mm/yyyy"
+    autocomplete="off"
+    (input)="onTyped($event)"
+    (blur)="onBlur()"
+    (dateChange)="onPicked($event)"
+  />
+  @if (hasValue && !disabled) {
+    <button class="clear-date" type="button" matSuffix matTooltip="Clear date" aria-label="Clear date" (click)="clear($event)">
+      <mat-icon>close</mat-icon>
+    </button>
+  }
+  <mat-datepicker-toggle matIconSuffix [for]="picker" [disabled]="disabled" (click)="$event.stopPropagation()"></mat-datepicker-toggle>
+  <mat-datepicker #picker panelClass="quote-date-panel"></mat-datepicker>
+</mat-form-field>
+@if (showError) {
+  <span class="date-error">Enter a valid {{ label }} as dd/mm/yyyy.</span>
+} @else if (externalError) {
+  <span class="date-error">{{ externalError }}</span>
+}

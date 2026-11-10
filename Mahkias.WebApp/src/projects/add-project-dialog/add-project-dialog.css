@@ -1,32 +1,26 @@
 :host {
   position: relative;
-  display: block;
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
-  padding: 28px 32px;
-  color: #111827;
+  padding: 0;
+  color: #202124;
   font-family: Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 h2 {
   margin: 0;
-  color: #111827;
-  font-size: 1.25rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.4;
-}
-
-p {
-  margin: 6px 0 24px;
-  color: #6b7280;
-  font-size: 0.875rem;
-  line-height: 1.5;
+  color: #202124;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 28px;
 }
 
 form {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  padding: 8px 24px 0;
 }
 
 .field {
@@ -38,17 +32,21 @@ form {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--field-radius);
   padding: 10px 14px;
   background: #fff;
   cursor: text;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+.control:hover:not(:focus-within) {
+  border-color: var(--field-border-hover);
+}
+
 .control:focus-within {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  border-color: var(--field-focus);
+  box-shadow: var(--field-focus-ring);
 }
 
 .field.invalid .control {
@@ -73,6 +71,8 @@ form {
 
 .required {
   margin-left: 2px;
+  color: #d93025;
+  font-weight: 600;
 }
 
 input,
@@ -108,7 +108,9 @@ textarea {
   justify-content: flex-end;
   align-items: center;
   gap: 12px;
-  margin-top: 8px;
+  margin: 16px -24px 0;
+  padding: 16px 24px;
+  border-top: 1px solid #e0e0e0;
 }
 
 .btn {

@@ -6,6 +6,245 @@ html, body {
   font-family: Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.28) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+  background: transparent;
+  border: 0;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 0;
+  border-radius: 999px;
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.35);
+}
+
+.req {
+  margin-left: 2px;
+  color: #d93025;
+  font-style: normal;
+  font-weight: 600;
+}
+
+:root {
+  --field-border: #dadce0;
+  --field-border-hover: #bdc1c6;
+  --field-radius: 8px;
+  --field-bg: #fff;
+  --field-color: #202124;
+  --field-focus: #1a73e8;
+  --field-focus-ring: 0 0 0 3px rgba(26, 115, 232, 0.16);
+  --field-invalid: #d93025;
+  --field-invalid-ring: 0 0 0 3px rgba(217, 48, 37, 0.16);
+}
+
+/* Shared text fields. Table cells and Material inputs keep their own chrome. */
+:where(
+  .field-control,
+  input:not(
+    [type="checkbox"],
+    [type="radio"],
+    [type="file"],
+    [type="hidden"],
+    [type="range"],
+    [type="button"],
+    [type="submit"],
+    [type="reset"],
+    [type="color"],
+    [type="image"]
+  ),
+  textarea,
+  select
+):not(.mat-mdc-input-element) {
+  box-sizing: border-box;
+  border: 1px solid var(--field-border);
+  border-radius: var(--field-radius);
+  background: var(--field-bg);
+  color: var(--field-color);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+:where(
+  .field-control,
+  input:not(
+    [type="checkbox"],
+    [type="radio"],
+    [type="file"],
+    [type="hidden"],
+    [type="range"],
+    [type="button"],
+    [type="submit"],
+    [type="reset"],
+    [type="color"],
+    [type="image"]
+  ),
+  textarea,
+  select
+):not(.mat-mdc-input-element):hover:not(:focus):where(:not(:disabled, [disabled])) {
+  border-color: var(--field-border-hover);
+}
+
+:where(
+  .field-control,
+  input:not(
+    [type="checkbox"],
+    [type="radio"],
+    [type="file"],
+    [type="hidden"],
+    [type="range"],
+    [type="button"],
+    [type="submit"],
+    [type="reset"],
+    [type="color"],
+    [type="image"]
+  ),
+  textarea,
+  select
+):not(.mat-mdc-input-element):focus,
+:where(
+  .field-control,
+  input:not(
+    [type="checkbox"],
+    [type="radio"],
+    [type="file"],
+    [type="hidden"],
+    [type="range"],
+    [type="button"],
+    [type="submit"],
+    [type="reset"],
+    [type="color"],
+    [type="image"]
+  ),
+  textarea,
+  select
+):not(.mat-mdc-input-element):focus-visible {
+  border-color: var(--field-focus);
+  box-shadow: var(--field-focus-ring);
+  outline: none;
+}
+
+:where(
+  .field-control,
+  input:not(
+    [type="checkbox"],
+    [type="radio"],
+    [type="file"],
+    [type="hidden"],
+    [type="range"],
+    [type="button"],
+    [type="submit"],
+    [type="reset"],
+    [type="color"],
+    [type="image"]
+  ),
+  textarea,
+  select
+):not(.mat-mdc-input-element):disabled,
+:where(
+  .field-control,
+  input:not(
+    [type="checkbox"],
+    [type="radio"],
+    [type="file"],
+    [type="hidden"],
+    [type="range"],
+    [type="button"],
+    [type="submit"],
+    [type="reset"],
+    [type="color"],
+    [type="image"]
+  ),
+  textarea,
+  select
+):not(.mat-mdc-input-element)[disabled] {
+  border-color: var(--field-border);
+  background: #f8f9fa;
+  color: #80868b;
+  box-shadow: none;
+}
+
+:is(label.invalid, .field.invalid, .supplier-field.invalid) :is(input, select, textarea),
+:is(input, select, textarea).invalid,
+.field.invalid .control,
+label.amount.invalid {
+  border-color: var(--field-invalid);
+}
+
+:is(label.invalid, .field.invalid, .supplier-field.invalid) :is(input, select, textarea):hover,
+:is(input, select, textarea).invalid:hover,
+.field.invalid .control:hover,
+label.amount.invalid:hover,
+:is(label.invalid, .field.invalid, .invalid) :is(input, select, textarea):focus,
+:is(input, select, textarea).invalid:focus,
+.field.invalid .control:focus-within,
+label.amount.invalid:focus-within {
+  border-color: var(--field-invalid);
+  box-shadow: var(--field-invalid-ring);
+}
+
+.control :is(input, textarea, select),
+td :is(input, textarea, select),
+.mat-mdc-form-field :is(input, textarea, select) {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+.control :is(input, textarea, select):hover,
+.control :is(input, textarea, select):focus,
+td :is(input, textarea, select):hover,
+td :is(input, textarea, select):focus,
+.mat-mdc-form-field :is(input, textarea, select):hover,
+.mat-mdc-form-field :is(input, textarea, select):focus {
+  border-color: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+.mat-mdc-form-field {
+  --mdc-outlined-text-field-outline-color: var(--field-border);
+  --mdc-outlined-text-field-hover-outline-color: var(--field-border-hover);
+  --mdc-outlined-text-field-focus-outline-color: var(--field-focus);
+  --mdc-outlined-text-field-outline-width: 1px;
+  --mdc-outlined-text-field-focus-outline-width: 1px;
+  --mdc-outlined-text-field-container-shape: var(--field-radius);
+}
+
+.mat-mdc-form-field.mat-focused {
+  --mdc-outlined-text-field-hover-outline-color: var(--field-focus);
+}
+
+.mat-mdc-form-field.mat-form-field-invalid {
+  --mdc-outlined-text-field-outline-color: var(--field-invalid);
+  --mdc-outlined-text-field-hover-outline-color: var(--field-invalid);
+  --mdc-outlined-text-field-focus-outline-color: var(--field-invalid);
+}
+
+.mat-mdc-form-field.mat-focused:not(.quote-date-field, .quote-status-filter, .created-filter, .date-pill) .mat-mdc-text-field-wrapper {
+  box-shadow: var(--field-focus-ring);
+  border-radius: var(--field-radius);
+}
+
+.mat-mdc-form-field.mat-form-field-invalid.mat-focused:not(.quote-date-field, .quote-status-filter, .created-filter, .date-pill) .mat-mdc-text-field-wrapper {
+  box-shadow: var(--field-invalid-ring);
+}
+
 #splash-screen {
   position: fixed;
   inset: 0;
@@ -38,11 +277,58 @@ html, body {
   gap: 8px;
 }
 
+.btn,
+button.primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
 .btn mat-spinner,
+button.primary mat-spinner,
 .batch-save mat-spinner,
 .delete-project mat-spinner,
 .icon-btn mat-spinner {
   --mdc-circular-progress-active-indicator-color: currentColor;
+}
+
+.busy-overlay,
+.import-overlay {
+  background: rgba(255, 255, 255, 0.46);
+}
+
+.import-overlay {
+  position: absolute;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+}
+
+.import-overlay > .mat-mdc-progress-bar {
+  flex: 0 0 auto;
+  width: 100%;
+}
+
+.import-overlay-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.import-overlay-body p {
+  margin: 0;
+  color: #202124;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.import-overlay mat-spinner {
+  --mdc-circular-progress-active-indicator-color: #1a73e8;
 }
 
 .busy-overlay {
@@ -54,12 +340,12 @@ html, body {
   align-items: center;
   justify-content: center;
   gap: 14px;
-  background: rgba(255, 255, 255, 0.88);
   pointer-events: auto;
 }
 
-.busy-overlay.cover-pad {
-  inset: -28px -32px;
+.busy-overlay.cover-pad,
+.import-overlay {
+  inset: 0;
 }
 
 .busy-overlay.busy-overlay-top {
@@ -100,29 +386,156 @@ a.menu-text-left.active-menu .mat-icon {
   color: #1a73e8 !important;
 }
 
+.cdk-overlay-backdrop.cdk-overlay-dark-backdrop,
 .cdk-overlay-backdrop.add-project-dialog-backdrop {
-  background: rgba(0, 0, 0, 0.15);
+  background: rgba(32, 33, 36, 0.16);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
-.cdk-overlay-pane.add-project-dialog-panel,
-.cdk-overlay-pane.activity-dialog-panel {
-  --mat-dialog-container-shape: 24px;
-  --mat-dialog-container-elevation-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+.cdk-overlay-backdrop.quotation-create-backdrop {
+  background: rgba(0, 0, 0, 0.32);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.cdk-overlay-pane.mat-mdc-dialog-panel {
+  --mat-dialog-container-shape: 16px;
+  --mdc-dialog-container-shape: 16px;
+  height: auto !important;
+  max-height: calc(100vh - 48px) !important;
+  overflow: hidden;
+  border-radius: 16px;
+  background: transparent;
+}
+
+.cdk-overlay-pane.mat-mdc-dialog-panel > .mat-mdc-dialog-container,
+.cdk-overlay-pane.mat-mdc-dialog-panel .mat-mdc-dialog-inner-container,
+.cdk-overlay-pane.mat-mdc-dialog-panel .mat-mdc-dialog-surface {
+  height: auto;
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
+  border-radius: 16px;
+  background-color: #fff;
 }
 
 .cdk-overlay-pane.activity-dialog-panel {
   display: flex !important;
   flex-direction: column;
-  max-height: 85vh !important;
+  max-height: 92vh !important;
   overflow: hidden;
+}
+
+.cdk-overlay-pane.activity-dialog-panel:has(app-add-activity-dialog) {
+  min-height: 78vh;
 }
 
 .cdk-overlay-pane.add-project-dialog-panel .mat-mdc-dialog-surface,
 .cdk-overlay-pane.activity-dialog-panel .mat-mdc-dialog-surface {
-  border-radius: 24px;
+  border-radius: 16px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+}
+
+.mat-mdc-menu-panel.activity-row-menu {
+  min-width: 220px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+}
+
+.mat-mdc-menu-panel.activity-row-menu .mat-mdc-menu-item {
+  min-height: 40px;
+  color: #202124;
+  font-size: 14px;
+}
+
+.mat-mdc-menu-panel.activity-row-menu .mat-mdc-menu-item .mat-icon {
+  margin-right: 12px;
+  color: #5f6368;
+}
+
+.mat-mdc-menu-panel.activity-row-menu .mat-mdc-menu-item.danger,
+.mat-mdc-menu-panel.activity-row-menu .mat-mdc-menu-item.danger .mat-icon {
+  color: #c5221f;
+}
+
+.quoted-on,
+.validity,
+.moq-note {
+  display: block;
+  margin-top: 2px;
+  color: #5f6368;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.validity.expired {
+  color: #c5221f;
+}
+
+.moq-note.short {
+  color: #b06000;
+}
+
+.mat-datepicker-content:has(.quote-date-panel) {
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(32, 33, 36, 0.18), 0 0 1px rgba(32, 33, 36, 0.24);
+}
+
+.mat-calendar.quote-date-panel {
+  width: 328px;
+  border-radius: 16px;
+}
+
+.mat-calendar.quote-date-panel .mat-calendar-header {
+  padding: 8px 12px 0;
+}
+
+.mat-calendar.quote-date-panel .mat-calendar-controls {
+  margin: 4px 0 8px;
+}
+
+.mat-calendar.quote-date-panel .mat-calendar-period-button {
+  color: #202124;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.mat-calendar.quote-date-panel .mat-calendar-previous-button,
+.mat-calendar.quote-date-panel .mat-calendar-next-button {
+  color: #5f6368;
+}
+
+.mat-calendar.quote-date-panel .mat-calendar-table-header th,
+.mat-calendar.quote-date-panel .mat-calendar-body-label {
+  color: #80868b;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.mat-calendar.quote-date-panel .mat-calendar-body-cell-content {
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.mat-calendar.quote-date-panel .mat-calendar-body-cell:not(.mat-calendar-body-disabled):hover > .mat-calendar-body-cell-content:not(.mat-calendar-body-selected) {
+  background: #e8f0fe;
+}
+
+.mat-calendar.quote-date-panel .mat-calendar-body-selected {
+  background-color: #1a73e8;
+  color: #fff;
+}
+
+.mat-calendar.quote-date-panel .mat-calendar-body-today:not(.mat-calendar-body-selected) {
+  border-color: #1a73e8;
+}
+
+.mat-calendar.quote-date-panel .mat-calendar-body-selected.mat-calendar-body-today {
+  box-shadow: none;
 }
 
 .cdk-overlay-pane.activity-dialog-panel .mat-mdc-dialog-container,
@@ -135,17 +548,28 @@ a.menu-text-left.active-menu .mat-icon {
   box-sizing: border-box;
   width: 100%;
   min-height: 0;
-  max-height: 85vh;
+  max-height: 92vh;
   overflow: hidden;
 }
 
-.cdk-overlay-pane.activity-dialog-panel app-add-activity-dialog {
+.cdk-overlay-pane.activity-dialog-panel app-add-activity-dialog,
+.cdk-overlay-pane.activity-dialog-panel app-import-activity-dialog {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
-  max-height: 85vh;
+  max-height: 92vh;
   overflow: hidden;
+}
+
+.cdk-global-overlay-wrapper:has(> .cdk-overlay-pane.quotation-dialog-panel) {
+  align-items: flex-start !important;
+  justify-content: center !important;
+  box-sizing: border-box;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 24px 0;
 }
 
 .cdk-overlay-pane.quotation-dialog-panel,
@@ -157,9 +581,22 @@ a.menu-text-left.active-menu .mat-icon {
 }
 
 .cdk-overlay-pane.quotation-dialog-panel {
+  position: relative !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  transform: none !important;
+  flex: 0 0 auto;
+  width: 95vw !important;
+  max-width: 95vw !important;
   height: auto !important;
-  max-height: 90vh !important;
+  min-height: calc(100vh - 48px);
+  max-height: none !important;
+  margin: 0 auto;
   overflow: hidden;
+  border-radius: 16px;
+  background: #fff;
 }
 
 .cdk-overlay-pane.quotation-dialog-panel .mat-dialog-container,
@@ -171,13 +608,14 @@ a.menu-text-left.active-menu .mat-icon {
 .cdk-overlay-pane.quotation-dialog-panel .quotation-modal-content {
   display: flex;
   flex-direction: column;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   box-sizing: border-box;
   width: 100%;
   height: auto;
-  min-height: 0;
-  max-height: 90vh;
+  min-height: 100%;
+  max-height: none;
   overflow: hidden;
+  border-radius: 16px;
 }
 
 .cdk-overlay-pane.quotation-dialog-panel .mat-mdc-dialog-surface,
@@ -187,15 +625,26 @@ a.menu-text-left.active-menu .mat-icon {
   overflow: hidden;
 }
 
+.cdk-overlay-pane.quotation-dialog-panel .mat-mdc-dialog-surface {
+  height: auto;
+  max-height: none;
+  overflow: hidden;
+  border-radius: 16px;
+}
+
+.cdk-overlay-pane.quotation-dialog-panel .mat-mdc-dialog-component-host,
 .cdk-overlay-pane.quotation-dialog-panel app-create-quotation-dialog,
-.cdk-overlay-pane.quotation-dialog-panel app-import-quotation-dialog {
+.cdk-overlay-pane.quotation-dialog-panel app-import-quotation-dialog,
+.cdk-overlay-pane.quotation-dialog-panel app-purchase-order-dialog,
+.cdk-overlay-pane.quotation-dialog-panel app-import-purchase-order-dialog {
   display: flex;
   flex-direction: column;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   height: auto;
-  min-height: 0;
-  max-height: 90vh;
+  min-height: 100%;
+  max-height: none;
   overflow: hidden;
+  border-radius: 16px;
 }
 
 .cdk-overlay-pane.app-dialog-pane .mat-mdc-dialog-component-host {
@@ -205,6 +654,110 @@ a.menu-text-left.active-menu .mat-icon {
   min-height: 0;
   max-height: 90vh;
   overflow: hidden;
+}
+
+.cdk-overlay-pane.quotation-dialog-panel.app-dialog-pane .mat-mdc-dialog-component-host {
+  height: auto;
+  min-height: auto;
+  max-height: none;
+  overflow: hidden;
+  border-radius: 16px;
+}
+
+.cdk-global-overlay-wrapper:has(> .cdk-overlay-pane.quotation-dialog-panel.po-new-panel) {
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0;
+  overflow: hidden;
+}
+
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel {
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  max-width: 100vw !important;
+  height: 100vh !important;
+  min-height: 100vh !important;
+  max-height: 100vh !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .mat-dialog-container,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .mat-mdc-dialog-container,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .mat-mdc-dialog-inner-container,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .mat-mdc-dialog-surface,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .mat-mdc-dialog-component-host,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-purchase-order-dialog,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-import-purchase-order-dialog,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-create-quotation-dialog,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-import-quotation-dialog,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-quotation-detail-dialog,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-quotation-data-dialog,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-add-activity-dialog,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-edit-activity-dialog,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-import-activity-dialog,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-group-detail-dialog,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel app-document-library-dialog,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .quotation-dialog-container,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .app-dialog-container,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .dialog-shell,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .dialog-form,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .detail {
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .quotation-dialog-header,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .quotation-dialog-footer,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .dialog-header,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .dialog-footer,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .erp-modal-header,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .erp-modal-footer {
+  flex: 0 0 auto;
+}
+
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .quotation-dialog-body,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .app-dialog-body,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .detail-body,
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.cdk-overlay-pane.quotation-dialog-panel.po-new-panel .grid-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+.cdk-overlay-pane.quotation-dialog-panel.po-detail-panel {
+  min-height: 0;
+}
+
+.cdk-overlay-pane.quotation-dialog-panel.po-detail-panel .mat-dialog-container,
+.cdk-overlay-pane.quotation-dialog-panel.po-detail-panel .mat-mdc-dialog-container,
+.cdk-overlay-pane.quotation-dialog-panel.po-detail-panel .mat-mdc-dialog-inner-container,
+.cdk-overlay-pane.quotation-dialog-panel.po-detail-panel .mat-mdc-dialog-surface,
+.cdk-overlay-pane.quotation-dialog-panel.po-detail-panel .mat-mdc-dialog-component-host,
+.cdk-overlay-pane.quotation-dialog-panel.po-detail-panel .quotation-dialog-container,
+.cdk-overlay-pane.quotation-dialog-panel.po-detail-panel app-purchase-order-detail-dialog {
+  height: auto;
+  min-height: 0;
+  max-height: none;
 }
 
 .app-dialog-container {
@@ -220,9 +773,82 @@ a.menu-text-left.active-menu .mat-icon {
   background: #fff;
 }
 
-.app-dialog-header {
+.cdk-overlay-pane.quotation-dialog-panel .app-dialog-container,
+.cdk-overlay-pane.quotation-dialog-panel .quotation-dialog-container {
+  height: auto;
+  min-height: 100%;
+  max-height: none;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.app-dialog-header,
+.erp-modal-header {
   flex: 0 0 auto;
-  padding: 20px 24px 12px;
+  padding: 16px 24px;
+  background: #fff;
+}
+
+.erp-modal-title,
+.app-dialog-header .erp-modal-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.erp-modal-title h2,
+.erp-modal-header h2,
+.app-dialog-header h2 {
+  margin: 0;
+  color: #202124;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 28px;
+}
+
+.erp-modal-note,
+.erp-modal-header .erp-modal-note,
+.app-dialog-header .erp-modal-note,
+.app-dialog-header > p,
+.erp-modal-title p {
+  margin: 4px 0 0;
+  color: #5f6368;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.erp-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  margin: -4px -8px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #5f6368;
+  cursor: pointer;
+}
+
+.erp-modal-close mat-icon {
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+}
+
+.erp-modal-close:hover:not(:disabled) {
+  background: #f1f3f4;
+  color: #202124;
+}
+
+.erp-modal-close:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .app-dialog-body {
@@ -232,17 +858,73 @@ a.menu-text-left.active-menu .mat-icon {
   padding: 20px 24px;
 }
 
-.app-dialog-body::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.app-dialog-body::-webkit-scrollbar-thumb {
-  background: #dadce0;
+.app-dialog-actions,
+.document-launch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 12px 16px;
+  border: 1px solid #e0e0e0;
   border-radius: 8px;
+  background: #fff;
 }
 
-.app-dialog-actions {
+.document-launch h3,
+.document-launch p {
+  margin: 0;
+}
+
+.document-launch h3 {
+  color: #202124;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.document-launch p {
+  margin-top: 4px;
+  color: #5f6368;
+  font-size: 13px;
+}
+
+.document-launch button {
+  flex: 0 0 auto;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid #dadce0;
+  border-radius: 18px;
+  background: #fff;
+  color: #1a73e8;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.document-launch button:hover:not(:disabled) {
+  background: #f8f9fa;
+}
+
+.document-launch button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.document-drag-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(60, 64, 67, 0.18);
+  font-size: 13px;
+}
+
+.erp-modal-footer {
   flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
@@ -251,6 +933,12 @@ a.menu-text-left.active-menu .mat-icon {
   padding: 16px 24px;
   border-top: 1px solid #e0e0e0;
   background: #fff;
+}
+
+.cdk-overlay-container :is(button.primary, button.btn.primary):disabled {
+  opacity: 0.55;
+  cursor: default;
+  box-shadow: none;
 }
 
 .map-badge {
@@ -293,9 +981,13 @@ a.menu-text-left.active-menu .mat-icon {
   background: transparent;
 }
 
+.cdk-global-overlay-wrapper:has(> .cdk-overlay-pane.quotation-menu-panel) {
+  z-index: 2000 !important;
+}
+
 .cdk-overlay-pane.quotation-menu-panel {
   pointer-events: auto;
-  z-index: 1200 !important;
+  z-index: 2000 !important;
 }
 
 .map-resolver-backdrop {
@@ -383,6 +1075,10 @@ a.menu-text-left.active-menu .mat-icon {
   border: 2px solid #1a73e8;
 }
 
+.app-grid-table tbody td app-lookup-combobox input {
+  padding-right: 28px;
+}
+
 .app-grid-table tbody td input,
 .app-grid-table tbody td select {
   display: block;
@@ -440,6 +1136,160 @@ textarea.cdk-textarea-autosize-measuring-firefox {
   outline: none;
   border: none;
   box-shadow: none;
+}
+
+.cdk-overlay-pane table.sheet,
+.cdk-overlay-pane table.import-sheet,
+.cdk-overlay-pane table.app-grid-table {
+  border-collapse: collapse !important;
+}
+
+.cdk-overlay-pane table.sheet th,
+.cdk-overlay-pane table.sheet td,
+.cdk-overlay-pane table.import-sheet th,
+.cdk-overlay-pane table.import-sheet td,
+.cdk-overlay-pane table.app-grid-table th,
+.cdk-overlay-pane table.app-grid-table td {
+  border: 1px solid #e0e0e0 !important;
+}
+
+.cdk-overlay-pane table.sheet tbody td input,
+.cdk-overlay-pane table.sheet tbody td select,
+.cdk-overlay-pane table.sheet tbody td textarea,
+.cdk-overlay-pane table.import-sheet tbody td input,
+.cdk-overlay-pane table.import-sheet tbody td select,
+.cdk-overlay-pane table.import-sheet tbody td textarea,
+.cdk-overlay-pane table.app-grid-table tbody td input,
+.cdk-overlay-pane table.app-grid-table tbody td select,
+.cdk-overlay-pane table.app-grid-table tbody td textarea {
+  border: none !important;
+  border-radius: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.cdk-overlay-pane table.sheet tbody td:focus-within,
+.cdk-overlay-pane table.import-sheet tbody td:focus-within,
+.cdk-overlay-pane table.app-grid-table tbody td:focus-within {
+  position: relative;
+  z-index: 2;
+  border: 2px solid #1a73e8 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.cdk-overlay-pane.po-new-panel table.sheet tbody td:has(:is(input, textarea, select)),
+.cdk-overlay-pane.po-new-panel table.import-sheet tbody td:has(:is(input, textarea, select)),
+.cdk-overlay-pane.po-new-panel table.app-grid-table tbody td:has(:is(input, textarea, select)) {
+  position: relative;
+  height: 44px;
+  padding: 0 !important;
+  cursor: text;
+}
+
+.cdk-overlay-pane.po-new-panel table.sheet tbody td > :is(input, select),
+.cdk-overlay-pane.po-new-panel table.import-sheet tbody td > :is(input, select),
+.cdk-overlay-pane.po-new-panel table.app-grid-table tbody td > :is(input, select),
+.cdk-overlay-pane.po-new-panel table.sheet tbody td > :is(app-activity-suggest, app-lookup-combobox, .price-field),
+.cdk-overlay-pane.po-new-panel table.import-sheet tbody td > :is(app-activity-suggest, app-lookup-combobox, .price-field),
+.cdk-overlay-pane.po-new-panel table.app-grid-table tbody td > :is(app-activity-suggest, app-lookup-combobox, .price-field) {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+}
+
+.cdk-overlay-pane.po-new-panel table.sheet tbody td :is(app-activity-suggest, app-lookup-combobox, .lookup-combobox) :is(input, select),
+.cdk-overlay-pane.po-new-panel table.import-sheet tbody td :is(app-activity-suggest, app-lookup-combobox, .lookup-combobox) :is(input, select),
+.cdk-overlay-pane.po-new-panel table.app-grid-table tbody td :is(app-activity-suggest, app-lookup-combobox, .lookup-combobox) :is(input, select) {
+  width: 100%;
+  height: 100% !important;
+  min-height: 0 !important;
+  align-self: stretch;
+}
+
+.cdk-overlay-pane.po-new-panel .price-field {
+  display: flex;
+  align-items: center;
+}
+
+.cdk-overlay-pane.po-new-panel .price-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 22px;
+  height: 100%;
+  padding: 0 0 0 8px;
+  line-height: 1;
+}
+
+.cdk-overlay-pane.po-new-panel .price-field input {
+  flex: 1 1 auto;
+  width: auto !important;
+  min-width: 0;
+  height: 100% !important;
+  padding-left: 2px;
+  align-self: stretch;
+}
+
+.cdk-overlay-pane.po-new-panel table.sheet tbody td textarea,
+.cdk-overlay-pane.po-new-panel table.import-sheet tbody td textarea,
+.cdk-overlay-pane.po-new-panel table.app-grid-table tbody td textarea {
+  display: block;
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+}
+
+.cdk-overlay-pane.po-new-panel table.sheet tbody td:focus-within:has(:is(input, textarea, select)),
+.cdk-overlay-pane.po-new-panel table.import-sheet tbody td:focus-within:has(:is(input, textarea, select)),
+.cdk-overlay-pane.po-new-panel table.app-grid-table tbody td:focus-within:has(:is(input, textarea, select)) {
+  position: relative;
+  z-index: 4;
+  overflow: visible;
+  border: 1px solid #e0e0e0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.cdk-overlay-pane.po-new-panel table.sheet tbody td:focus-within:has(:is(input, textarea, select))::after,
+.cdk-overlay-pane.po-new-panel table.import-sheet tbody td:focus-within:has(:is(input, textarea, select))::after,
+.cdk-overlay-pane.po-new-panel table.app-grid-table tbody td:focus-within:has(:is(input, textarea, select))::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 2px solid var(--field-focus);
+  pointer-events: none;
+  z-index: 6;
+}
+
+.cdk-overlay-pane table.sheet tbody td.invalid,
+.cdk-overlay-pane table.import-sheet tbody td.invalid,
+.cdk-overlay-pane table.app-grid-table tbody td.invalid {
+  position: relative;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+
+.cdk-overlay-pane table.sheet tbody td.invalid::after,
+.cdk-overlay-pane table.import-sheet tbody td.invalid::after,
+.cdk-overlay-pane table.app-grid-table tbody td.invalid::after,
+.cdk-overlay-pane table.sheet tbody td.invalid:focus-within::after,
+.cdk-overlay-pane table.import-sheet tbody td.invalid:focus-within::after,
+.cdk-overlay-pane table.app-grid-table tbody td.invalid:focus-within::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 2px solid var(--field-invalid) !important;
+  pointer-events: none;
+  z-index: 7;
 }
 
 @media (max-width: 900px) {

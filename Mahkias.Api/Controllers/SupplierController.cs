@@ -1,6 +1,7 @@
 using Mahkias.Api.Modules.Projects;
 using Mahkias.Api.Security;
 using Mahkias.Core.Data;
+using Mahkias.Core.Modules.Projects;
 using Mahkias.Core.Modules.Projects.Data.Args;
 using Microsoft.AspNetCore.Mvc;
 
@@ -43,13 +44,20 @@ namespace Mahkias.Api.Controllers
                 return BadRequest(new { message = "Supplier name is required." });
             }
 
-            var id = await _uow.Suppliers.CreateAsync(new CreateSupplierArgs
+            try
             {
-                Name = request.Name.Trim(),
-                Reference = request.Reference?.Trim(),
-            });
-            var created = await _uow.Suppliers.GetAsync(id);
-            return Ok(created);
+                var id = await _uow.Suppliers.CreateAsync(new CreateSupplierArgs
+                {
+                    Name = request.Name.Trim(),
+                    Reference = request.Reference?.Trim(),
+                });
+                var created = await _uow.Suppliers.GetAsync(id);
+                return Ok(created);
+            }
+            catch (DuplicateSupplierReferenceException exception)
+            {
+                return BadRequest(new { message = exception.Message });
+            }
         }
 
         [HttpPut("/api/suppliers/{id}")]
@@ -60,17 +68,24 @@ namespace Mahkias.Api.Controllers
                 return BadRequest(new { message = "Supplier name is required." });
             }
 
-            var updated = await _uow.Suppliers.UpdateAsync(id, new CreateSupplierArgs
+            try
             {
-                Name = request.Name.Trim(),
-                Reference = request.Reference?.Trim(),
-            });
-            if (!updated)
-            {
-                return NotFound();
-            }
+                var updated = await _uow.Suppliers.UpdateAsync(id, new CreateSupplierArgs
+                {
+                    Name = request.Name.Trim(),
+                    Reference = request.Reference?.Trim(),
+                });
+                if (!updated)
+                {
+                    return NotFound();
+                }
 
-            return Ok(await _uow.Suppliers.GetAsync(id));
+                return Ok(await _uow.Suppliers.GetAsync(id));
+            }
+            catch (DuplicateSupplierReferenceException exception)
+            {
+                return BadRequest(new { message = exception.Message });
+            }
         }
 
         [HttpDelete("/api/suppliers/{id}")]

@@ -1,29 +1,26 @@
 :host {
-  display: block;
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
-  padding: 28px 32px;
-  color: #111827;
+  padding: 0;
+  color: #202124;
   font-family: Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 h2 {
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-
-p {
-  margin: 8px 0 0;
-  color: #6b7280;
-  font-size: 0.875rem;
-  line-height: 1.5;
+  color: #202124;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 28px;
 }
 
 .actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   gap: 12px;
-  margin-top: 24px;
+  margin-top: 8px;
 }
 
 .btn {

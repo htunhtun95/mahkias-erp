@@ -37,11 +37,19 @@
     </div>
   } @else {
     <div class="drive-table">
-      <div class="row heading">
-        <span>Supplier</span>
+      <div class="table-scroll">
+      <div
+        class="row heading"
+        matSort
+        [matSortActive]="sortBy"
+        [matSortDirection]="sortDirection"
+        matSortDisableClear
+        (matSortChange)="onSort($event)"
+      >
+        <span mat-sort-header="name">Supplier</span>
         <span>Total Quotations</span>
-        <span>Created At</span>
-        <span class="col-actions">Actions</span>
+        <span class="col-date" mat-sort-header="createdAt">Created At</span>
+        <span class="col-actions" aria-hidden="true"></span>
       </div>
       @for (supplier of page; track supplier.id) {
         <div
@@ -60,22 +68,41 @@
               <span class="name-text">{{ supplier.name }}</span>
             </span>
           </span>
-          <span><span class="count-chip">{{ supplier.quotationCount || 0 }}</span></span>
+          <span class="count-cell"><span class="count-chip">{{ supplier.quotationCount || 0 }}</span></span>
           <span class="col-date">{{ listDate(supplier) }}</span>
           <span class="col-actions row-actions">
-            <button class="icon-btn" type="button" matTooltip="Edit supplier" aria-label="Edit supplier" [disabled]="isDeleting" (click)="openEdit($event, supplier)">
+            <button
+              class="icon-btn"
+              type="button"
+              matTooltip="Edit supplier"
+              aria-label="Edit supplier"
+              [disabled]="isDeleting"
+              (click)="openEdit($event, supplier)"
+              (keydown)="$event.stopPropagation()"
+            >
               <mat-icon>edit</mat-icon>
             </button>
-            <button class="icon-btn danger" type="button" matTooltip="Delete supplier" aria-label="Delete supplier" [disabled]="isDeleting" (click)="openDelete($event, supplier)">
-              @if (deletingId === supplier.id) {
-                <mat-spinner diameter="18"></mat-spinner>
-              } @else {
-                <mat-icon>delete</mat-icon>
-              }
-            </button>
+            @if (!hasQuotations(supplier)) {
+              <button
+                class="icon-btn delete"
+                type="button"
+                matTooltip="Delete supplier"
+                aria-label="Delete supplier"
+                [disabled]="isDeleting"
+                (click)="openDelete($event, supplier)"
+                (keydown)="$event.stopPropagation()"
+              >
+                @if (deletingId === supplier.id) {
+                  <mat-spinner diameter="18"></mat-spinner>
+                } @else {
+                  <mat-icon>delete</mat-icon>
+                }
+              </button>
+            }
           </span>
         </div>
       }
+      </div>
     </div>
     <mat-paginator
       [length]="suppliers.length"

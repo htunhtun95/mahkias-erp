@@ -8,8 +8,11 @@ namespace Mahkias.Core.Data
         IActivityRepository Activities { get; }
         ISupplierRepository Suppliers { get; }
         IQuotationRepository Quotations { get; }
+        IPurchaseOrderRepository PurchaseOrders { get; }
         IActivityGroupRepository ActivityGroups { get; }
+        IActivityLabelRepository ActivityLabels { get; }
         ICurrencyRepository Currencies { get; }
+        ILookupRepository Lookups { get; }
         IProjectDocumentRepository ProjectDocuments { get; }
     }
 }

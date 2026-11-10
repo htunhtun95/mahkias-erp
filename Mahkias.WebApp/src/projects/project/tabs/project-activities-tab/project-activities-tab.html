@@ -22,13 +22,18 @@
   </section>
 } @else {
   <div class="activity-groups" [class.is-busy]="isSaving || deletingId != null" (keydown.enter)="onFieldEnter($event)">
+    @if (linksLoading) {
+      <div class="fetch-bar" role="status" aria-live="polite" aria-busy="true">
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      </div>
+    }
     @if (isSaving) {
       <div class="busy-overlay busy-overlay-top" role="status" aria-live="polite" aria-busy="true">
         <mat-spinner diameter="40"></mat-spinner>
         <p>Saving data...</p>
       </div>
     }
-    @if (batchEditing || selectedIds.size > 0) {
+    @if (batchEditing || selectedIds.size > 0 || selectedGroupIds.size > 0) {
       <div class="action-dock">
         @if (batchEditing) {
           <div class="batch-bar">
@@ -39,13 +44,21 @@
             </button>
           </div>
         }
-        @if (selectedIds.size > 0) {
+        @if (selectedIds.size > 0 || selectedGroupIds.size > 0) {
           <div class="selection-bar">
-            <span class="batch-note" [class.error]="!!selectionError">{{ selectionError || (selectedIds.size + ' selected') }}</span>
-            @if (selectingGrouped) {
-              <button class="batch-save" type="button" (click)="removeSelectedFromGroups()" [disabled]="isSaving">Remove from Group</button>
-            } @else {
-              <button class="batch-save" type="button" (click)="assignSelected()" [disabled]="isSaving">Assign to Group</button>
+            <span class="batch-note" [class.error]="!!selectionError">{{ selectionError || selectionNote }}</span>
+            @if (!labelSelectionMode && selectedIds.size > 0) {
+              @if (selectingGrouped) {
+                <button class="batch-save" type="button" (click)="removeSelectedFromGroups()" [disabled]="isSaving">Remove from Group</button>
+              } @else {
+                <button class="batch-save" type="button" (click)="assignSelected()" [disabled]="isSaving">Assign to Group</button>
+              }
+            }
+            @if (labelActions.assign) {
+              <button class="batch-save" type="button" (click)="assignSelectedLabels()" [disabled]="isSaving">Assign Label</button>
+            }
+            @if (labelActions.remove) {
+              <button class="batch-save" type="button" (click)="removeSelectedFromLabels()" [disabled]="isSaving">Remove from Label</button>
             }
             <button class="batch-cancel" type="button" (click)="clearSelection()">Clear</button>
           </div>
@@ -59,7 +72,21 @@
       <section class="activity-group" [class.is-editing]="isBatchEditing(group.typeId)">
         <div class="group-header">
           <h2>{{ group.typeName }}</h2>
-          <span class="count-badge">{{ group.activities.length }}</span>
+          <span class="count-badge">{{ group.shownCount }}</span>
+          @if (labelsFor(group.typeId).length) {
+            <div class="label-switch" role="tablist" [attr.aria-label]="group.typeName + ' labels'">
+              <button class="segment-btn" type="button" role="tab" [class.active]="isLabelSelected(group.typeId, null)" [attr.aria-selected]="isLabelSelected(group.typeId, null)" (click)="selectLabel(group.typeId, null)">
+                All
+                <span class="segment-count">{{ labelMatchCount(group.typeId, null) }}</span>
+              </button>
+              @for (label of labelsFor(group.typeId); track label.id) {
+                <button class="segment-btn" type="button" role="tab" [class.active]="isLabelSelected(group.typeId, label.id)" [attr.aria-selected]="isLabelSelected(group.typeId, label.id)" (click)="selectLabel(group.typeId, label.id)">
+                  {{ label.name }}
+                  <span class="segment-count">{{ labelMatchCount(group.typeId, label) }}</span>
+                </button>
+              }
+            </div>
+          }
           <button
             class="batch-toggle"
             type="button"
@@ -72,100 +99,208 @@
           </button>
         </div>
         <div class="activity-table">
+          @if (!group.activities.length && !group.groups.length) {
+            <p class="filter-empty">No activities with this label.</p>
+          }
           <div class="row heading">
-            <span></span>
-            <span></span>
-            <span>DSN no</span>
-            <span>Part no</span>
+            <div class="identity">
+              <span></span>
+              <span></span>
+              <span>DSN no</span>
+              <span>Part no</span>
+            </div>
             <span>Description</span>
             <span>Quantity</span>
+            <span>Condition</span>
+            @if (isBatchEditing(group.typeId)) {
+              <span class="as-written">SerialNo</span>
+              <span class="as-written">TSN</span>
+              <span class="as-written">TSO</span>
+              <span class="as-written">CSN</span>
+              <span class="as-written">CSO</span>
+            }
             <span>Quotes</span>
             <span></span>
           </div>
           @for (block of group.groups; track block.group.id) {
             <div class="activity-block">
               <div class="row group-row">
-                <span></span>
-                <button class="expand" type="button" [matTooltip]="isGroupOpen(block.group.id) ? 'Collapse group' : 'Expand group'" [attr.aria-expanded]="isGroupOpen(block.group.id) || isBatchEditing(group.typeId)" [attr.aria-label]="isGroupOpen(block.group.id) ? 'Collapse group' : 'Expand group'" (click)="toggleGroup(block.group.id)">
-                  <mat-icon>{{ isGroupOpen(block.group.id) || isBatchEditing(group.typeId) ? 'expand_more' : 'chevron_right' }}</mat-icon>
-                </button>
-                <span></span>
-                <span class="part-cell">
-                  <span class="part-no">{{ block.group.name }}</span>
-                </span>
+                <div class="identity">
+                  <button class="expand" type="button" [matTooltip]="isGroupOpen(block.group.id) ? 'Collapse group' : 'Expand group'" [attr.aria-expanded]="isGroupOpen(block.group.id) || isBatchEditing(group.typeId)" [attr.aria-label]="isGroupOpen(block.group.id) ? 'Collapse group' : 'Expand group'" (click)="toggleGroup(block.group.id)">
+                    <mat-icon>{{ isGroupOpen(block.group.id) || isBatchEditing(group.typeId) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+                  </button>
+                  <label class="pick">
+                    <input
+                      type="checkbox"
+                      [checked]="isGroupChecked(block.group)"
+                      [indeterminate]="isGroupIndeterminate(block.group)"
+                      (change)="toggleGroupSelected(block.group, $any($event.target).checked)"
+                      [disabled]="isGroupSelectionDisabled(block.group)"
+                      [attr.aria-checked]="isGroupIndeterminate(block.group) ? 'mixed' : isGroupChecked(block.group)"
+                      [attr.aria-label]="'Select group ' + block.group.name"
+                    />
+                  </label>
+                  <span></span>
+                  <span class="part-cell">
+                    <span class="part-no">{{ block.group.name }}</span>
+                  </span>
+                </div>
                 <span class="description">{{ block.group.description || '—' }}</span>
                 <span>{{ block.activities.length }}</span>
+                <span></span>
+                @if (isBatchEditing(group.typeId)) {
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                }
                 <span class="lowest-price">
-                  @if (groupLowestLink(block.activities); as link) {
+                  @if (block.lowest; as link) {
                     <button class="price-link" type="button" matTooltip="View quotes" (click)="openGroupQuotations(block.group, block.activities)" [disabled]="isSaving || deletingId != null" [attr.aria-label]="'View quotes for ' + block.group.name">{{ priceText(link) }}</button>
+                    @if ((block.quoteCount ?? 0) > 1) {
+                      <span class="count-badge">{{ block.quoteCount }}</span>
+                    }
                   } @else {
-                    <span class="price-empty">—</span>
+                    <span class="price-empty">Unquoted</span>
                   }
                 </span>
                 <span class="row-actions">
-                  <button class="icon-btn" type="button" matTooltip="Edit group" (click)="editGroup(block.group)" aria-label="Edit group" [disabled]="isSaving || deletingId != null">
-                    <mat-icon>edit</mat-icon>
+                  <button class="icon-btn" type="button" [matMenuTriggerFor]="groupMenu" aria-label="Group actions" aria-haspopup="menu" [disabled]="isSaving || deletingId != null">
+                    <mat-icon>more_vert</mat-icon>
                   </button>
-                  <button class="icon-btn" type="button" matTooltip="Ungroup" (click)="ungroup(block.group)" aria-label="Ungroup" [disabled]="isSaving || deletingId != null">
-                    <mat-icon>link_off</mat-icon>
-                  </button>
+                  <mat-menu #groupMenu="matMenu" class="activity-row-menu">
+                    @if (isLabelSelected(group.typeId, null) && groupLabelTargets(block.group).length) {
+                      <button mat-menu-item type="button" (click)="removeGroupFromLabel(block.group)" [disabled]="isSaving || deletingId != null">
+                        <mat-icon>label_off</mat-icon>
+                        <span>Remove from Label</span>
+                      </button>
+                    }
+                    <button mat-menu-item type="button" (click)="editGroup(block.group)" [disabled]="isSaving || deletingId != null">
+                      <mat-icon>edit</mat-icon>
+                      <span>Edit Group</span>
+                    </button>
+                    <button mat-menu-item type="button" (click)="ungroup(block.group)" [disabled]="isSaving || deletingId != null">
+                      <mat-icon>link_off</mat-icon>
+                      <span>Ungroup</span>
+                    </button>
+                  </mat-menu>
                 </span>
               </div>
               @if (isGroupOpen(block.group.id) || isBatchEditing(group.typeId)) {
                 @for (activity of block.activities; track activity.id) {
-                  <div class="row child" [class.editing]="isRowEditable(group, activity)">
-                    <span></span>
-                    <label class="pick">
-                      <input
-                        type="checkbox"
-                        [checked]="isSelected(activity)"
-                        (change)="toggleSelected(activity, $any($event.target).checked)"
-                        [disabled]="isSelectionDisabled(activity)"
-                        [attr.aria-label]="'Select ' + (activity.dsnNo || activity.partNo)"
-                      />
-                    </label>
+                  <div class="row child" [attr.data-activity-id]="activity.id" [class.editing]="isRowEditable(group, activity)">
+                    <div class="identity">
+                      <span></span>
+                      <label class="pick">
+                        <input
+                          type="checkbox"
+                          [checked]="isSelected(activity)"
+                          (change)="toggleSelected(activity, $any($event.target).checked)"
+                          [disabled]="isSelectionDisabled(activity)"
+                          [attr.aria-label]="'Select ' + (activity.dsnNo || activity.partNo)"
+                        />
+                      </label>
+                      @if (isRowEditable(group, activity)) {
+                        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'dsnNo')">
+                          <input matInput [(ngModel)]="draft(activity).dsnNo" [ngModelOptions]="{ standalone: true }" aria-label="DSN no" [disabled]="isSaving" />
+                        </mat-form-field>
+                        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'partNo')">
+                          <input matInput [(ngModel)]="draft(activity).partNo" [ngModelOptions]="{ standalone: true }" aria-label="Part no" title="Use 'or' or '/' for alternative parts" [disabled]="isSaving" />
+                        </mat-form-field>
+                      } @else {
+                        <span>{{ activity.dsnNo || '—' }}</span>
+                        <span class="part-cell">
+                          <span class="part-no">{{ activity.mainPartNo || activity.partNo }}</span>
+                          @if (activity.alternativePartNos?.length) {
+                            <span class="alt-line">
+                              <span class="alt-label">Alt:</span>
+                              @for (alternative of activity.alternativePartNos; track $index) {
+                                <span class="alt-pill">{{ alternative }}</span>
+                              }
+                            </span>
+                          }
+                        </span>
+                      }
+                    </div>
                     @if (isRowEditable(group, activity)) {
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'dsnNo')">
-                        <input matInput [(ngModel)]="draft(activity).dsnNo" [ngModelOptions]="{ standalone: true }" aria-label="DSN no" [disabled]="isSaving" />
-                      </mat-form-field>
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'partNo')">
-                        <input matInput [(ngModel)]="draft(activity).partNo" [ngModelOptions]="{ standalone: true }" aria-label="Part no" title="Use 'or' or '/' for alternative parts" [disabled]="isSaving" />
-                      </mat-form-field>
                       <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
                         <textarea matInput appAutoGrow data-min-height="24" rows="1" [(ngModel)]="draft(activity).description" [ngModelOptions]="{ standalone: true }" aria-label="Description" [disabled]="isSaving"></textarea>
                       </mat-form-field>
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'quantity')">
-                        <input matInput type="number" min="0" step="1" [ngModel]="draft(activity).quantity" (ngModelChange)="setQuantity(activity, $event)" [ngModelOptions]="{ standalone: true }" aria-label="Quantity" [disabled]="isSaving" />
+                      <div class="qty-edit">
+                        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'quantity')">
+                          <input matInput type="number" min="0" step="1" [ngModel]="draft(activity).quantity" (ngModelChange)="setQuantity(activity, $event)" [ngModelOptions]="{ standalone: true }" aria-label="Quantity" [disabled]="isSaving" />
+                        </mat-form-field>
+                        <div class="lookup-cell">
+                          <app-lookup-combobox ariaLabel="Unit" [value]="draft(activity).unit" [options]="unitOptions" [disabled]="isSaving" (valueChange)="setDraftLookup(activity, 'unit', $event)" (committed)="normalizeDraftLookup(activity, 'unit')" />
+                        </div>
+                      </div>
+                      <div class="lookup-cell">
+                        <app-lookup-combobox ariaLabel="Condition" [value]="draft(activity).condition" [options]="conditionOptions" [disabled]="isSaving" (valueChange)="setDraftLookup(activity, 'condition', $event)" (committed)="normalizeDraftLookup(activity, 'condition')" />
+                      </div>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
+                        <input matInput maxlength="100" [(ngModel)]="draft(activity).serialNo" [ngModelOptions]="{ standalone: true }" aria-label="SerialNo" [disabled]="isSaving" />
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
+                        <input matInput maxlength="100" [(ngModel)]="draft(activity).tsn" [ngModelOptions]="{ standalone: true }" aria-label="TSN" [disabled]="isSaving" />
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
+                        <input matInput maxlength="100" [(ngModel)]="draft(activity).tso" [ngModelOptions]="{ standalone: true }" aria-label="TSO" [disabled]="isSaving" />
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
+                        <input matInput maxlength="100" [(ngModel)]="draft(activity).csn" [ngModelOptions]="{ standalone: true }" aria-label="CSN" [disabled]="isSaving" />
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
+                        <input matInput maxlength="100" [(ngModel)]="draft(activity).cso" [ngModelOptions]="{ standalone: true }" aria-label="CSO" [disabled]="isSaving" />
                       </mat-form-field>
                     } @else {
-                      <span>{{ activity.dsnNo || '—' }}</span>
-                      <span class="part-cell">
-                        <span class="part-no">{{ activity.mainPartNo || activity.partNo }}</span>
-                        @if (activity.alternativePartNos?.length) {
-                          <span class="alt-line">
-                            <span class="alt-label">Alt:</span>
-                            @for (alternative of activity.alternativePartNos; track $index) {
-                              <span class="alt-pill">{{ alternative }}</span>
-                            }
-                          </span>
+                      <span class="description">
+                        <span class="description-main">{{ activity.description || '—' }}</span>
+                        @for (detail of usageDetails(activity); track detail.label) {
+                          <span class="usage-line"><span class="usage-key">{{ detail.label }}:</span>{{ detail.value }}</span>
                         }
                       </span>
-                      <span class="description" [attr.title]="activity.description || null">{{ activity.description || '—' }}</span>
-                      <span>{{ activity.quantity != null ? activity.quantity : '—' }}</span>
+                      <span class="qty-label">{{ quantityLabel(activity) }}</span>
+                      <span>{{ activity.condition || '—' }}</span>
                     }
                     <span class="lowest-price">
                       @if (lowestLink(activity); as link) {
-                        <button class="price-link" type="button" matTooltip="View quotations" (click)="openItemQuotations(activity)" [disabled]="isSaving || deletingId != null" [attr.aria-label]="'View quotations for ' + (activity.dsnNo || activity.partNo)">{{ priceText(link) }}</button>
+                        <button class="price-link" type="button" matTooltip="View details" (click)="openActivityDetails(activity)" [disabled]="isSaving || deletingId != null" [attr.aria-label]="'View details for ' + (activity.dsnNo || activity.partNo)">{{ priceText(link) }}</button>
+                        @if (quoteCount(activity) > 1) {
+                          <span class="count-badge">{{ quoteCount(activity) }}</span>
+                        }
                       } @else {
-                        <span class="price-empty">—</span>
+                        <span class="price-empty">Unquoted</span>
                       }
                     </span>
                     <span class="row-actions">
-                      <button class="icon-btn" type="button" matTooltip="Ungroup activity" (click)="ungroupActivity(activity)" aria-label="Ungroup activity" [disabled]="isSaving || deletingId != null"><mat-icon>link_off</mat-icon></button>
-                      <button class="icon-btn" type="button" matTooltip="Edit activity" (click)="openEditActivity(activity)" aria-label="Edit activity" [disabled]="isSaving || deletingId != null"><mat-icon>edit</mat-icon></button>
-                      <button class="icon-btn danger" type="button" matTooltip="Delete activity" (click)="deleteActivity(activity)" aria-label="Delete activity" [disabled]="isSaving || deletingId != null">
-                        @if (deletingId === activity.id) { <mat-spinner diameter="18"></mat-spinner> } @else { <mat-icon>delete</mat-icon> }
+                      <button class="icon-btn" type="button" [matMenuTriggerFor]="activityMenu" aria-label="Activity actions" aria-haspopup="menu" [disabled]="isSaving || deletingId != null">
+                        @if (deletingId === activity.id) { <mat-spinner diameter="18"></mat-spinner> } @else { <mat-icon>more_vert</mat-icon> }
                       </button>
+                      <mat-menu #activityMenu="matMenu" class="activity-row-menu">
+                        <button mat-menu-item type="button" (click)="openActivityDetails(activity)" [disabled]="isSaving || deletingId != null">
+                          <mat-icon>visibility</mat-icon>
+                          <span>Details</span>
+                        </button>
+                        <button mat-menu-item type="button" (click)="ungroupActivity(activity)" [disabled]="isSaving || deletingId != null">
+                          <mat-icon>link_off</mat-icon>
+                          <span>Remove from Group</span>
+                        </button>
+                        @if (isLabelSelected(group.typeId, null) && labelTargets(activity).length) {
+                          <button mat-menu-item type="button" (click)="removeFromLabel(activity)" [disabled]="isSaving || deletingId != null">
+                            <mat-icon>label_off</mat-icon>
+                            <span>Remove from Label</span>
+                          </button>
+                        }
+                        <button mat-menu-item type="button" (click)="openEditActivity(activity)" [disabled]="isSaving || deletingId != null">
+                          <mat-icon>edit</mat-icon>
+                          <span>Edit</span>
+                        </button>
+                        <button mat-menu-item type="button" class="danger" (click)="deleteActivity(activity)" [disabled]="isSaving || deletingId != null">
+                          <mat-icon>delete</mat-icon>
+                          <span>Delete</span>
+                        </button>
+                      </mat-menu>
                     </span>
                   </div>
                 }
@@ -173,84 +308,125 @@
             </div>
           }
           @for (activity of group.activities; track activity.id) {
-            <div class="activity-block">
+            <div class="activity-block" [attr.data-activity-id]="activity.id">
             <div class="row" [class.editing]="isRowEditable(group, activity)">
-              <span></span>
-              <label class="pick">
-                <input
-                  type="checkbox"
-                  [checked]="isSelected(activity)"
-                  (change)="toggleSelected(activity, $any($event.target).checked)"
-                  [disabled]="isSelectionDisabled(activity)"
-                  [attr.aria-label]="'Select ' + (activity.dsnNo || activity.partNo)"
-                />
-              </label>
+              <div class="identity">
+                <span></span>
+                <label class="pick">
+                  <input
+                    type="checkbox"
+                    [checked]="isSelected(activity)"
+                    (change)="toggleSelected(activity, $any($event.target).checked)"
+                    [disabled]="isSelectionDisabled(activity)"
+                    [attr.aria-label]="'Select ' + (activity.dsnNo || activity.partNo)"
+                  />
+                </label>
+                @if (isRowEditable(group, activity)) {
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'dsnNo')">
+                    <input matInput [(ngModel)]="draft(activity).dsnNo" [ngModelOptions]="{ standalone: true }" aria-label="DSN no" [disabled]="isSaving" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'partNo')">
+                    <input matInput [(ngModel)]="draft(activity).partNo" [ngModelOptions]="{ standalone: true }" aria-label="Part no" title="Use 'or' or '/' for alternative parts" [disabled]="isSaving" />
+                  </mat-form-field>
+                } @else {
+                  <span>{{ activity.dsnNo || '—' }}</span>
+                  <span class="part-cell">
+                    <span class="part-no">{{ activity.mainPartNo || activity.partNo }}</span>
+                    @if (activity.alternativePartNos?.length) {
+                      <span class="alt-line">
+                        <span class="alt-label">Alt:</span>
+                        @for (alternative of activity.alternativePartNos; track $index) {
+                          <span class="alt-pill">{{ alternative }}</span>
+                        }
+                      </span>
+                    }
+                  </span>
+                }
+              </div>
               @if (isRowEditable(group, activity)) {
-                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'dsnNo')">
-                  <input matInput [(ngModel)]="draft(activity).dsnNo" [ngModelOptions]="{ standalone: true }" aria-label="DSN no" [disabled]="isSaving" />
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
+                  <textarea matInput appAutoGrow data-min-height="24" rows="1" [(ngModel)]="draft(activity).description" [ngModelOptions]="{ standalone: true }" aria-label="Description" [disabled]="isSaving"></textarea>
                 </mat-form-field>
-                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'partNo')">
-                  <input matInput [(ngModel)]="draft(activity).partNo" [ngModelOptions]="{ standalone: true }" aria-label="Part no" title="Use 'or' or '/' for alternative parts" [disabled]="isSaving" />
+                <div class="qty-edit">
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'quantity')">
+                    <input matInput type="number" min="0" step="1" [ngModel]="draft(activity).quantity" (ngModelChange)="setQuantity(activity, $event)" [ngModelOptions]="{ standalone: true }" aria-label="Quantity" [disabled]="isSaving" />
+                  </mat-form-field>
+                  <div class="lookup-cell">
+                    <app-lookup-combobox ariaLabel="Unit" [value]="draft(activity).unit" [options]="unitOptions" [disabled]="isSaving" (valueChange)="setDraftLookup(activity, 'unit', $event)" (committed)="normalizeDraftLookup(activity, 'unit')" />
+                  </div>
+                </div>
+                <div class="lookup-cell">
+                  <app-lookup-combobox ariaLabel="Condition" [value]="draft(activity).condition" [options]="conditionOptions" [disabled]="isSaving" (valueChange)="setDraftLookup(activity, 'condition', $event)" (committed)="normalizeDraftLookup(activity, 'condition')" />
+                </div>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
+                  <input matInput maxlength="100" [(ngModel)]="draft(activity).serialNo" [ngModelOptions]="{ standalone: true }" aria-label="SerialNo" [disabled]="isSaving" />
                 </mat-form-field>
                 <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
-                  <textarea
-                    matInput
-                    appAutoGrow
-                    data-min-height="24"
-                    rows="1"
-                    [(ngModel)]="draft(activity).description"
-                    [ngModelOptions]="{ standalone: true }"
-                    aria-label="Description"
-                    [disabled]="isSaving"
-                  ></textarea>
+                  <input matInput maxlength="100" [(ngModel)]="draft(activity).tsn" [ngModelOptions]="{ standalone: true }" aria-label="TSN" [disabled]="isSaving" />
                 </mat-form-field>
-                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'quantity')">
-                  <input
-                    matInput
-                    type="number"
-                    min="0"
-                    step="1"
-                    [ngModel]="draft(activity).quantity"
-                    (ngModelChange)="setQuantity(activity, $event)"
-                    [ngModelOptions]="{ standalone: true }"
-                    aria-label="Quantity"
-                    [disabled]="isSaving"
-                  />
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
+                  <input matInput maxlength="100" [(ngModel)]="draft(activity).tso" [ngModelOptions]="{ standalone: true }" aria-label="TSO" [disabled]="isSaving" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
+                  <input matInput maxlength="100" [(ngModel)]="draft(activity).csn" [ngModelOptions]="{ standalone: true }" aria-label="CSN" [disabled]="isSaving" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
+                  <input matInput maxlength="100" [(ngModel)]="draft(activity).cso" [ngModelOptions]="{ standalone: true }" aria-label="CSO" [disabled]="isSaving" />
                 </mat-form-field>
               } @else {
-                <span>{{ activity.dsnNo || '—' }}</span>
-                <span class="part-cell">
-                  <span class="part-no">{{ activity.mainPartNo || activity.partNo }}</span>
-                  @if (activity.alternativePartNos?.length) {
-                    <span class="alt-line">
-                      <span class="alt-label">Alt:</span>
-                      @for (alternative of activity.alternativePartNos; track $index) {
-                        <span class="alt-pill">{{ alternative }}</span>
-                      }
-                    </span>
+                <span class="description">
+                  <span class="description-main">{{ activity.description || '—' }}</span>
+                  @for (detail of usageDetails(activity); track detail.label) {
+                    <span class="usage-line"><span class="usage-key">{{ detail.label }}:</span>{{ detail.value }}</span>
                   }
                 </span>
-                <span class="description" [attr.title]="activity.description || null">{{ activity.description || '—' }}</span>
-                <span>{{ activity.quantity != null ? activity.quantity : '—' }}</span>
+                <span class="qty-label">{{ quantityLabel(activity) }}</span>
+                <span>{{ activity.condition || '—' }}</span>
               }
               <span class="lowest-price">
                 @if (lowestLink(activity); as link) {
-                  <button class="price-link" type="button" matTooltip="View quotations" (click)="openItemQuotations(activity)" [disabled]="isSaving || deletingId != null" [attr.aria-label]="'View quotations for ' + (activity.dsnNo || activity.partNo)">{{ priceText(link) }}</button>
+                  <button class="price-link" type="button" matTooltip="View details" (click)="openActivityDetails(activity)" [disabled]="isSaving || deletingId != null" [attr.aria-label]="'View details for ' + (activity.dsnNo || activity.partNo)">{{ priceText(link) }}</button>
+                  @if (quoteCount(activity) > 1) {
+                    <span class="count-badge">{{ quoteCount(activity) }}</span>
+                  }
                 } @else {
-                  <span class="price-empty">—</span>
+                  <span class="price-empty">Unquoted</span>
                 }
               </span>
               <span class="row-actions">
-                <button class="icon-btn" type="button" matTooltip="Edit activity" (click)="openEditActivity(activity)" aria-label="Edit activity" [disabled]="isSaving || deletingId != null">
-                  <mat-icon>edit</mat-icon>
-                </button>
-                <button class="icon-btn danger" type="button" matTooltip="Delete activity" (click)="deleteActivity(activity)" aria-label="Delete activity" [disabled]="isSaving || deletingId != null">
+                <button class="icon-btn" type="button" [matMenuTriggerFor]="activityMenu" aria-label="Activity actions" aria-haspopup="menu" [disabled]="isSaving || deletingId != null">
                   @if (deletingId === activity.id) {
                     <mat-spinner diameter="18"></mat-spinner>
                   } @else {
-                    <mat-icon>delete</mat-icon>
+                    <mat-icon>more_vert</mat-icon>
                   }
                 </button>
+                <mat-menu #activityMenu="matMenu" class="activity-row-menu">
+                  <button mat-menu-item type="button" (click)="openActivityDetails(activity)" [disabled]="isSaving || deletingId != null">
+                    <mat-icon>visibility</mat-icon>
+                    <span>Details</span>
+                  </button>
+                  @if (activity.activityGroupId) {
+                    <button mat-menu-item type="button" (click)="ungroupActivity(activity)" [disabled]="isSaving || deletingId != null">
+                      <mat-icon>link_off</mat-icon>
+                      <span>Remove from Group</span>
+                    </button>
+                  }
+                  @if (isLabelSelected(group.typeId, null) && labelTargets(activity).length) {
+                    <button mat-menu-item type="button" (click)="removeFromLabel(activity)" [disabled]="isSaving || deletingId != null">
+                      <mat-icon>label_off</mat-icon>
+                      <span>Remove from Label</span>
+                    </button>
+                  }
+                  <button mat-menu-item type="button" (click)="openEditActivity(activity)" [disabled]="isSaving || deletingId != null">
+                    <mat-icon>edit</mat-icon>
+                    <span>Edit</span>
+                  </button>
+                  <button mat-menu-item type="button" class="danger" (click)="deleteActivity(activity)" [disabled]="isSaving || deletingId != null">
+                    <mat-icon>delete</mat-icon>
+                    <span>Delete</span>
+                  </button>
+                </mat-menu>
               </span>
             </div>
             </div>

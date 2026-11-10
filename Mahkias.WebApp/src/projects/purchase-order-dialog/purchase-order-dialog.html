@@ -1,0 +1,299 @@
+<div class="quotation-dialog-container">
+  @if (saving) {
+    <div class="import-overlay" role="status" aria-live="polite" aria-busy="true">
+      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      <div class="import-overlay-body">
+        <mat-spinner diameter="40"></mat-spinner>
+        <p>Saving...</p>
+      </div>
+    </div>
+  }
+  <header class="quotation-dialog-header">
+    <div class="title-row">
+      <h2>{{ title }}</h2>
+      <button class="icon-close erp-modal-close" type="button" matTooltip="Close" aria-label="Close" [disabled]="saving" (click)="close()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+  </header>
+
+  <div class="quotation-dialog-body">
+    <div class="header-fields">
+      <label [class.invalid]="codeErrorVisible">
+        <span>PO number<span class="req" aria-hidden="true">*</span></span>
+        <input #codeField="ngModel" name="poCode" [(ngModel)]="code" [disabled]="loading || saving" maxlength="50" [attr.aria-invalid]="codeErrorVisible" />
+      </label>
+      <label class="supplier-field" [class.invalid]="supplierErrorVisible">
+        <span>Supplier<span class="req" aria-hidden="true">*</span></span>
+        <span class="supplier-control">
+          <input
+            #supplierInput
+            #supplierField="ngModel"
+            role="combobox"
+            aria-autocomplete="list"
+            [attr.aria-expanded]="supplierOpen"
+            [class.has-clear]="!!supplierQuery.trim()"
+            [attr.disabled]="loading || saving ? '' : null"
+            [ngModel]="supplierQuery"
+            (ngModelChange)="onSupplierInput($event)"
+            (focus)="supplierOpen = true"
+            (blur)="closeSuppliers()"
+            name="supplier"
+            autocomplete="off"
+            [attr.aria-invalid]="supplierErrorVisible"
+          />
+          @if (supplierQuery.trim()) {
+            <button class="clear-supplier" type="button" matTooltip="Clear supplier" aria-label="Clear supplier" [disabled]="loading || saving" (mousedown)="$event.preventDefault()" (click)="clearSupplier()">
+              <mat-icon>close</mat-icon>
+            </button>
+          }
+          @if (supplierOpen) {
+            <div class="supplier-menu" role="listbox">
+              <div class="supplier-options">
+                @for (supplier of filteredSuppliers; track supplier.id) {
+                  <button type="button" role="option" (mousedown)="$event.preventDefault(); chooseSupplier(supplier)">
+                    {{ supplier.name }}
+                    @if (supplier.reference) {
+                      <small>{{ supplier.reference }}</small>
+                    }
+                  </button>
+                }
+                @if (!filteredSuppliers.length) {
+                  <p>{{ suppliers.length ? 'No matching suppliers' : 'No suppliers available' }}</p>
+                }
+              </div>
+            </div>
+          }
+        </span>
+      </label>
+      <app-quotation-date-field label="PO date" [(ngModel)]="poDate" [disabled]="loading || saving" />
+      <label>
+        <span>Currency</span>
+        <select [(ngModel)]="currencyId" [disabled]="loading || saving">
+          @for (currency of currencies; track currency.id) {
+            <option [ngValue]="currency.id">{{ currency.code }}</option>
+          }
+        </select>
+      </label>
+      <label>
+        <span>Status</span>
+        <select [(ngModel)]="statusCode" [disabled]="loading || saving">
+          @for (status of statuses; track status.id) {
+            <option [value]="status.code">{{ status.name }}</option>
+          }
+        </select>
+      </label>
+      <label class="ship-to">
+        <span>Ship to</span>
+        <textarea
+          cdkTextareaAutosize
+          cdkAutosizeMinRows="1"
+          rows="1"
+          [(ngModel)]="shipToAddress"
+          maxlength="500"
+          [disabled]="loading || saving"
+        ></textarea>
+      </label>
+    </div>
+    @if (willRevise) {
+      <p class="status-note">Saving a sent purchase order marks it Revised. You can set it back to Sent afterwards.</p>
+    }
+    @if (loading) {
+      <div class="loading" role="status" aria-live="polite" aria-busy="true">
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+        <mat-spinner diameter="36"></mat-spinner>
+      </div>
+    } @else {
+      <div class="sheet-tools">
+        <div class="line-filters">
+          <input class="row-search" [(ngModel)]="search" name="lineSearch" placeholder="Search DSN, part, or description" autocomplete="off" />
+          <select class="type-filter" [(ngModel)]="typeFilter" name="typeFilter" aria-label="Activity type">
+            <option [ngValue]="null">All types</option>
+            @for (type of activityTypeOptions; track type.id) {
+              <option [ngValue]="type.id">{{ type.name }}</option>
+            }
+          </select>
+        </div>
+        <div class="sheet-actions">
+          <span>{{ visibleRows.length }} lines</span>
+          <button class="add-line" type="button" (click)="addLine()" [disabled]="saving">Add Item</button>
+        </div>
+      </div>
+      <div class="sheet-wrap">
+        <table class="sheet app-grid-table">
+          <colgroup>
+            <col class="col-dsn" />
+            <col class="col-part" />
+            <col class="col-description" />
+            <col class="col-condition" />
+            <col class="col-unit" />
+            <col class="col-lead" />
+            <col class="col-price" />
+            <col class="col-qty" />
+            <col class="col-price" />
+            <col class="col-quote" />
+            <col class="col-action" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th class="dsn">DSN No<span class="req" aria-hidden="true">*</span></th>
+              <th class="part">Part No<span class="req" aria-hidden="true">*</span></th>
+              <th class="description">Description</th>
+              <th>Condition</th>
+              <th>Unit</th>
+              <th>Lead Time (days)</th>
+              <th class="price">Unit Price<span class="req" aria-hidden="true">*</span></th>
+              <th class="qty">Quantity<span class="req" aria-hidden="true">*</span></th>
+              <th class="price">Total Price</th>
+              <th>Quotation</th>
+              <th class="action"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of visibleRows; track row.key) {
+              <tr>
+                <td class="cell dsn" [class.locked]="row.fromQuotation" [class.invalid]="invalid(row, 'dsn') && interacted(row, 'dsn')">
+                  <span class="dsn-field">
+                    <span class="dsn-warning" [attr.aria-hidden]="lowerPriceWarning(row) ? null : 'true'" [attr.aria-label]="lowerPriceWarning(row) ? 'Not the lowest price' : null">
+                      @if (lowerPriceWarning(row)) {
+                        <mat-icon>warning</mat-icon>
+                      }
+                    </span>
+                    @if (row.fromQuotation) {
+                      <input readonly [disabled]="saving" [(ngModel)]="row.dsnNo" (blur)="touch(row, 'dsn')" [name]="'dsn' + row.key" maxlength="100" />
+                    } @else {
+                      <app-activity-suggest
+                        [value]="row.dsnNo"
+                        [activities]="data.activities"
+                        ariaLabel="DSN No"
+                        [disabled]="saving"
+                        (valueChange)="setDsn(row, $event); touch(row, 'dsn')"
+                        (blurred)="touch(row, 'dsn')"
+                        (picked)="chooseActivity(row, $event)"
+                      />
+                    }
+                  </span>
+                </td>
+                <td class="cell part" [class.locked]="row.fromQuotation" [class.invalid]="invalid(row, 'part') && interacted(row, 'part')">
+                  @if (row.fromQuotation) {
+                    <input readonly [disabled]="saving" [(ngModel)]="row.partNo" (blur)="touch(row, 'part')" [name]="'part' + row.key" maxlength="200" />
+                  } @else {
+                    <app-activity-suggest
+                      [value]="row.partNo"
+                      [activities]="data.activities"
+                      ariaLabel="Part No"
+                      [disabled]="saving"
+                      (valueChange)="setPart(row, $event); touch(row, 'part')"
+                      (blurred)="touch(row, 'part')"
+                      (picked)="chooseActivity(row, $event)"
+                    />
+                  }
+                </td>
+                <td class="cell description">
+                  <textarea
+                    cdkTextareaAutosize
+                    cdkAutosizeMinRows="1"
+                    rows="1"
+                    [disabled]="saving"
+                    [(ngModel)]="row.description"
+                    (ngModelChange)="onDescription(row)"
+                    [name]="'desc' + row.key"
+                    maxlength="500"
+                  ></textarea>
+                </td>
+                <td>
+                  <app-lookup-combobox ariaLabel="Condition" [value]="row.condition" [options]="conditionOptions" [disabled]="saving" (valueChange)="onCondition(row, $event)" (committed)="normalizeCondition(row)" />
+                </td>
+                <td>
+                  <app-lookup-combobox ariaLabel="Unit" [value]="row.unit" [options]="unitOptions" [disabled]="saving" (valueChange)="onUnit(row, $event)" (committed)="normalizeUnit(row)" />
+                </td>
+                <td [class.invalid]="invalid(row, 'lead') && interacted(row, 'lead')"><input leadTimeDays [disabled]="saving" [(ngModel)]="row.leadTime" (ngModelChange)="onLead(row)" (blur)="touch(row, 'lead')" [name]="'lead' + row.key" inputmode="numeric" /></td>
+                <td class="cell price" [class.invalid]="invalid(row, 'price') && interacted(row, 'unit')">
+                  <span class="price-field">
+                    <span class="price-mark">{{ symbol }}</span>
+                    <input [disabled]="saving" [(ngModel)]="row.unitPrice" (ngModelChange)="syncFromUnit(row); touch(row, 'unit')" (blur)="touch(row, 'unit')" [name]="'unit' + row.key" />
+                  </span>
+                </td>
+                <td class="cell qty" [class.invalid]="invalid(row, 'qty') && interacted(row, 'qty')">
+                  <input [disabled]="saving" [(ngModel)]="row.quantity" (ngModelChange)="onQuantity(row); touch(row, 'qty')" (blur)="touch(row, 'qty')" [name]="'qty' + row.key" />
+                </td>
+                <td class="cell price" [class.invalid]="invalid(row, 'price') && interacted(row, 'total')">
+                  <span class="price-field">
+                    <span class="price-mark">{{ symbol }}</span>
+                    <input [disabled]="saving" [(ngModel)]="row.totalPrice" (ngModelChange)="syncFromTotal(row); touch(row, 'total')" (blur)="touch(row, 'total')" [name]="'total' + row.key" />
+                  </span>
+                </td>
+                <td class="quote">{{ row.quotationCode }}</td>
+                <td class="action">
+                  <button class="icon-remove" type="button" aria-label="Remove item" [disabled]="saving" (click)="removeLine(row)">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td class="filter-empty" colspan="11">No lines match this search. Add an item to type a DSN No and Part No.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <app-quotation-charges [rows]="charges" [symbol]="symbol" subject="purchase order" [disabled]="saving" />
+      <div class="po-totals" aria-label="Purchase order totals">
+        <div>
+          <span>Subtotal</span>
+          <strong>{{ money(subtotal) }}</strong>
+        </div>
+        <div>
+          <span>Additional charges</span>
+          <strong>{{ money(chargesAmount) }}</strong>
+        </div>
+        <div class="grand">
+          <span>Total</span>
+          <strong>{{ money(grandTotal) }}</strong>
+        </div>
+      </div>
+      <app-document-manager
+        #library
+        title="Documents"
+        hint="The original file stays first. Drag the other files to set their order."
+        [documents]="documents"
+        [accept]="documentAccept"
+        [disabled]="saving"
+      ></app-document-manager>
+      @if (data.purchaseOrderId) {
+        <section class="history" aria-label="Purchase order history">
+          <h3>History</h3>
+          @if (!history.length) {
+            <p class="history-meta">No history recorded yet.</p>
+          }
+          @for (entry of history; track entry.id) {
+            <div class="history-item">
+              <div class="history-title">
+                <span class="history-action">{{ historyLabel(entry.action) }}</span>
+                <span>{{ entry.summary }}</span>
+              </div>
+              <p class="history-meta">{{ historyActor(entry) }} · {{ whenStamp(entry.createdAt) }}</p>
+            </div>
+          }
+        </section>
+      }
+    }
+  </div>
+
+  <footer class="quotation-dialog-footer">
+    @if (error || visibleValidationMessage) {
+      <p class="error">{{ error || visibleValidationMessage }}</p>
+    }
+    <div class="footer-actions">
+      <span class="spacer"></span>
+      <button class="ghost" type="button" (click)="close()" [disabled]="saving">Cancel</button>
+      <button class="primary" type="button" (click)="save()" [disabled]="loading || saving || !canSave">
+        @if (saving) {
+          <mat-spinner diameter="18"></mat-spinner>
+        }
+        {{ saving ? 'Saving...' : 'Save purchase order' }}
+      </button>
+    </div>
+  </footer>
+</div>

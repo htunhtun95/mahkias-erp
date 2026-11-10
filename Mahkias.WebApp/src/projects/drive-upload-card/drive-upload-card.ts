@@ -18,6 +18,7 @@ export class DriveUploadCardComponent {
   @Input() title = 'Attachment File';
   @Input() hint = '';
   @Input() emptyLabel = 'Drag a file here, or browse';
+  @Input() compact = false;
   @Input() accept = '';
   @Input() disabled = false;
   @Input() file: File | null = null;
@@ -38,6 +39,10 @@ export class DriveUploadCardComponent {
   onDragLeave(event: DragEvent) {
     event.preventDefault();
     event.stopPropagation();
+    const next = event.relatedTarget as Node | null;
+    if (next && (event.currentTarget as HTMLElement).contains(next)) {
+      return;
+    }
     this.dragging = false;
   }
 

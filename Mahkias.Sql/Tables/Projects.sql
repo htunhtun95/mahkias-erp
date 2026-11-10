@@ -11,5 +11,6 @@ CREATE TABLE [projects].[Projects]
     [DeletedBy] NVARCHAR(100) NULL,
     [GoogleDriveFolderId] NVARCHAR(128) NULL,
     [ProcurementFolderId] NVARCHAR(128) NULL,
+    [DocumentsFolderId] NVARCHAR(128) NULL,
     CONSTRAINT [PK_Projects] PRIMARY KEY CLUSTERED ([Id] ASC)
 );

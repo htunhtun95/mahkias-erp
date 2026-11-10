@@ -1,0 +1,69 @@
+<section class="library" [class.dragging]="dragging" (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
+  @if (title || !persistentDrop) {
+    <div class="library-head">
+      @if (title) {
+        <h3>{{ title }}</h3>
+      }
+      @if (!persistentDrop) {
+        <button type="button" [disabled]="disabled" (click)="browse(picker)">Add Files</button>
+      }
+    </div>
+  }
+  <input #picker class="picker" type="file" multiple [accept]="accept" [disabled]="disabled" (change)="onBrowse($event)" />
+
+  @if (!entries.length || persistentDrop) {
+    <button class="empty" type="button" [disabled]="disabled" (click)="browse(picker)">Drag files here, or browse</button>
+  }
+  @if (entries.length) {
+    <ol
+      cdkDropList
+      [cdkDropListData]="entries"
+      [cdkDropListDisabled]="disabled"
+      [cdkDropListSortPredicate]="canSort"
+      (cdkDropListDropped)="drop($event)"
+    >
+      @for (entry of entries; track entry.key; let index = $index) {
+        <li
+          cdkDrag
+          cdkDragPreviewClass="document-drag-preview"
+          [cdkDragData]="entry"
+          [cdkDragDisabled]="disabled || (locksOriginal && entry.isOriginal)"
+        >
+          <span class="grip" [class.locked]="locksOriginal && entry.isOriginal">
+            @if (!(locksOriginal && entry.isOriginal)) {
+              <mat-icon>drag_indicator</mat-icon>
+            }
+          </span>
+          <span class="order">{{ index + 1 }}</span>
+          <span class="copy">
+            @if (entry.webViewLink) {
+              <a [href]="entry.webViewLink" target="_blank" rel="noopener noreferrer">{{ entry.fileName }}</a>
+            } @else {
+              <span>{{ entry.fileName }}</span>
+            }
+            <small>
+              @if (locksOriginal) {
+                <em>{{ entry.isOriginal ? 'Original' : 'Supporting' }}</em>
+                ·
+              } @else if (supportingOnly) {
+                <em>Supporting</em>
+                ·
+              }
+              {{ entry.fileType }}
+              @if (fileSize(entry.fileSize)) { · {{ fileSize(entry.fileSize) }} }
+            </small>
+          </span>
+          <span class="actions">
+            @if (locksOriginal) {
+              <button type="button" [disabled]="disabled || entry.isOriginal" (click)="markOriginal(entry)">{{ entry.isOriginal ? 'Original' : 'Make Original' }}</button>
+            }
+            <button type="button" [disabled]="disabled" (click)="remove(entry)">Remove</button>
+          </span>
+        </li>
+      }
+    </ol>
+  }
+  @if (hint) {
+    <p>{{ hint }}</p>
+  }
+</section>

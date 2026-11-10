@@ -1,17 +1,23 @@
 <form class="app-dialog-container quotation-dialog-container" (keydown.enter)="onFieldEnter($event)" (submit)="$event.preventDefault()">
-  @if (isSaving) {
-    <div class="busy-overlay" role="status" aria-live="polite" aria-busy="true">
-      <mat-spinner diameter="40"></mat-spinner>
-      <p>Saving data...</p>
+  @if (preparing || isSaving) {
+    <div class="import-overlay" [class.prepare-cover]="preparing" role="status" aria-live="polite" aria-busy="true">
+      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      <div class="import-overlay-body">
+        <div class="quote-spinner" [class.is-saving]="!preparing" aria-hidden="true"></div>
+        <p>{{ preparing ? 'Preparing quotation' : 'Saving...' }}</p>
+      </div>
     </div>
   }
   <header class="app-dialog-header quotation-dialog-header">
     <div class="title-row">
-      <h2>{{ quotationId ? 'Edit Quotation' : 'Create Quotation' }}</h2>
-      <button class="icon-btn" type="button" matTooltip="Close" aria-label="Close" [disabled]="isSaving" (click)="cancel()">
+      <h2>{{ creating ? 'Create Quotation' : 'Edit Quotation' }}</h2>
+      <button class="erp-modal-close" type="button" matTooltip="Close" aria-label="Close" [disabled]="isSaving" (click)="cancel()">
         <mat-icon>close</mat-icon>
       </button>
     </div>
+  </header>
+
+  <div class="app-dialog-body quotation-dialog-body">
     <div class="header-fields" [class.creating-supplier]="creatingSupplier">
       <label>
         <span>Quotation Reference</span>
@@ -23,27 +29,31 @@
       </label>
       @if (creatingSupplier) {
         <div class="new-supplier">
-          <label [class.invalid]="submitted && !newSupplierName.trim()">
-            <span>Supplier Name</span>
+          <label [class.invalid]="newSupplierErrorVisible">
+            <span>Supplier Name<span class="req" aria-hidden="true">*</span></span>
             <span class="supplier-control">
-              <input class="has-clear" [attr.disabled]="isSaving ? '' : null" [(ngModel)]="newSupplierName" name="newSupplierName" autocomplete="off" />
+              <input #newSupplierField="ngModel" class="has-clear" [attr.disabled]="isSaving ? '' : null" [(ngModel)]="newSupplierName" name="newSupplierName" autocomplete="off" [attr.aria-invalid]="newSupplierErrorVisible" />
               <button class="clear-supplier" type="button" matTooltip="Clear supplier" aria-label="Clear supplier" [disabled]="isSaving" (mousedown)="$event.preventDefault()" (click)="clearSupplier()">
                 <mat-icon>close</mat-icon>
               </button>
             </span>
             <button class="select-existing" type="button" [disabled]="isSaving" (click)="cancelNewSupplier()">← Select Existing Supplier</button>
           </label>
-          <label>
+          <label [class.invalid]="!!referenceError">
             <span>Supplier Reference</span>
-            <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="newSupplierReference" name="newSupplierReference" autocomplete="off" />
+            <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="newSupplierReference" name="newSupplierReference" autocomplete="off" (input)="referenceError = ''" />
           </label>
+          @if (referenceError) {
+            <p class="hint-error">{{ referenceError }}</p>
+          }
         </div>
       } @else {
-        <label class="supplier-field" [class.invalid]="submitted && !supplierId">
-          <span>Supplier</span>
+        <label class="supplier-field" [class.invalid]="supplierErrorVisible">
+          <span>Supplier<span class="req" aria-hidden="true">*</span></span>
           <span class="supplier-control">
           <input
             #supplierInput
+            #supplierField="ngModel"
             [class.has-clear]="!!supplierQuery.trim()"
             [attr.disabled]="isSaving ? '' : null"
             [ngModel]="supplierQuery"
@@ -81,41 +91,73 @@
           </span>
         </label>
       }
+      <app-quotation-date-field label="Quoted Date" [(ngModel)]="quotedDate" name="quotedDate" [disabled]="isSaving"></app-quotation-date-field>
+      <app-quotation-date-field label="Valid Until" [(ngModel)]="validUntil" name="validUntil" [disabled]="isSaving" [externalError]="dateOrderError"></app-quotation-date-field>
     </div>
-  </header>
-
-  <div class="app-dialog-body quotation-dialog-body">
+    <div class="sheet-filters">
     <label class="row-search">
       <span>Search</span>
       <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="rowFilter" name="rowFilter" placeholder="Filter by DSN No or Part No" autocomplete="off" />
     </label>
+    <label class="row-search type-filter">
+      <span>Activity type</span>
+      <select [disabled]="isSaving" [(ngModel)]="typeFilter" name="typeFilter">
+        <option [ngValue]="null">All types</option>
+        @for (type of activityTypeOptions; track type.id) {
+          <option [ngValue]="type.id">{{ type.name }}</option>
+        }
+      </select>
+    </label>
+    @if (quoteLabels.length) {
+      <div class="label-switch" role="tablist" aria-label="Activity labels">
+        <button class="segment-btn" type="button" role="tab" [class.active]="labelId == null" [attr.aria-selected]="labelId == null" [disabled]="isSaving" (click)="selectLabel(null)">
+          All
+          <span class="segment-count">{{ labelCount(null) }}</span>
+        </button>
+        @for (label of quoteLabels; track label.id) {
+          <button class="segment-btn" type="button" role="tab" [class.active]="labelId === label.id" [attr.aria-selected]="labelId === label.id" [disabled]="isSaving" (click)="selectLabel(label.id)">
+            {{ label.name }}
+            <span class="segment-count">{{ labelCount(label) }}</span>
+          </button>
+        }
+      </div>
+    }
+    </div>
     <div class="sheet-wrap">
       <table class="sheet app-grid-table">
         <colgroup>
           <col class="col-dsn" />
           <col class="col-part" />
-          <col class="col-description" />
-          <col class="col-currency" />
+            <col class="col-description" />
+            <col class="col-condition" />
+            <col class="col-unit" />
+            <col class="col-lead" />
+            <col class="col-currency" />
           <col class="col-price" />
           <col class="col-qty" />
+          <col class="col-moq" />
           <col class="col-price" />
         </colgroup>
         <thead>
           <tr>
-            <th class="dsn">DSN No</th>
-            <th class="part">Part No</th>
+            <th class="dsn">DSN No<span class="req" aria-hidden="true">*</span></th>
+            <th class="part">Part No<span class="req" aria-hidden="true">*</span></th>
             <th class="description">Description</th>
+            <th>Condition</th>
+            <th>Unit</th>
+            <th>Lead Time (days)</th>
             <th class="currency">Currency</th>
-            <th class="price">Unit Price</th>
-            <th class="qty">Quantity</th>
+            <th class="price">Unit Price<span class="req" aria-hidden="true">*</span></th>
+            <th class="qty">Quantity<span class="req" aria-hidden="true">*</span></th>
+            <th class="qty">MOQ</th>
             <th class="price">Total Price</th>
           </tr>
         </thead>
         <tbody>
           @for (row of visibleRows; track row.key) {
             <tr>
-              <td class="cell dsn" [class.invalid]="invalid(row, 'dsn')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.dsnNo" (ngModelChange)="onDsn(row)" [name]="'dsn' + row.key" /></td>
-              <td class="cell part" [class.invalid]="invalid(row, 'part')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.partNo" (ngModelChange)="onPart(row)" [name]="'part' + row.key" /></td>
+              <td class="cell dsn" [class.invalid]="invalid(row, 'dsn') && interacted(row, 'dsn')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.dsnNo" (ngModelChange)="onDsn(row); touch(row, 'dsn')" (blur)="touch(row, 'dsn')" [name]="'dsn' + row.key" /></td>
+              <td class="cell part" [class.invalid]="invalid(row, 'part') && interacted(row, 'part')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.partNo" (ngModelChange)="onPart(row); touch(row, 'part')" (blur)="touch(row, 'part')" [name]="'part' + row.key" /></td>
               <td class="cell description">
                 <textarea
                   cdkTextareaAutosize
@@ -126,6 +168,27 @@
                   [name]="'desc' + row.key"
                 ></textarea>
               </td>
+              <td>
+                <app-lookup-combobox
+                  ariaLabel="Condition"
+                  [value]="row.condition"
+                  [options]="conditionNames"
+                  [disabled]="isSaving"
+                  (valueChange)="row.condition = $event"
+                  (committed)="normalizeCondition(row)"
+                />
+              </td>
+              <td>
+                <app-lookup-combobox
+                  ariaLabel="Unit"
+                  [value]="row.unitCode"
+                  [options]="unitNames"
+                  [disabled]="isSaving"
+                  (valueChange)="row.unitCode = $event"
+                  (committed)="normalizeUnit(row)"
+                />
+              </td>
+              <td [class.invalid]="leadBroken(row) && interacted(row, 'lead')"><input leadTimeDays [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.leadTime" (ngModelChange)="touch(row, 'lead')" (blur)="touch(row, 'lead')" [name]="'lead' + row.key" inputmode="numeric" /></td>
               <td class="cell currency">
                 <select [disabled]="isSaving" [(ngModel)]="row.currencyId" (ngModelChange)="onRowCurrency(row)" [name]="'currency' + row.key">
                   @for (currency of currencies; track currency.id) {
@@ -133,50 +196,56 @@
                   }
                 </select>
               </td>
-              <td class="cell price" [class.invalid]="invalid(row, 'price')">
+              <td class="cell price" [class.invalid]="invalid(row, 'price') && interacted(row, 'unit')">
                 <span class="price-field">
                   <span class="price-mark">{{ currencyMark(row.currencyId) }}</span>
-                  <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.unitPrice" (ngModelChange)="onUnit(row)" [name]="'unit' + row.key" />
+                  <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.unitPrice" (ngModelChange)="onUnit(row); touch(row, 'unit')" (blur)="touch(row, 'unit')" [name]="'unit' + row.key" />
                 </span>
               </td>
-              <td class="cell qty" [class.invalid]="invalid(row, 'qty')"><input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.quantity" (ngModelChange)="onQuantity(row)" (blur)="onQuantityBlur(row)" [name]="'qty' + row.key" /></td>
-              <td class="cell price" [class.invalid]="invalid(row, 'price')">
+              <td class="cell qty" [class.invalid]="invalid(row, 'qty') && interacted(row, 'qty')">
+                <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.quantity" (ngModelChange)="onQuantity(row); touch(row, 'qty')" (blur)="onQuantityBlur(row); touch(row, 'qty')" [name]="'qty' + row.key" />
+              </td>
+              <td class="cell qty" [class.invalid]="!validOptionalQuantity(row.minimumQty) && interacted(row, 'moq')">
+                <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.minimumQty" (ngModelChange)="onMinimum(row); touch(row, 'moq')" (blur)="touch(row, 'moq')" [name]="'moq' + row.key" inputmode="numeric" />
+              </td>
+              <td class="cell price" [class.invalid]="invalid(row, 'price') && interacted(row, 'total')">
                 <span class="price-field">
                   <span class="price-mark">{{ currencyMark(row.currencyId) }}</span>
-                  <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.totalPrice" (ngModelChange)="onTotal(row)" [name]="'total' + row.key" />
+                  <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.totalPrice" (ngModelChange)="onTotal(row); touch(row, 'total')" (blur)="touch(row, 'total')" [name]="'total' + row.key" />
                 </span>
               </td>
             </tr>
           } @empty {
             <tr>
-              <td class="filter-empty" colspan="7">No activities match this search.</td>
+                <td class="filter-empty" colspan="10">No activities match this filter.</td>
             </tr>
           }
         </tbody>
       </table>
     </div>
-    <app-drive-upload-card
-      title="Attachment File"
-      hint="PDF, Excel, Word, or image."
-      emptyLabel="Drag a file here, or browse"
+    <app-quotation-charges [rows]="charges" [symbol]="chargeSymbol" [disabled]="isSaving"></app-quotation-charges>
+    <app-document-manager
+      #library
+      title="Documents"
+      hint="The original file stays first. Drag the other files to set their order."
+      [documents]="savedDocuments"
       [accept]="documentAccept"
       [disabled]="isSaving"
-      [file]="pendingFile"
-      (fileChange)="onAttachment($event)"
-      [saved]="visibleStored"
-      (removeSaved)="clearStoredAttachment()"
-    ></app-drive-upload-card>
+    ></app-document-manager>
   </div>
 
   <footer class="app-dialog-actions quotation-dialog-footer">
-    @if (error) {
-      <p class="hint-error">{{ error }}</p>
+    @if (error || visibleValidationMessage) {
+      <p class="hint-error">{{ error || visibleValidationMessage }}</p>
     }
     <div class="footer-actions">
       <span class="spacer"></span>
       <button class="btn" type="button" [disabled]="isSaving" (click)="cancel()">Cancel</button>
-      <button class="btn primary" type="button" [disabled]="isSaving" (click)="save()">
-        {{ isSaving ? 'Saving...' : (quotationId ? 'Save changes' : 'Save') }}
+      <button class="btn primary" type="button" [disabled]="isSaving || !canSave" (click)="save()">
+        @if (isSaving) {
+          <mat-spinner diameter="18"></mat-spinner>
+        }
+        {{ isSaving ? 'Saving...' : (creating ? 'Save' : 'Save changes') }}
       </button>
     </div>
   </footer>

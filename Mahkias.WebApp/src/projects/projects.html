@@ -37,6 +37,7 @@
     </div>
   } @else {
     <div class="drive-table">
+      <div class="table-scroll">
       <div
         class="row heading"
         matSort
@@ -80,8 +81,8 @@
             <button
               class="icon-btn"
               type="button"
-              matTooltip="Edit project"
-              aria-label="Edit project"
+              matTooltip="Edit Project"
+              aria-label="Edit Project"
               [disabled]="isDeleting"
               (click)="openEditProject($event, project)"
               (keydown)="$event.stopPropagation()"
@@ -106,6 +107,7 @@
           </span>
         </div>
       }
+      </div>
     </div>
   }
 </div>

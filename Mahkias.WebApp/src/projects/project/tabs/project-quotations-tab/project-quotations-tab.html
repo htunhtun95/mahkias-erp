@@ -14,18 +14,40 @@
     </article>
   </div>
 
-  @if (error) {
+  @if (selectedCount) {
+    <div class="selection-dock">
+    <div class="selection-bar">
+      <span class="selection-note" [class.error]="!!selectionMessage">{{ selectionMessage || selectionNote }}</span>
+      <div class="selection-actions">
+        <select class="po-select" #poSelect aria-label="Purchase order" [disabled]="deletingId != null || supplierConflict" (change)="choosePurchaseOrder(poSelect)">
+          <option value="" disabled selected>Purchase Order</option>
+          <option value="new">Create New PO</option>
+          @for (order of activeOrders; track order.id) {
+            <option [value]="order.id">{{ order.code }} · {{ order.statusName || 'Draft' }}</option>
+          }
+        </select>
+        <button class="selection-clear" type="button" (click)="clearSelection()" [disabled]="deletingId != null">Clear</button>
+      </div>
+    </div>
+    </div>
+  }
+
+  @if (error && !selectedCount) {
     <p class="error">{{ error }}</p>
   }
 
   <div class="table">
+    @if (loading) {
+      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    }
     <div class="row heading">
       <span></span>
       <span>Quotation</span>
       <span>Supplier</span>
       <span>Supplier quotation ref</span>
       <span>Items</span>
-      <span>Date</span>
+      <span>Quoted date</span>
+      <span>Valid until</span>
       <span>Total</span>
       <span></span>
     </div>
@@ -43,37 +65,74 @@
               <mat-icon>{{ isExpanded(quotation.id) ? 'expand_more' : 'chevron_right' }}</mat-icon>
             </button>
             <span class="ref">{{ quotation.code }}</span>
-            <span>{{ quotation.supplierName }}</span>
+            @if (quotation.supplierId) {
+              <a class="cell-link" [routerLink]="['/suppliers', quotation.supplierId]">{{ quotation.supplierName }}</a>
+            } @else {
+              <span>{{ quotation.supplierName }}</span>
+            }
             <span>{{ quotation.supplierReference }}</span>
             <span>{{ quotation.itemCount }}</span>
-            <span>{{ when(quotation.modifiedAt || quotation.createdAt) }}</span>
+            <span class="when-cell">{{ quotation.quotedDate ? when(quotation.quotedDate) : '-' }}</span>
+            <span class="when-cell">
+              @if (quotation.validUntil) {
+                <span>{{ when(quotation.validUntil) }}</span>
+                @if (validity(quotation.quotedDate, quotation.validUntil); as term) {
+                  <span class="validity" [class.expired]="term.expired">{{ term.label }}</span>
+                }
+              } @else {
+                <span>-</span>
+              }
+            </span>
             <span>{{ money(quotation.totalPrice, '$', 'USD') }}</span>
             <span class="actions">
-              <button class="icon-btn" type="button" matTooltip="Edit quotation" aria-label="Edit quotation" [disabled]="deletingId != null" (click)="edit(quotation)">
-                <mat-icon>edit</mat-icon>
-              </button>
-              <button class="icon-btn danger" type="button" matTooltip="Delete quotation" aria-label="Delete quotation" [disabled]="deletingId != null" (click)="remove(quotation)">
+              <button class="icon-btn" type="button" [matMenuTriggerFor]="quotationMenu" aria-label="Quotation actions" aria-haspopup="menu" [disabled]="deletingId != null">
                 @if (deletingId === quotation.id) {
                   <mat-spinner diameter="18"></mat-spinner>
                 } @else {
-                  <mat-icon>delete</mat-icon>
+                  <mat-icon>more_vert</mat-icon>
                 }
               </button>
+              <mat-menu #quotationMenu="matMenu" class="activity-row-menu">
+                <button mat-menu-item type="button" (click)="openDetails(quotation)" [disabled]="deletingId != null">
+                  <mat-icon>visibility</mat-icon>
+                  <span>View Details</span>
+                </button>
+                <button mat-menu-item type="button" (click)="manageDocuments(quotation)" [disabled]="deletingId != null">
+                  <mat-icon>folder</mat-icon>
+                  <span>Manage Documents</span>
+                </button>
+                <button mat-menu-item type="button" (click)="edit(quotation)" [disabled]="deletingId != null">
+                  <mat-icon>edit</mat-icon>
+                  <span>Edit</span>
+                </button>
+                <button mat-menu-item type="button" class="danger" (click)="remove(quotation)" [disabled]="deletingId != null">
+                  <mat-icon>delete</mat-icon>
+                  <span>Delete</span>
+                </button>
+              </mat-menu>
             </span>
           </div>
           @if (isExpanded(quotation.id)) {
             <div class="lines">
               @if (loadingLine.has(quotation.id)) {
                 <div class="line-loading" role="status" aria-live="polite" aria-busy="true">
+                  <mat-progress-bar mode="indeterminate"></mat-progress-bar>
                   <mat-spinner diameter="28"></mat-spinner>
                 </div>
-              } @else if (!lineItems(quotation.id).length) {
-                <p class="line-empty">No line items.</p>
               } @else {
+                @if (!lineItems(quotation.id).length) {
+                  <p class="line-empty">No line items.</p>
+                } @else {
                 <div class="line-row heading">
+                  <label class="line-check">
+                    <input type="checkbox" [checked]="allLinesSelected(quotation.id)" [indeterminate]="someLinesSelected(quotation.id)" (change)="toggleAllLines(quotation.id, $any($event.target).checked)" aria-label="Select all line items" />
+                  </label>
                   <span>DSN No</span>
                   <span>Part No</span>
                   <span>Description</span>
+                  <span>Condition</span>
+                  <span>Unit</span>
+                  <span>Lead Time</span>
                   <span>Currency</span>
                   <span>Unit Price</span>
                   <span>Quantity</span>
@@ -81,23 +140,28 @@
                 </div>
                 @for (line of lineItems(quotation.id); track line.id) {
                   <div class="line-row">
+                    <label class="line-check">
+                      <input type="checkbox" [checked]="lineSelected(line.id)" (change)="toggleLine(line.id, $any($event.target).checked)" [attr.aria-label]="'Select ' + (line.partNo || line.dsnNo || 'line item')" />
+                    </label>
                     <span>{{ line.dsnNo || '—' }}</span>
                     <span>{{ line.partNo || '—' }}</span>
                     <span>{{ line.description || '—' }}</span>
+                    <span>{{ line.condition || '—' }}</span>
+                    <span>{{ line.unit || '—' }}</span>
+                    <span>{{ leadTimeLabel(line.leadTime) }}</span>
                     <span>{{ line.currencyCode || 'USD' }}</span>
                     <span>{{ money(line.unitPrice, line.currencySymbol, line.currencyCode) }}</span>
-                    <span>{{ line.quantity }}</span>
+                    <span class="qty-stack">
+                      @if (quantityDisplay(line.quantity, line.minimumQty); as shown) {
+                        <span>{{ shown.value }}</span>
+                        @if (shown.note) {
+                          <span class="moq-note" [class.short]="shown.short">{{ shown.note }}</span>
+                        }
+                      }
+                    </span>
                     <span>{{ money(line.totalPrice, line.currencySymbol, line.currencyCode) }}</span>
                   </div>
                 }
-              }
-            </div>
-            <div class="quote-files">
-              @if (!quotationDocuments(quotation.id).length) {
-                <p class="line-empty">No files stored for this quotation.</p>
-              } @else {
-                @for (document of quotationDocuments(quotation.id); track document.documentId) {
-                  <a class="doc-link" [href]="document.webViewLink" target="_blank" rel="noopener noreferrer">{{ document.fileName }}</a>
                 }
               }
             </div>

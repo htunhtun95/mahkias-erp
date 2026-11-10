@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[SetProjectDriveFolder]
+CREATE PROCEDURE [dbo].[SetProjectDriveFolder]
 (
     @ProjectId INT,
     @GoogleDriveFolderId NVARCHAR(128)

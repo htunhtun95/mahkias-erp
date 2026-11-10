@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[DeleteActivity]
+CREATE PROCEDURE [dbo].[DeleteActivity]
 (
     @Id INT,
     @DeletedBy NVARCHAR(100) = NULL

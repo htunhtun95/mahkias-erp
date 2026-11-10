@@ -6,3 +6,6 @@ CREATE TABLE [projects].[QuotationProjects]
     CONSTRAINT [FK_QuotationProjects_Quotations] FOREIGN KEY ([QuotationId]) REFERENCES [projects].[Quotations] ([Id]) ON DELETE CASCADE,
     CONSTRAINT [FK_QuotationProjects_Projects] FOREIGN KEY ([ProjectId]) REFERENCES [projects].[Projects] ([Id]) ON DELETE CASCADE
 );
+
+CREATE INDEX [IX_QuotationProjects_ProjectId]
+    ON [projects].[QuotationProjects] ([ProjectId], [QuotationId]);

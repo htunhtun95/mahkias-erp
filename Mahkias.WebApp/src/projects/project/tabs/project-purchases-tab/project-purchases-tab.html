@@ -11,14 +11,163 @@
     }
   </div>
 
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+
   <div class="table">
+    @if (loading) {
+      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    }
     <div class="row heading">
+      <span></span>
       <span>PO no</span>
       <span>Supplier</span>
-      <span>Items count</span>
-      <span>Delivery status</span>
-      <span>Total cost</span>
+      <span>Status</span>
+      <span>PO date</span>
+      <span>Items</span>
+      <span>Total</span>
+      <span></span>
     </div>
-    <div class="empty-row">No purchase orders yet. New orders will be tracked here.</div>
+    @if (loading) {
+      <div class="loading-row" role="status" aria-live="polite" aria-busy="true">
+        <mat-spinner diameter="40"></mat-spinner>
+      </div>
+    } @else if (orders.length === 0) {
+      <div class="empty-row">No purchase orders yet.</div>
+    } @else {
+      @for (order of orders; track order.id) {
+        <div class="order-block" [attr.data-order-id]="order.id">
+          <div class="row">
+            <button class="expand" type="button" [matTooltip]="isExpanded(order.id) ? 'Collapse purchase order' : 'Expand purchase order'" [attr.aria-expanded]="isExpanded(order.id)" [attr.aria-label]="isExpanded(order.id) ? 'Collapse purchase order' : 'Expand purchase order'" (click)="toggle(order)">
+              <mat-icon>{{ isExpanded(order.id) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+            </button>
+            <span>{{ order.code }}</span>
+            <span>{{ order.supplierName }}</span>
+            <span [attr.class]="'status-pill ' + statusClass(order.statusCode)">{{ order.statusName || 'Draft' }}</span>
+            <span>{{ when(order.poDate) }}</span>
+            <button class="count-btn" type="button" (click)="toggle(order)">{{ order.itemCount }}</button>
+            <span>{{ money(order) }}</span>
+            <span class="actions">
+              <button class="icon-btn" type="button" [matMenuTriggerFor]="orderMenu" aria-label="Purchase order actions" aria-haspopup="menu" [disabled]="deletingId != null">
+                @if (deletingId === order.id) {
+                  <mat-spinner diameter="18"></mat-spinner>
+                } @else {
+                  <mat-icon>more_vert</mat-icon>
+                }
+              </button>
+              <mat-menu #orderMenu="matMenu" class="activity-row-menu">
+                <button mat-menu-item type="button" (click)="openDetails(order)" [disabled]="deletingId != null">
+                  <mat-icon>visibility</mat-icon>
+                  <span>View Details</span>
+                </button>
+                <button mat-menu-item type="button" (click)="manageDocuments(order)" [disabled]="deletingId != null">
+                  <mat-icon>folder</mat-icon>
+                  <span>Manage Documents</span>
+                </button>
+                <button mat-menu-item type="button" (click)="edit(order)" [disabled]="deletingId != null">
+                  <mat-icon>edit</mat-icon>
+                  <span>Edit</span>
+                </button>
+                <button mat-menu-item type="button" class="danger" (click)="remove(order)" [disabled]="deletingId != null">
+                  <mat-icon>delete</mat-icon>
+                  <span>Delete</span>
+                </button>
+              </mat-menu>
+            </span>
+          </div>
+          @if (isExpanded(order.id)) {
+            <div class="lines">
+              @if (loadingLine.has(order.id)) {
+                <div class="line-loading" role="status" aria-live="polite" aria-busy="true">
+                  <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+                  <mat-spinner diameter="28"></mat-spinner>
+                </div>
+              } @else {
+                @if (!lineItems(order.id).length) {
+                  <p class="line-empty">No line items.</p>
+                } @else {
+                  <div class="sheet">
+                    <div class="line-row heading">
+                      <span>DSN No</span>
+                      <span>Part No</span>
+                      <span>Description</span>
+                      <span>Condition</span>
+                      <span>Unit</span>
+                      <span>Lead Time</span>
+                      <span>Quantity</span>
+                      <span>Unit Price</span>
+                      <span>Total Price</span>
+                      <span>Activity</span>
+                      <span>Quotation</span>
+                    </div>
+                    @for (line of lineItems(order.id); track line.id) {
+                      <div class="line-row">
+                        <span>{{ line.dsnNo || '—' }}</span>
+                        <span>{{ line.partNo || '—' }}</span>
+                        <span>{{ line.description || '—' }}</span>
+                        <span>{{ line.condition || '—' }}</span>
+                        <span>{{ line.unit || '—' }}</span>
+                        <span>{{ leadTimeLabel(line.leadTime) }}</span>
+                        <span>{{ line.quantity }}</span>
+                        <span>{{ lineMoney(line.unitPrice, line) }}</span>
+                        <span>{{ lineMoney(line.totalPrice, line) }}</span>
+                        @if (line.activityId) {
+                          <button class="trace-link" type="button" (click)="openActivity(line)">{{ activityLabel(line) }}</button>
+                        } @else {
+                          <span class="unlinked">Not linked</span>
+                        }
+                        <span>{{ line.quotationCode || '—' }}</span>
+                      </div>
+                    }
+                  </div>
+                }
+                <div class="summary">
+                  <section class="files">
+                    <h3>Attached files</h3>
+                    @if (!filesFor(order.id).length) {
+                      <p class="line-empty">No files stored for this purchase order.</p>
+                    } @else {
+                      <div class="file-list">
+                        @for (document of filesFor(order.id); track document.documentId) {
+                          <a class="file-item" [href]="document.webViewLink" target="_blank" rel="noopener noreferrer">
+                            <span class="file-icon" aria-hidden="true">
+                              <mat-icon>{{ fileIcon(document.fileName) }}</mat-icon>
+                            </span>
+                            <span class="file-copy">
+                              <span class="file-name">{{ document.fileName }}</span>
+                              <span class="file-meta">{{ document.isOriginal ? 'Original' : 'Supporting' }} · {{ fileKind(document.fileName) }}@if (document.fileSize) { · {{ fileSize(document.fileSize) }} }</span>
+                            </span>
+                            <mat-icon class="file-open" aria-hidden="true">open_in_new</mat-icon>
+                          </a>
+                        }
+                      </div>
+                    }
+                  </section>
+                  @if (orderDetail(order.id); as info) {
+                    <div class="po-totals" aria-label="Purchase order totals">
+                      <div>
+                        <span>Subtotal</span>
+                        <strong>{{ headerMoney(order, info.subTotal) }}</strong>
+                      </div>
+                      @for (charge of chargesFor(order.id); track charge.id) {
+                        <div>
+                          <span>{{ charge.name }}</span>
+                          <strong>{{ headerMoney(order, charge.amount) }}</strong>
+                        </div>
+                      }
+                      <div class="grand">
+                        <span>Total</span>
+                        <strong>{{ headerMoney(order, info.total) }}</strong>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+    }
   </div>
 </section>

@@ -1,17 +1,23 @@
 <form class="app-dialog-container quotation-dialog-container" (keydown.enter)="onFieldEnter($event)" (submit)="$event.preventDefault()">
   @if (isImporting) {
-    <div class="busy-overlay" role="status" aria-live="polite" aria-busy="true">
-      <mat-spinner diameter="40"></mat-spinner>
-      <p>Importing...</p>
+    <div class="import-overlay" role="status" aria-live="polite" aria-busy="true">
+      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      <div class="import-overlay-body">
+        <mat-spinner diameter="40"></mat-spinner>
+        <p>Importing...</p>
+      </div>
     </div>
   }
   <header class="app-dialog-header quotation-dialog-header">
     <div class="title-row">
       <h2>Import Quotation</h2>
-      <button class="icon-btn" type="button" matTooltip="Close" aria-label="Close" [disabled]="busy" (click)="cancel()">
+      <button class="erp-modal-close" type="button" matTooltip="Close" aria-label="Close" [disabled]="busy" (click)="cancel()">
         <mat-icon>close</mat-icon>
       </button>
     </div>
+  </header>
+
+  <div class="app-dialog-body quotation-dialog-body">
     @if (!isVerifyStep) {
     <div class="header-fields" [class.creating-supplier]="creatingSupplier">
       <label>
@@ -24,27 +30,31 @@
       </label>
       @if (creatingSupplier) {
         <div class="new-supplier">
-          <label [class.invalid]="submitted && !newSupplierName.trim()">
-            <span>Supplier Name</span>
+          <label [class.invalid]="!newSupplierName.trim() && !!(newSupplierField?.touched || newSupplierField?.dirty)">
+            <span>Supplier Name<span class="req" aria-hidden="true">*</span></span>
             <span class="supplier-control">
-              <input class="has-clear" [attr.disabled]="busy ? '' : null" [(ngModel)]="newSupplierName" name="newSupplierName" autocomplete="off" />
+              <input #newSupplierField="ngModel" class="has-clear" [attr.disabled]="busy ? '' : null" [(ngModel)]="newSupplierName" name="newSupplierName" autocomplete="off" [attr.aria-invalid]="!newSupplierName.trim() && !!(newSupplierField?.touched || newSupplierField?.dirty)" />
               <button class="clear-supplier" type="button" matTooltip="Clear supplier" aria-label="Clear supplier" [disabled]="busy" (mousedown)="$event.preventDefault()" (click)="clearSupplier()">
                 <mat-icon>close</mat-icon>
               </button>
             </span>
             <button class="select-existing" type="button" [disabled]="busy" (click)="cancelNewSupplier()">← Select Existing Supplier</button>
           </label>
-          <label>
+          <label [class.invalid]="!!referenceError">
             <span>Supplier Reference</span>
-            <input [attr.disabled]="busy ? '' : null" [(ngModel)]="newSupplierReference" name="newSupplierReference" autocomplete="off" />
+            <input [attr.disabled]="busy ? '' : null" [(ngModel)]="newSupplierReference" name="newSupplierReference" autocomplete="off" (input)="referenceError = ''" />
           </label>
+          @if (referenceError) {
+            <p class="hint-error">{{ referenceError }}</p>
+          }
         </div>
       } @else {
-        <label class="supplier-field" [class.invalid]="submitted && !supplierId">
-          <span>Supplier</span>
+        <label class="supplier-field" [class.invalid]="!supplierId && !!(supplierField?.touched || supplierField?.dirty)">
+          <span>Supplier<span class="req" aria-hidden="true">*</span></span>
           <span class="supplier-control">
           <input
             #supplierInput
+            #supplierField="ngModel"
             [class.has-clear]="!!supplierQuery.trim()"
             [attr.disabled]="busy ? '' : null"
             [ngModel]="supplierQuery"
@@ -55,7 +65,7 @@
             autocomplete="off"
           />
           @if (supplierQuery.trim()) {
-            <button class="clear-supplier" type="button" matTooltip="Clear supplier" aria-label="Clear supplier" [disabled]="busy" (mousedown)="$event.preventDefault()" (click)="clearSupplier()">
+            <button class="clear-supplier" type="button" matTooltip="Clear supplier" aria-label="Clear supplier" [disabled]="busy" (mousedown)="$event.preventDefault()" (click)="clearSupplier(supplierField)">
               <mat-icon>close</mat-icon>
             </button>
           }
@@ -84,15 +94,17 @@
       }
     </div>
     }
-  </header>
-
-  <div class="app-dialog-body quotation-dialog-body">
+    <div class="header-dates">
+      <app-quotation-date-field label="Quoted Date" [(ngModel)]="quotedDate" name="quotedDate" [disabled]="busy"></app-quotation-date-field>
+      <app-quotation-date-field label="Valid Until" [(ngModel)]="validUntil" name="validUntil" [disabled]="busy" [externalError]="dateOrderError"></app-quotation-date-field>
+    </div>
     @if (!isVerifyStep) {
     <label class="original-toggle">
       <input type="checkbox" [disabled]="busy" [ngModel]="spreadsheetIsOriginal" (ngModelChange)="onOriginalChoice($event)" name="spreadsheetIsOriginal" />
       <span>Imported spreadsheet is the original quotation file</span>
     </label>
     <app-drive-upload-card
+      [compact]="true"
       title="Quotation spreadsheet"
       hint="Excel or CSV."
       emptyLabel="Drag a spreadsheet here, or browse"
@@ -108,7 +120,13 @@
       </p>
     }
     @if (!spreadsheetIsOriginal) {
-      <div class="original-file">
+      <div
+        class="original-file"
+        [class.dragging]="originalDragging"
+        (dragover)="onOriginalDragOver($event)"
+        (dragleave)="onOriginalDragLeave($event)"
+        (drop)="onOriginalDrop($event)"
+      >
         <span>Original Quotation File</span>
         <input type="file" [accept]="documentAccept" [disabled]="busy" (change)="onOriginalFile($event)" aria-label="Original Quotation File" />
         @if (originalFile) {
@@ -119,13 +137,12 @@
         }
       </div>
     }
-
     @if (columns.length) {
         <div class="map-panel">
           <div class="map-grid">
             @for (field of fields; track field.key) {
-              <span class="map-label" [class.invalid]="fieldInvalid(field.key)">{{ field.label }}</span>
-              <select [class.invalid]="fieldInvalid(field.key)" [name]="field.key" [(ngModel)]="mapping[field.key]" (ngModelChange)="dirtyMapping()">
+              <span class="map-label" [class.invalid]="fieldInvalid(field.key) && (columnModel.touched || columnModel.dirty)">{{ field.label }}@if (field.required) {<span class="req" aria-hidden="true">*</span>}</span>
+              <select #columnModel="ngModel" [class.invalid]="fieldInvalid(field.key) && (columnModel.touched || columnModel.dirty)" [name]="field.key" [(ngModel)]="mapping[field.key]" (ngModelChange)="dirtyMapping(); noteMap(field.key)" (blur)="noteMap(field.key)">
                 <option value="">Column</option>
                 @for (column of columns; track column.letter) {
                   <option [value]="column.letter">{{ column.letter }}{{ column.header ? ' · ' + column.header : '' }}</option>
@@ -137,15 +154,17 @@
                     <option [ngValue]="currency.id">{{ currency.code }}</option>
                   }
                 </select>
+              } @else if (field.def === 'defaultLeadTime') {
+                <input leadTimeDays #fallback="ngModel" [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping(); noteMap(field.def)" (blur)="noteMap(field.def)" [class.invalid]="fieldInvalid(field.key) && (fallback.touched || fallback.dirty)" placeholder="Default" inputmode="numeric" />
               } @else {
-                <input [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping()" placeholder="Default" />
+                <input #fallback="ngModel" [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping(); noteMap(field.def)" (blur)="noteMap(field.def)" [class.invalid]="fieldInvalid(field.key) && (fallback.touched || fallback.dirty)" placeholder="Default" />
               }
             }
           </div>
-          @if (requiredMissing) {
+          @if (requiredMissing && mappingNoted) {
             <p class="hint-error">Please select a Column Index or enter a Default Value for this required field.</p>
           }
-          <p class="hint">DSN No and Part No are required. A row with no unit price and no total price is skipped.</p>
+          <p class="hint">DSN No and Part No are required. Condition, unit, lead time, and MOQ are optional. Quoted date and valid until belong to the quotation. A row with no unit price and no total price is skipped.</p>
           @if (checkState === 'failed' && importErrors.length) {
             <p class="hint-error">⚠ Validation Failed ({{ importErrors.length }} Errors Found)</p>
             <ul class="errors">
@@ -169,35 +188,64 @@
             <span class="preview-count">Showing {{ filteredLines.length }} of {{ lines.length }} rows</span>
           </div>
           <div class="sheet-wrap">
-          <table class="sheet">
+          <table class="sheet app-grid-table">
             <colgroup>
               <col class="col-dsn" />
               <col class="col-part" />
+              <col class="col-condition" />
+              <col class="col-unit" />
+              <col class="col-lead" />
               <col class="col-currency" />
               <col class="col-qty" />
+              <col class="col-moq" />
               <col class="col-price" />
               <col class="col-price" />
             </colgroup>
             <thead>
               <tr>
-                <th class="dsn">DSN No</th>
-                <th class="part">Part No</th>
+                <th class="dsn">DSN No<span class="req" aria-hidden="true">*</span></th>
+                <th class="part">Part No<span class="req" aria-hidden="true">*</span></th>
+                <th>Condition</th>
+                <th>Unit</th>
+                <th>Lead Time (days)</th>
                 <th>Currency</th>
-                <th class="qty">Quantity</th>
-                <th class="price">Unit Price</th>
+                <th class="qty">Quantity<span class="req" aria-hidden="true">*</span></th>
+                <th class="qty">MOQ</th>
+                <th class="price">Unit Price<span class="req" aria-hidden="true">*</span></th>
                 <th class="price">Total Price</th>
               </tr>
             </thead>
             <tbody>
               @for (line of filteredLines; track line.row) {
                 <tr>
-                  <td class="dsn" [class.invalid]="lineInvalid(line, 'dsn')"><input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.dsnNo" (ngModelChange)="onDsn(line)" [name]="'dsn' + line.row" /></td>
-                  <td class="part" [class.invalid]="lineInvalid(line, 'part')">
-                    <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.partNo" (ngModelChange)="onPart(line)" [name]="'part' + line.row" />
+                  <td class="dsn" [class.invalid]="lineInvalid(line, 'dsn') && lineSeen(line, 'dsn')"><input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.dsnNo" (ngModelChange)="onDsn(line); touchLine(line, 'dsn')" (blur)="touchLine(line, 'dsn')" [name]="'dsn' + line.row" /></td>
+                  <td class="part" [class.invalid]="lineInvalid(line, 'part') && lineSeen(line, 'part')">
+                    <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.partNo" (ngModelChange)="onPart(line); touchLine(line, 'part')" (blur)="touchLine(line, 'part')" [name]="'part' + line.row" />
                     @if (line.priceWarning) {
                       <span class="map-badge warning" title="Unit × quantity does not match total">Price</span>
                     }
                   </td>
+                  <td>
+                    <app-lookup-combobox
+                      ariaLabel="Condition"
+                      [value]="line.condition"
+                      [options]="conditionNames"
+                      [disabled]="busy"
+                      (valueChange)="line.condition = $event"
+                      (committed)="normalizeCondition(line)"
+                    />
+                  </td>
+                  <td>
+                    <app-lookup-combobox
+                      ariaLabel="Unit"
+                      [value]="line.unit"
+                      [options]="unitNames"
+                      [disabled]="busy"
+                      (valueChange)="line.unit = $event"
+                      (committed)="normalizeUnit(line)"
+                    />
+                  </td>
+                  <td [class.invalid]="lineInvalid(line, 'lead') && lineSeen(line, 'lead')"><input leadTimeDays [attr.disabled]="busy ? '' : null" [(ngModel)]="line.leadTime" (ngModelChange)="touchLine(line, 'lead')" (blur)="touchLine(line, 'lead')" [name]="'lead' + line.row" inputmode="numeric" /></td>
                   <td>
                     <select [disabled]="busy" [(ngModel)]="line.currencyId" (ngModelChange)="onLineCurrency(line)" [name]="'currency' + line.row">
                       @for (currency of currencies; track currency.id) {
@@ -205,34 +253,49 @@
                       }
                     </select>
                   </td>
-                  <td class="qty" [class.invalid]="lineInvalid(line, 'qty')"><input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.quantity" (ngModelChange)="onQuantity(line)" (blur)="onQuantityBlur(line)" [name]="'qty' + line.row" /></td>
-                  <td class="price" [class.invalid]="lineInvalid(line, 'price')">
+                  <td class="qty" [class.invalid]="lineInvalid(line, 'qty') && lineSeen(line, 'qty')">
+                    <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.quantity" (ngModelChange)="onQuantity(line); touchLine(line, 'qty')" (blur)="onQuantityBlur(line); touchLine(line, 'qty')" [name]="'qty' + line.row" />
+                  </td>
+                  <td class="qty" [class.invalid]="lineInvalid(line, 'moq') && lineSeen(line, 'moq')">
+                    <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.minimumQty" (ngModelChange)="onMinimum(line); touchLine(line, 'moq')" (blur)="touchLine(line, 'moq')" [name]="'moq' + line.row" inputmode="numeric" />
+                  </td>
+                  <td class="price" [class.invalid]="lineInvalid(line, 'price') && lineSeen(line, 'unit')">
                     <span class="price-field">
                       <span class="price-mark">{{ currencyMark(line.currencyId) }}</span>
-                      <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.unitPrice" (ngModelChange)="onUnit(line)" [name]="'unit' + line.row" />
+                      <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.unitPrice" (ngModelChange)="onUnit(line); touchLine(line, 'unit')" (blur)="touchLine(line, 'unit')" [name]="'unit' + line.row" />
                     </span>
                   </td>
-                  <td class="price" [class.invalid]="lineInvalid(line, 'price')">
+                  <td class="price" [class.invalid]="lineInvalid(line, 'price') && lineSeen(line, 'total')">
                     <span class="price-field">
                       <span class="price-mark">{{ currencyMark(line.currencyId) }}</span>
-                      <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.totalPrice" (ngModelChange)="onTotal(line)" [name]="'total' + line.row" />
+                      <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.totalPrice" (ngModelChange)="onTotal(line); touchLine(line, 'total')" (blur)="touchLine(line, 'total')" [name]="'total' + line.row" />
                     </span>
                   </td>
                 </tr>
               }
               @if (!filteredLines.length) {
                 <tr>
-                  <td class="filter-empty" colspan="6">No preview rows match this search.</td>
+                  <td class="filter-empty" colspan="10">No preview rows match this search.</td>
                 </tr>
               }
             </tbody>
           </table>
           </div>
         </section>
+        <app-quotation-charges [rows]="charges" [symbol]="chargeSymbol" [disabled]="busy"></app-quotation-charges>
     }
     @if (error) {
       <p class="hint-error">{{ error }}</p>
     }
+    <app-document-manager
+      #library
+      title="Supporting documents"
+      hint="Extra files are stored with the quotation. The spreadsheet above is still the file that is read."
+      [supportingOnly]="true"
+      [sortBase]="100"
+      [accept]="documentAccept"
+      [disabled]="busy"
+    ></app-document-manager>
   </div>
 
   <footer class="app-dialog-actions quotation-dialog-footer">
@@ -242,7 +305,10 @@
     <span class="footer-spacer"></span>
     <button class="btn" type="button" [disabled]="busy" (click)="cancel()">Cancel</button>
     @if (isVerifyStep) {
-      <button class="btn primary" type="button" [disabled]="isImporting || checkState !== 'passed'" (click)="startImport()">
+      <button class="btn primary" type="button" [disabled]="!canStartImport" (click)="startImport()">
+        @if (isImporting) {
+          <mat-spinner diameter="18"></mat-spinner>
+        }
         {{ isImporting ? 'Importing...' : 'Start Import' }}
       </button>
     } @else {

@@ -15,19 +15,36 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
         public int QuotationCount { get; set; }
     }
 
+    public class SupplierQuotationProjectResult
+    {
+        public int Id { get; set; }
+
+        public string Reference { get; set; }
+
+        public string Name { get; set; }
+    }
+
     public class SupplierQuotationResult
     {
         public int Id { get; set; }
 
         public string Code { get; set; }
 
+        public string SupplierReference { get; set; }
+
         public string ProjectNames { get; set; }
 
         public int? ProjectId { get; set; }
 
+        public List<SupplierQuotationProjectResult> Projects { get; set; } = new List<SupplierQuotationProjectResult>();
+
         public int ItemCount { get; set; }
 
         public DateTime CreatedAt { get; set; }
+
+        public DateTime? QuotedDate { get; set; }
+
+        public DateTime? ValidUntil { get; set; }
     }
 
     public class SupplierDetailResult
@@ -111,6 +128,10 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
 
         public DateTime? ModifiedAt { get; set; }
 
+        public DateTime? QuotedDate { get; set; }
+
+        public DateTime? ValidUntil { get; set; }
+
         public int ItemCount { get; set; }
 
         public decimal TotalPrice { get; set; }
@@ -134,7 +155,17 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
 
         public string PartNo { get; set; }
 
+        public bool IsAlternativePart { get; set; }
+
         public string Description { get; set; }
+
+        public string Condition { get; set; }
+
+        public string Unit { get; set; }
+
+        public int? LeadTime { get; set; }
+
+        public int? MinimumQty { get; set; }
 
         public decimal? UnitPrice { get; set; }
 
@@ -159,14 +190,35 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
         public decimal? BaseTotalPrice { get; set; }
     }
 
+    public class QuotationChargeResult
+    {
+        public int Id { get; set; }
+
+        public string Name { get; set; }
+
+        public string Basis { get; set; }
+
+        public decimal? Amount { get; set; }
+
+        public decimal? Rate { get; set; }
+
+        public decimal BaseAmount { get; set; }
+
+        public int SortOrder { get; set; }
+    }
+
     public class QuotationDetailResult : QuotationListItem
     {
         public List<QuotationLineResult> Items { get; set; } = new List<QuotationLineResult>();
+
+        public List<QuotationChargeResult> Charges { get; set; } = new List<QuotationChargeResult>();
     }
 
     public class ActivityQuotationLink
     {
         public int ActivityId { get; set; }
+
+        public int SupplierId { get; set; }
 
         public int ItemId { get; set; }
 
@@ -182,7 +234,19 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
 
         public string Description { get; set; }
 
+        public string Condition { get; set; }
+
+        public string Unit { get; set; }
+
+        public int? LeadTime { get; set; }
+
+        public int? MinimumQty { get; set; }
+
         public int Quantity { get; set; }
+
+        public DateTime? QuotedDate { get; set; }
+
+        public DateTime? ValidUntil { get; set; }
 
         public bool AlternativePart { get; set; }
 

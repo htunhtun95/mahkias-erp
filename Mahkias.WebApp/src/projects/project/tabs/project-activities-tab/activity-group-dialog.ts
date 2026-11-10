@@ -1,8 +1,9 @@
 import { Component, inject } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MaterialModule } from '../../../../app/material-module';
 import { blockEnterSubmit } from '../../../../core/block-enter-submit';
+import { requiredText } from '../../../../core/required-text';
 import { ActivityGroup } from '../../../../core/services/project-api.service';
 
 @Component({
@@ -18,13 +19,13 @@ export class ActivityGroupDialog {
   data = inject<{ group?: ActivityGroup } | null>(MAT_DIALOG_DATA, { optional: true });
 
   form = this.fb.group({
-    name: [this.data?.group?.name ?? '', Validators.required],
+    name: [this.data?.group?.name ?? '', requiredText],
     description: [this.data?.group?.description ?? ''],
   });
 
   get nameInvalid() {
     const name = this.form.controls.name;
-    return name.touched && name.invalid;
+    return name.invalid && (name.touched || name.dirty);
   }
 
   onFieldEnter(event: Event) {

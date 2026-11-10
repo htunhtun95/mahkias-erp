@@ -1,0 +1,1093 @@
+import { TextFieldModule } from '@angular/cdk/text-field';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, ElementRef, OnInit, ViewChild, inject } from '@angular/core';
+import { FormsModule, NgModel } from '@angular/forms';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { catchError, forkJoin, of, switchMap } from 'rxjs';
+import { MaterialModule } from '../../app/material-module';
+import {
+  Activity,
+  ActivityQuotationLink,
+  Currency,
+  LookupValue,
+  ProjectApiService,
+  PurchaseOrderDocument,
+  PurchaseOrderHistoryEntry,
+  PurchaseOrderItemInput,
+  PurchaseOrderLine,
+  Supplier,
+} from '../../core/services/project-api.service';
+import { DocumentManagerComponent, syncDocumentDrafts } from '../document-manager/document-manager';
+import { documentAccept as acceptedDocuments } from '../document-library-dialog/document-library-dialog';
+import { formatMoney } from '../money-format';
+import { leadTimeDays, leadTimeInvalid, leadTimeText, LeadTimeDaysDirective } from '../lead-time';
+import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
+import { QuotationChargeRow, QuotationChargesComponent, quotationChargeTotal, readQuotationCharges } from '../quotation-charges/quotation-charges';
+import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-date-field';
+import { canonicalCondition, canonicalUnit } from '../quotation-lookups';
+import { dateInputValue } from '../quotation-terms';
+import { closeOnEscape } from '../../core/close-on-escape';
+import { SheetCellFocusDirective } from '../sheet-cell-focus';
+import { ActivitySuggestion, directActivityId } from '../quotation-map';
+import { ActivitySuggestComponent } from '../activity-suggest/activity-suggest';
+
+export interface PurchaseOrderPresetLine {
+  activityId: number;
+  quotationId?: number | null;
+  quotationCode?: string | null;
+  dsnNo?: string | null;
+  partNo?: string | null;
+  description?: string | null;
+  condition?: string | null;
+  unit?: string | null;
+  leadTime?: string | null;
+  quantity?: number | null;
+  unitPrice?: number | null;
+  totalPrice?: number | null;
+  isAlternativePart?: boolean;
+}
+
+export interface PurchaseOrderDialogData {
+  projectId: number;
+  activities: Activity[];
+  purchaseOrderId?: number;
+  supplierId?: number | null;
+  lines?: PurchaseOrderPresetLine[];
+}
+
+interface PoLine {
+  key: string;
+  activityId: number | null;
+  quotationId: number | null;
+  quotationCode: string;
+  fromQuotation: boolean;
+  manual: boolean;
+  dsnNo: string;
+  partNo: string;
+  description: string;
+  condition: string;
+  unit: string;
+  leadTime: string;
+  quantity: string;
+  unitPrice: string;
+  totalPrice: string;
+  typeId: number | null;
+  typeName: string;
+  edited: PoEdits;
+}
+
+interface PoEdits {
+  description: boolean;
+  quantity: boolean;
+  condition: boolean;
+  unit: boolean;
+  leadTime: boolean;
+  dsn: boolean;
+}
+
+@Component({
+  selector: 'app-purchase-order-dialog',
+  standalone: true,
+  imports: [
+    FormsModule,
+    TextFieldModule,
+    MaterialModule,
+    QuotationDateFieldComponent,
+    QuotationChargesComponent,
+    LookupComboboxComponent,
+    ActivitySuggestComponent,
+    SheetCellFocusDirective,
+    DocumentManagerComponent,
+    LeadTimeDaysDirective,
+  ],
+  templateUrl: './purchase-order-dialog.html',
+  styleUrl: './purchase-order-dialog.css',
+})
+export class PurchaseOrderDialogComponent implements OnInit {
+  private api = inject(ProjectApiService);
+  private dialogRef = inject(MatDialogRef<PurchaseOrderDialogComponent, boolean>);
+  readonly data = inject<PurchaseOrderDialogData>(MAT_DIALOG_DATA);
+  private readonly startedAsNew = !this.data.purchaseOrderId;
+
+  suppliers: Supplier[] = [];
+  currencies: Currency[] = [];
+  conditions: LookupValue[] = [];
+  units: LookupValue[] = [];
+  statuses: LookupValue[] = [];
+  statusCode = 'Draft';
+  originalStatus = 'Draft';
+  history: PurchaseOrderHistoryEntry[] = [];
+  conditionOptions: string[] = [];
+  unitOptions: string[] = [];
+  readonly documentAccept = acceptedDocuments;
+  @ViewChild('library') private library?: DocumentManagerComponent;
+  documents: PurchaseOrderDocument[] = [];
+  links: ActivityQuotationLink[] = [];
+  private applying = false;
+  rows: PoLine[] = [];
+  charges: QuotationChargeRow[] = [];
+  code = '';
+  supplierId: number | null = null;
+  supplierQuery = '';
+  supplierOpen = false;
+  @ViewChild('supplierInput') supplierInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('codeField') private codeField?: NgModel;
+  @ViewChild('supplierField') private supplierField?: NgModel;
+  currencyId: number | null = null;
+  poDate = todayIso();
+  shipToAddress = '';
+  search = '';
+  typeFilter: number | null = null;
+  loading = true;
+  saving = false;
+  submitted = false;
+  error = '';
+
+  ngOnInit() {
+    closeOnEscape(this.dialogRef, () => this.close());
+    const id = this.data.purchaseOrderId;
+    forkJoin({
+      suppliers: this.api.suppliers(),
+      currencies: this.api.currencies(),
+      units: this.api.units(),
+      conditions: this.api.conditions(),
+      statuses: this.api.purchaseOrderStatuses(),
+      detail: id ? this.api.purchaseOrder(id) : of(null),
+      documents: id ? this.api.purchaseOrderDocuments(this.data.projectId, id) : of([]),
+      links: this.api.quotationLinks(this.data.projectId).pipe(catchError(() => of([] as ActivityQuotationLink[]))),
+    }).subscribe({
+      next: (result) => {
+        this.suppliers = result.suppliers;
+        this.currencies = result.currencies;
+        this.conditions = result.conditions;
+        this.units = result.units;
+        this.statuses = result.statuses ?? [];
+        this.conditionOptions = names(result.conditions);
+        this.unitOptions = names(result.units);
+        this.documents = result.documents;
+        this.links = result.links ?? [];
+        const fallbackCurrency = result.currencies.find((currency) => currency.isDefault)?.id ?? result.currencies[0]?.id ?? null;
+        if (result.detail) {
+          this.code = result.detail.code;
+          this.supplierId = result.detail.supplierId;
+          this.supplierQuery = result.suppliers.find((supplier) => supplier.id === result.detail?.supplierId)?.name ?? '';
+          this.currencyId = result.detail.currencyId || fallbackCurrency;
+          this.poDate = dateInputValue(result.detail.poDate);
+          this.shipToAddress = result.detail.shipToAddress ?? '';
+          this.statusCode = result.detail.statusCode || 'Draft';
+          this.originalStatus = this.statusCode;
+          this.history = result.detail.history ?? [];
+          this.rows = result.detail.items.map((item) => this.lineFromDetail(item));
+          const added = (this.data.lines ?? []).map((line) => this.lineFromPreset(line));
+          if (added.length) {
+            this.rows = [...this.rows, ...added];
+          }
+          this.charges = (result.detail.charges ?? []).map((charge) => ({
+            key: crypto.randomUUID(),
+            name: charge.name,
+            amount: charge.amount == null ? '' : String(charge.amount),
+          }));
+        } else {
+          this.supplierId = this.data.supplierId ?? null;
+          this.supplierQuery = result.suppliers.find((supplier) => supplier.id === this.supplierId)?.name ?? '';
+          this.currencyId = fallbackCurrency;
+          this.rows = this.data.lines?.length
+            ? this.data.lines.map((line) => this.lineFromPreset(line))
+            : this.manualRows();
+        }
+        this.loading = false;
+      },
+      error: () => {
+        this.loading = false;
+        this.error = 'Purchase order details could not be loaded.';
+      },
+    });
+  }
+
+  get filteredSuppliers(): Supplier[] {
+    const query = this.supplierQuery.trim().toLowerCase();
+    if (!query) {
+      return this.suppliers;
+    }
+    return this.suppliers.filter((supplier) =>
+      supplier.name.toLowerCase().includes(query) || (supplier.reference ?? '').toLowerCase().includes(query),
+    );
+  }
+
+  onSupplierInput(value: string) {
+    this.supplierQuery = value;
+    this.supplierId = null;
+    this.supplierOpen = true;
+  }
+
+  chooseSupplier(supplier: Supplier) {
+    this.supplierId = supplier.id;
+    this.supplierQuery = supplier.name;
+    this.supplierOpen = false;
+  }
+
+  clearSupplier() {
+    if (this.loading || this.saving) {
+      return;
+    }
+    this.supplierQuery = '';
+    this.supplierField?.control.markAsDirty();
+    this.supplierId = null;
+    this.supplierOpen = true;
+    setTimeout(() => this.supplierInput?.nativeElement.focus());
+  }
+
+  closeSuppliers() {
+    setTimeout(() => {
+      if (document.activeElement === this.supplierInput?.nativeElement) {
+        return;
+      }
+      this.supplierOpen = false;
+    }, 150);
+  }
+
+  get title(): string {
+    return this.startedAsNew ? 'New Purchase Order' : 'Edit Purchase Order';
+  }
+
+  get symbol(): string {
+    return this.currencies.find((currency) => currency.id === this.currencyId)?.symbol || '$';
+  }
+
+  get currencyCode(): string {
+    return this.currencies.find((currency) => currency.id === this.currencyId)?.code || 'USD';
+  }
+
+  get subtotal(): number {
+    return roundMoney(this.rows.reduce((sum, row) => sum + (lineAmount(row) ?? 0), 0));
+  }
+
+  get chargesAmount(): number {
+    return roundMoney(quotationChargeTotal(this.charges));
+  }
+
+  get grandTotal(): number {
+    return roundMoney(this.subtotal + this.chargesAmount);
+  }
+
+  money(value: number): string {
+    return formatMoney(value, this.symbol, this.currencyCode);
+  }
+
+  lowerPriceWarning(row: PoLine): string {
+    const quotes = this.quotesForPart(row);
+    if (quotes.length < 2) {
+      return '';
+    }
+    const source = this.sourceQuote(row, quotes);
+    const mine = this.rowBaseUnit(row, source);
+    if (mine == null) {
+      return '';
+    }
+    let best: ActivityQuotationLink | null = null;
+    let bestPrice = Number.POSITIVE_INFINITY;
+    for (const link of quotes) {
+      if (source && sameQuoteLine(link, source)) {
+        continue;
+      }
+      const price = linkBaseUnit(link);
+      if (price == null || price >= bestPrice) {
+        continue;
+      }
+      best = link;
+      bestPrice = price;
+    }
+    if (!best || !priceIsHigher(mine, bestPrice)) {
+      return '';
+    }
+    const amount = formatMoney(best.unitPrice ?? best.baseUnitPrice ?? bestPrice, best.currencySymbol || '$', best.currencyCode || 'USD');
+    const supplier = best.supplierName?.trim() || 'another supplier';
+    const quote = best.quotationRef?.trim();
+    return quote
+      ? `A lower price of ${amount} is available from ${supplier} (${quote}).`
+      : `A lower price of ${amount} is available from ${supplier}.`;
+  }
+
+  private poVisibleKey = Number.NaN;
+  private poVisibleCache: PoLine[] = [];
+
+  get visibleRows(): PoLine[] {
+    const term = this.search.trim().toLowerCase();
+    const typeId = this.typeFilter;
+    if (!term && typeId == null) {
+      return this.rows;
+    }
+    const key = this.poSearchKey(term) ^ (typeId ?? 0);
+    if (key === this.poVisibleKey) {
+      return this.poVisibleCache;
+    }
+    this.poVisibleKey = key;
+    this.poVisibleCache = this.rows.filter((row) => {
+      const matchesType = typeId == null || row.typeId === typeId;
+      const matchesTerm = !term || [row.dsnNo, row.partNo, row.description, row.quotationCode].some((value) => value.toLowerCase().includes(term));
+      return matchesType && matchesTerm;
+    });
+    return this.poVisibleCache;
+  }
+
+  get activityTypeOptions(): { id: number; name: string }[] {
+    const names = new Map<number, string>();
+    for (const row of this.rows) {
+      if (row.typeId != null && !names.has(row.typeId)) {
+        names.set(row.typeId, row.typeName || 'Type');
+      }
+    }
+    return [...names.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((left, right) => left.name.localeCompare(right.name));
+  }
+
+  private poSearchKey(term: string): number {
+    let hash = term.length;
+    for (let index = 0; index < term.length; index++) {
+      hash = Math.imul(hash, 33) ^ term.charCodeAt(index);
+    }
+    const head = (value: string) => value ? value.charCodeAt(0) : 0;
+    for (const row of this.rows) {
+      hash = Math.imul(hash, 33) ^ row.dsnNo.length ^ row.partNo.length ^ row.description.length ^ row.quotationCode.length;
+      hash = (hash + head(row.dsnNo) + head(row.partNo) + head(row.description) + head(row.quotationCode)) | 0;
+    }
+    return hash;
+  }
+
+  close() {
+    if (!this.saving) {
+      this.dialogRef.close(false);
+    }
+  }
+
+  addLine() {
+    this.rows = [...this.rows, this.blankLine()];
+    this.search = '';
+  }
+
+  removeLine(row: PoLine) {
+    if (this.saving) {
+      return;
+    }
+    this.rows = this.rows.filter((item) => item.key !== row.key);
+  }
+
+  normalizeCondition(row: PoLine) {
+    row.condition = canonicalCondition(row.condition, this.conditions);
+  }
+
+  normalizeUnit(row: PoLine) {
+    row.unit = canonicalUnit(row.unit, this.units);
+  }
+
+  setDsn(row: PoLine, value: string) {
+    row.dsnNo = value;
+    this.onDsn(row);
+  }
+
+  setPart(row: PoLine, value: string) {
+    row.partNo = value;
+    this.onPart(row);
+  }
+
+  chooseActivity(row: PoLine, suggestion: ActivitySuggestion) {
+    const activity = (this.data.activities ?? []).find((item) => item.id === suggestion.activityId);
+    this.applying = true;
+    row.activityId = suggestion.activityId;
+    row.dsnNo = suggestion.dsnNo;
+    row.partNo = suggestion.partNo;
+    row.edited = blankEdits();
+    if (activity) {
+      const details = this.activityDetails(activity);
+      row.typeId = activity.typeId ?? null;
+      row.typeName = row.typeId == null ? '' : (activity.type?.trim() || 'Type');
+      row.description = details.description;
+      row.quantity = activityQuantity(activity) || '1';
+      row.condition = this.activityLookup(activity, 'condition');
+      row.unit = this.activityLookup(activity, 'unit');
+      row.leadTime = details.leadTime;
+      if (row.unitPrice.trim()) {
+        this.syncFromUnit(row);
+      }
+    }
+    this.applying = false;
+  }
+
+  onDsn(row: PoLine) {
+    this.mark(row, 'dsn');
+    this.onIdentity(row);
+  }
+
+  onPart(row: PoLine) {
+    this.onIdentity(row);
+  }
+
+  onDescription(row: PoLine) {
+    this.mark(row, 'description');
+  }
+
+  onQuantity(row: PoLine) {
+    this.mark(row, 'quantity');
+    this.syncFromUnit(row);
+  }
+
+  onLead(row: PoLine) {
+    this.mark(row, 'leadTime');
+    this.touch(row, 'lead');
+  }
+
+  onCondition(row: PoLine, value: string) {
+    row.condition = value;
+    this.mark(row, 'condition');
+  }
+
+  onUnit(row: PoLine, value: string) {
+    row.unit = value;
+    this.mark(row, 'unit');
+  }
+
+  onIdentity(row: PoLine) {
+    if (row.fromQuotation) {
+      return;
+    }
+    const part = row.partNo;
+    const nextId = directActivityId(row.dsnNo, row.partNo, this.data.activities ?? []);
+    row.partNo = part;
+    row.activityId = nextId;
+    const activity = nextId ? (this.data.activities ?? []).find((item) => item.id === nextId) : undefined;
+    row.typeId = activity?.typeId ?? null;
+    row.typeName = row.typeId == null ? '' : (activity?.type?.trim() || 'Type');
+    if (!activity) {
+      return;
+    }
+    const details = this.activityDetails(activity);
+    this.applying = true;
+    this.fill(row, 'description', details.description);
+    this.fill(row, 'quantity', activityQuantity(activity) || '1');
+    this.fill(row, 'condition', this.activityLookup(activity, 'condition'));
+    this.fill(row, 'unit', this.activityLookup(activity, 'unit'));
+    this.fill(row, 'leadTime', details.leadTime);
+    if (!row.edited.dsn && !row.dsnNo.trim() && activity.dsnNo?.trim()) {
+      row.dsnNo = activity.dsnNo.trim();
+    }
+    this.applying = false;
+  }
+
+  private seen = new Set<string>();
+
+  private fieldStarted(field?: NgModel): boolean {
+    return !!field?.touched || !!field?.dirty;
+  }
+
+  touch(row: PoLine, field: string) {
+    this.seen.add(`${row.key}:${field}`);
+  }
+
+  interacted(row: PoLine, field: string): boolean {
+    return this.seen.has(`${row.key}:${field}`);
+  }
+
+  get codeInvalid(): boolean {
+    return !this.code.trim();
+  }
+
+  get codeErrorVisible(): boolean {
+    return this.codeInvalid && this.fieldStarted(this.codeField);
+  }
+
+  get supplierErrorVisible(): boolean {
+    return this.supplierInvalid && this.fieldStarted(this.supplierField);
+  }
+
+  get supplierInvalid(): boolean {
+    return !this.supplierId;
+  }
+
+  get validationMessage(): string {
+    if (this.codeInvalid) {
+      return 'Enter a PO number.';
+    }
+    if (this.supplierInvalid) {
+      return 'Choose a supplier.';
+    }
+    let priced = false;
+    for (const row of this.rows) {
+      const problem = lineProblem(row);
+      if (problem === 'skip') {
+        continue;
+      }
+      if (problem) {
+        return lineMessage(problem);
+      }
+      priced = true;
+    }
+    if (!priced) {
+      return 'Add at least one purchase order line with a unit price.';
+    }
+    const charges = readQuotationCharges(this.charges).error;
+    if (charges) {
+      return charges;
+    }
+    return '';
+  }
+
+  get canSave(): boolean {
+    return !this.validationMessage;
+  }
+
+  get visibleValidationMessage(): string {
+    if (!this.validationMessage) {
+      return '';
+    }
+    if (this.codeInvalid) {
+      return this.codeErrorVisible ? this.validationMessage : '';
+    }
+    if (this.supplierInvalid) {
+      return this.supplierErrorVisible ? this.validationMessage : '';
+    }
+    if (readQuotationCharges(this.charges).error || this.seen.size || this.rows.some((row) => lineProblem(row) === 'lead')) {
+      return this.validationMessage;
+    }
+    return '';
+  }
+
+  invalid(row: PoLine, field: 'dsn' | 'part' | 'qty' | 'price' | 'lead'): boolean {
+    const problem = lineProblem(row);
+    if (problem === 'skip' || problem == null) {
+      return false;
+    }
+    if (field === 'price') {
+      return problem === 'price';
+    }
+    return problem === field;
+  }
+
+  private mark(row: PoLine, field: keyof PoEdits) {
+    if (!this.applying) {
+      row.edited[field] = true;
+    }
+  }
+
+  private whenMissing(value: string, fallback: string): string {
+    return value.trim() || fallback;
+  }
+
+  private activityLookup(activity: Activity, field: 'unit' | 'condition'): string {
+    if (field === 'unit') {
+      return this.whenMissing(canonicalUnit(activity.unit ?? '', this.units), 'EA');
+    }
+    return this.whenMissing(canonicalCondition(activity.condition ?? '', this.conditions), 'NE');
+  }
+
+  private fill(row: PoLine, field: keyof PoEdits, value: string) {
+    const next = value.trim();
+    if (row.edited[field] || !next) {
+      return;
+    }
+    if (field === 'description') {
+      row.description = next;
+    } else if (field === 'quantity') {
+      row.quantity = next;
+    } else if (field === 'condition') {
+      row.condition = next;
+    } else if (field === 'unit') {
+      row.unit = next;
+    } else if (field === 'leadTime') {
+      row.leadTime = next;
+    }
+  }
+
+  private activityDetails(activity: Activity): { description: string; condition: string; unit: string; leadTime: string } {
+    const links = this.links.filter((link) => link.activityId === activity.id);
+    return {
+      description: (activity.description ?? '').trim() || agreed(links, (link) => link.description),
+      condition: agreed(links, (link) => link.condition),
+      unit: agreed(links, (link) => link.unit),
+      leadTime: agreed(links, (link) => link.leadTime == null ? '' : String(link.leadTime)),
+    };
+  }
+
+  syncFromUnit(row: PoLine) {
+    const quantity = numeric(row.quantity);
+    const unitPrice = numeric(row.unitPrice);
+    if (quantity != null && quantity > 0 && unitPrice != null) {
+      row.totalPrice = (quantity * unitPrice).toFixed(2);
+    }
+  }
+
+  syncFromTotal(row: PoLine) {
+    const quantity = numeric(row.quantity);
+    const total = numeric(row.totalPrice);
+    if (quantity != null && quantity > 0 && total != null) {
+      row.unitPrice = (total / quantity).toFixed(2);
+    }
+  }
+
+  get willRevise(): boolean {
+    return !!this.data.purchaseOrderId && this.originalStatus === 'Sent' && this.statusCode === 'Sent';
+  }
+
+  historyLabel(action: string): string {
+    switch (action) {
+      case 'StatusChanged':
+        return 'Status changed';
+      case 'Created':
+        return 'Created';
+      case 'Edited':
+        return 'Edited';
+      case 'Revised':
+        return 'Revised';
+      case 'Deleted':
+        return 'Deleted';
+      default:
+        return action || 'Updated';
+    }
+  }
+
+  historyActor(entry: PurchaseOrderHistoryEntry): string {
+    const name = entry.actorName?.trim();
+    const email = entry.actorEmail?.trim();
+    if (name && email) {
+      return `${name} · ${email}`;
+    }
+    return name || email || 'Unknown user';
+  }
+
+  whenStamp(value?: string | null): string {
+    if (!value) {
+      return '';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    return date.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+
+  save() {
+    if (this.saving) {
+      return;
+    }
+    const code = this.code.trim();
+    this.code = code;
+    if (!code) {
+      this.error = 'Enter a PO number.';
+      return;
+    }
+    if (!this.supplierId) {
+      this.error = 'Choose a supplier.';
+      return;
+    }
+    this.submitted = true;
+    const items: PurchaseOrderItemInput[] = [];
+    for (const row of this.rows) {
+      const problem = lineProblem(row);
+      if (problem === 'skip') {
+        continue;
+      }
+      if (problem) {
+        this.error = lineMessage(problem);
+        return;
+      }
+      if (!row.quantity.trim()) {
+        row.quantity = '1';
+      }
+      const quantity = numeric(row.quantity) as number;
+      const unitPrice = numeric(row.unitPrice) as number;
+      const totalPrice = numeric(row.totalPrice) ?? unitPrice * quantity;
+      items.push({
+        activityId: row.activityId,
+        quotationId: row.activityId ? row.quotationId : null,
+        dsnNo: row.dsnNo.trim(),
+        partNo: row.partNo.trim(),
+        description: row.description.trim(),
+        condition: textOrNull(canonicalCondition(row.condition, this.conditions)),
+        unit: textOrNull(canonicalUnit(row.unit, this.units)),
+        leadTime: leadTimeDays(row.leadTime),
+        quantity,
+        unitPrice: roundMoney(unitPrice as number),
+        totalPrice: roundMoney(totalPrice as number),
+      });
+    }
+    if (!items.length) {
+      this.error = 'Add at least one purchase order line with a unit price.';
+      return;
+    }
+    const charges = readQuotationCharges(this.charges);
+    if (charges.error) {
+      this.error = charges.error;
+      return;
+    }
+    const body = {
+      code,
+      supplierId: this.supplierId,
+      poDate: isoDate(this.poDate),
+      shipToAddress: this.shipToAddress.trim(),
+      currencyId: this.currencyId,
+      status: this.statusCode,
+      projectIds: [this.data.projectId],
+      items,
+      charges: charges.charges,
+    };
+    this.saving = true;
+    this.error = '';
+    let orderSaved = false;
+    const request = this.data.purchaseOrderId
+      ? this.api.updatePurchaseOrder(this.data.purchaseOrderId, body)
+      : this.api.createPurchaseOrder(body);
+    request.pipe(
+      switchMap((saved) => {
+        orderSaved = true;
+        const id = this.data.purchaseOrderId || saved?.id;
+        if (id) {
+          this.data.purchaseOrderId = id;
+        }
+        const drafts = this.library?.capture() ?? [];
+        if (!id || !this.library?.hasChanges) {
+          return of(saved);
+        }
+        return syncDocumentDrafts(this.api, 'purchase-order', this.data.projectId, id, drafts, false);
+      }),
+    ).subscribe({
+      next: () => {
+        this.saving = false;
+        this.dialogRef.close(true);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.saving = false;
+        if (orderSaved) {
+          this.error = error.error?.message || 'The purchase order was saved, but the documents could not be updated.';
+          return;
+        }
+        this.error = error.error?.message || 'The purchase order could not be saved.';
+      },
+    });
+  }
+
+  private manualRows(): PoLine[] {
+    const activities = this.data.activities ?? [];
+    if (activities.length > 10) {
+      return Array.from({ length: 5 }, () => this.blankLine());
+    }
+    return activities.map((activity) => this.lineFromActivity(activity));
+  }
+
+  private lineFromActivity(activity: Activity): PoLine {
+    return {
+      key: crypto.randomUUID(),
+      activityId: activity.id,
+      quotationId: null,
+      quotationCode: '',
+      fromQuotation: false,
+      manual: false,
+      edited: blankEdits(),
+      dsnNo: (activity.dsnNo ?? '').trim(),
+      partNo: (activity.mainPartNo || activity.partNo || '').trim(),
+      description: (activity.description ?? '').trim(),
+      condition: this.activityLookup(activity, 'condition'),
+      unit: this.activityLookup(activity, 'unit'),
+      leadTime: '',
+      quantity: activityQuantity(activity) || '1',
+      unitPrice: '',
+      totalPrice: '',
+      typeId: activity.typeId ?? null,
+      typeName: activity.typeId == null ? '' : (activity.type?.trim() || 'Type'),
+    };
+  }
+
+  private lineFromPreset(line: PurchaseOrderPresetLine): PoLine {
+    const quantity = line.quantity && line.quantity > 0 ? String(line.quantity) : '1';
+    const unitPrice = line.unitPrice == null ? '' : String(line.unitPrice);
+    const quantityValue = numeric(quantity);
+    const unitValue = numeric(unitPrice);
+    const totalPrice = quantityValue != null && quantityValue > 0 && unitValue != null
+      ? (quantityValue * unitValue).toFixed(2)
+      : line.totalPrice == null ? '' : String(line.totalPrice);
+    return {
+      key: crypto.randomUUID(),
+      activityId: line.activityId,
+      quotationId: line.quotationId ?? null,
+      quotationCode: line.quotationCode ?? '',
+      fromQuotation: true,
+      manual: false,
+      edited: blankEdits(),
+      dsnNo: line.dsnNo ?? '',
+      partNo: quotedPart(line, this.data.activities ?? []),
+      description: line.description ?? '',
+      condition: this.whenMissing(canonicalCondition(line.condition ?? '', this.conditions), 'NE'),
+      unit: this.whenMissing(canonicalUnit(line.unit ?? '', this.units), 'EA'),
+      leadTime: leadTimeText(line.leadTime),
+      quantity,
+      unitPrice,
+      totalPrice,
+      ...this.typeFields(line.activityId),
+    };
+  }
+
+  private lineFromDetail(line: PurchaseOrderLine): PoLine {
+    const fromQuotation = line.quotationId != null;
+    const activityId = line.activityId && line.activityId > 0 ? line.activityId : null;
+    return {
+      key: crypto.randomUUID(),
+      activityId,
+      quotationId: line.quotationId ?? null,
+      quotationCode: line.quotationCode ?? '',
+      fromQuotation,
+      manual: !fromQuotation && !activityId,
+      edited: blankEdits(),
+      dsnNo: line.dsnNo ?? '',
+      partNo: line.partNo ?? '',
+      description: line.description ?? '',
+      condition: canonicalCondition(line.condition ?? '', this.conditions),
+      unit: canonicalUnit(line.unit ?? '', this.units),
+      leadTime: leadTimeText(line.leadTime),
+      quantity: line.quantity == null ? '1' : String(line.quantity),
+      unitPrice: String(line.unitPrice ?? ''),
+      totalPrice: String(line.totalPrice ?? ''),
+      ...this.typeFields(activityId),
+    };
+  }
+
+  private blankLine(): PoLine {
+    return {
+      key: crypto.randomUUID(),
+      activityId: null,
+      quotationId: null,
+      quotationCode: '',
+      fromQuotation: false,
+      manual: true,
+      edited: blankEdits(),
+      dsnNo: '',
+      partNo: '',
+      description: '',
+      condition: 'NE',
+      unit: 'EA',
+      leadTime: '',
+      quantity: '1',
+      unitPrice: '',
+      totalPrice: '',
+      typeId: null,
+      typeName: '',
+    };
+  }
+
+  private quotesForPart(row: PoLine): ActivityQuotationLink[] {
+    const part = partKey(row.partNo);
+    if (!part && row.activityId == null) {
+      return [];
+    }
+    return this.links.filter((link) => {
+      if (linkBaseUnit(link) == null) {
+        return false;
+      }
+      if (part) {
+        return partKey(link.partNo) === part;
+      }
+      return link.activityId === row.activityId;
+    });
+  }
+
+  private sourceQuote(row: PoLine, quotes: ActivityQuotationLink[]): ActivityQuotationLink | null {
+    if (row.quotationId == null) {
+      return null;
+    }
+    const matches = quotes.filter((link) => link.quotationId === row.quotationId && (row.activityId == null || link.activityId === row.activityId));
+    if (!matches.length) {
+      return null;
+    }
+    const entered = numeric(row.unitPrice);
+    if (entered == null) {
+      return matches[0];
+    }
+    return matches.slice().sort((left, right) => Math.abs(Number(left.unitPrice ?? left.baseUnitPrice) - entered) - Math.abs(Number(right.unitPrice ?? right.baseUnitPrice) - entered))[0];
+  }
+
+  private rowBaseUnit(row: PoLine, source: ActivityQuotationLink | null): number | null {
+    const entered = numeric(row.unitPrice);
+    if (!source) {
+      return this.currencyCode === 'USD' ? entered : null;
+    }
+    const base = linkBaseUnit(source);
+    const quoted = source.unitPrice == null ? null : Number(source.unitPrice);
+    if (base == null) {
+      return null;
+    }
+    if (entered == null || quoted == null || quoted === 0 || Math.abs(entered - quoted) < 0.0001) {
+      return base;
+    }
+    return base * (entered / quoted);
+  }
+
+  private typeFields(activityId: number | null): { typeId: number | null; typeName: string } {
+    const activity = activityId == null ? undefined : (this.data.activities ?? []).find((item) => item.id === activityId);
+    const typeId = activity?.typeId ?? null;
+    return { typeId, typeName: typeId == null ? '' : (activity?.type?.trim() || 'Type') };
+  }
+}
+
+function partKey(value: string | null | undefined): string {
+  return (value ?? '').trim().toLowerCase();
+}
+
+function linkBaseUnit(link: ActivityQuotationLink): number | null {
+  const value = link.baseUnitPrice ?? link.unitPrice;
+  const price = value == null ? Number.NaN : Number(value);
+  return Number.isFinite(price) ? price : null;
+}
+
+function sameQuoteLine(left: ActivityQuotationLink, right: ActivityQuotationLink): boolean {
+  if (left.itemId != null && right.itemId != null) {
+    return left.quotationId === right.quotationId && left.itemId === right.itemId;
+  }
+  return left === right;
+}
+
+function priceIsHigher(left: number, right: number): boolean {
+  return Math.round(left * 10000) > Math.round(right * 10000);
+}
+
+function quotedPart(line: PurchaseOrderPresetLine, activities: Activity[]): string {
+  const stored = (line.partNo ?? '').trim();
+  if (!line.isAlternativePart) {
+    return stored;
+  }
+  const activity = activities.find((item) => item.id === line.activityId);
+  const alternatives = (activity?.alternativePartNos ?? [])
+    .map((value) => (value ?? '').trim())
+    .filter((value) => value.length > 0);
+  const exact = alternatives.find((value) => value.toLowerCase() === stored.toLowerCase());
+  if (exact) {
+    return exact;
+  }
+  const main = (activity?.mainPartNo ?? '').trim().toLowerCase();
+  if (stored && stored.toLowerCase() !== main) {
+    return stored;
+  }
+  return alternatives.length === 1 ? alternatives[0] : stored;
+}
+
+function blankEdits(): PoEdits {
+  return { description: false, quantity: false, condition: false, unit: false, leadTime: false, dsn: false };
+}
+
+function agreed(links: ActivityQuotationLink[], pick: (link: ActivityQuotationLink) => string | null | undefined): string {
+  const values: string[] = [];
+  for (const link of links) {
+    const value = (pick(link) ?? '').trim();
+    if (value && !values.some((item) => item.toLowerCase() === value.toLowerCase())) {
+      values.push(value);
+    }
+  }
+  return values.length === 1 ? values[0] : '';
+}
+
+function lineAmount(row: PoLine): number | null {
+  if (skippable(row)) {
+    return null;
+  }
+  const unitPrice = numeric(row.unitPrice);
+  const quantity = row.quantity.trim() ? numeric(row.quantity) : 1;
+  const totalPrice = numeric(row.totalPrice);
+  if (unitPrice == null || quantity == null || quantity <= 0 || (row.totalPrice.trim() && totalPrice == null)) {
+    return null;
+  }
+  return roundMoney(row.totalPrice.trim() && totalPrice != null ? totalPrice : unitPrice * quantity);
+}
+
+function lineProblem(row: PoLine): 'dsn' | 'part' | 'qty' | 'price' | 'lead' | 'skip' | null {
+  if (skippable(row)) {
+    return 'skip';
+  }
+  if (leadTimeInvalid(row.leadTime)) {
+    return 'lead';
+  }
+  if (!row.fromQuotation && !row.activityId) {
+    if (!row.dsnNo.trim()) {
+      return 'dsn';
+    }
+    if (!row.partNo.trim()) {
+      return 'part';
+    }
+  }
+  const quantity = numeric(row.quantity);
+  const unitPrice = numeric(row.unitPrice);
+  const totalPrice = numeric(row.totalPrice);
+  if (row.quantity.trim() && (quantity == null || quantity <= 0)) {
+    return 'qty';
+  }
+  if (unitPrice == null || (row.totalPrice.trim() && totalPrice == null)) {
+    return 'price';
+  }
+  return null;
+}
+
+function lineMessage(problem: 'dsn' | 'part' | 'qty' | 'price' | 'lead'): string {
+  if (problem === 'dsn') {
+    return 'Enter a DSN No for each line that is not linked to an activity.';
+  }
+  if (problem === 'part') {
+    return 'Enter a Part No for each line that is not linked to an activity.';
+  }
+  if (problem === 'qty') {
+    return 'Each purchase order line needs a quantity greater than zero.';
+  }
+  if (problem === 'lead') {
+    return 'Lead time must be a whole number of days, or left blank.';
+  }
+  return 'Enter a valid unit price of zero or more.';
+}
+
+function skippable(row: PoLine): boolean {
+  return !row.unitPrice.trim();
+}
+
+function activityQuantity(activity: Activity): string {
+  const value = Number(activity.quantity);
+  if (!Number.isFinite(value) || value <= 0) {
+    return '';
+  }
+  const rounded = Math.round(value * 100) / 100;
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+}
+
+function textOrNull(value: string): string | null {
+  const text = value.trim();
+  return text || null;
+}
+
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function names(values: LookupValue[]): string[] {
+  return values.map((value) => value.name).filter((name) => !!name);
+}
+
+function numeric(value: string): number | null {
+  const text = value.trim().replace(/[$,\s]/g, '');
+  if (!text || /[a-z]/i.test(text)) {
+    return null;
+  }
+  const parsed = Number(text);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function todayIso(): string {
+  return isoDate(new Date()) ?? '';
+}
+
+function isoDate(value: string | Date | null): string | null {
+  if (!value) {
+    return null;
+  }
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) {
+      return null;
+    }
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${value.getFullYear()}-${month}-${day}`;
+  }
+  return dateInputValue(value) || null;
+}

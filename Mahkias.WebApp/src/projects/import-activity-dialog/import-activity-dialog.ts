@@ -4,16 +4,20 @@ import { FormBuilder, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { finalize } from 'rxjs';
 import { MaterialModule } from '../../app/material-module';
+import { DriveUploadCardComponent } from '../drive-upload-card/drive-upload-card';
 import { blockEnterSubmit } from '../../core/block-enter-submit';
+import { closeOnEscape } from '../../core/close-on-escape';
 import { whileBusy } from '../../core/while-busy';
-import { ActivityImportIssue, ActivityType, ExcelColumn, ProjectApiService } from '../../core/services/project-api.service';
+import { ActivityImportIssue, ActivityType, ExcelColumn, LookupValue, ProjectApiService } from '../../core/services/project-api.service';
+import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
+import { canonicalCondition, canonicalUnit } from '../quotation-lookups';
 
 const requiredFieldWarning = 'Please select a Column Index or enter a Default Value for this required field.';
 
 @Component({
   selector: 'app-import-activity-dialog',
   standalone: true,
-  imports: [FormsModule, ReactiveFormsModule, MaterialModule],
+  imports: [FormsModule, ReactiveFormsModule, MaterialModule, DriveUploadCardComponent, LookupComboboxComponent],
   templateUrl: './import-activity-dialog.html',
   styleUrl: './import-activity-dialog.css',
 })
@@ -28,6 +32,10 @@ export class ImportActivityDialog {
   }
   readonly requiredFieldWarning = requiredFieldWarning;
   types = this.data.types ?? [];
+  units: LookupValue[] = [];
+  conditions: LookupValue[] = [];
+  unitOptions: string[] = [];
+  conditionOptions: string[] = [];
   columns: ExcelColumn[] = [];
   rowCount = 0;
   file: File | null = null;
@@ -54,9 +62,40 @@ export class ImportActivityDialog {
     defaultQuantity: [1 as number | null],
     budget: [''],
     defaultBudget: [null as number | null],
+    label: [''],
+    unit: [''],
+    defaultUnit: ['EA'],
+    condition: [''],
+    defaultCondition: ['NE'],
+    serialNo: [''],
+    tsn: [''],
+    tso: [''],
+    csn: [''],
+    cso: [''],
   });
 
   constructor() {
+    closeOnEscape(this.dialogRef, () => this.cancel());
+    this.api.units().subscribe({
+      next: (units) => {
+        this.units = units ?? [];
+        this.unitOptions = this.units.map((unit) => unit.name).filter((name) => !!name);
+        const current = this.form.controls.defaultUnit.value ?? '';
+        if (!current.trim() || current.trim().toUpperCase() === 'EA') {
+          this.form.controls.defaultUnit.setValue(canonicalUnit(current || 'EA', this.units) || 'EA', { emitEvent: false });
+        }
+      },
+    });
+    this.api.conditions().subscribe({
+      next: (conditions) => {
+        this.conditions = conditions ?? [];
+        this.conditionOptions = this.conditions.map((condition) => condition.name).filter((name) => !!name);
+        const current = this.form.controls.defaultCondition.value ?? '';
+        if (!current.trim() || current.trim().toUpperCase() === 'NE') {
+          this.form.controls.defaultCondition.setValue(canonicalCondition(current || 'NE', this.conditions) || 'NE', { emitEvent: false });
+        }
+      },
+    });
     this.form.valueChanges.subscribe(() => this.resetValidation());
   }
 
@@ -70,6 +109,16 @@ export class ImportActivityDialog {
 
   get typeReady() {
     return this.hasText(this.form.controls.type.value) || !!this.form.controls.defaultTypeId.value;
+  }
+
+  mapInvalid(field: 'dsn' | 'part' | 'type'): boolean {
+    const ready = field === 'dsn' ? this.dsnReady : field === 'part' ? this.partReady : this.typeReady;
+    if (ready) {
+      return false;
+    }
+    const column = field === 'dsn' ? this.form.controls.dsnNo : field === 'part' ? this.form.controls.partNo : this.form.controls.type;
+    const fallback = field === 'dsn' ? this.form.controls.defaultDsn : field === 'part' ? this.form.controls.defaultPart : this.form.controls.defaultTypeId;
+    return column.touched || column.dirty || fallback.touched || fallback.dirty;
   }
 
   get canValidate() {
@@ -100,9 +149,10 @@ export class ImportActivityDialog {
     this.dialogRef.close(false);
   }
 
-  onFile(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0] ?? null;
+  onFile(file: File | null) {
+    if (file === this.file) {
+      return;
+    }
     this.file = file;
     this.columns = [];
     this.rowCount = 0;
@@ -132,7 +182,17 @@ export class ImportActivityDialog {
           type: mapping.suggested?.type ?? '',
           quantity: mapping.suggested?.quantity ?? '',
           budget: mapping.suggested?.budget ?? '',
+          label: mapping.suggested?.label ?? '',
+          unit: mapping.suggested?.unit ?? '',
+          condition: mapping.suggested?.condition ?? '',
+          serialNo: mapping.suggested?.serialNo ?? '',
+          tsn: mapping.suggested?.tsn ?? '',
+          tso: mapping.suggested?.tso ?? '',
+          csn: mapping.suggested?.csn ?? '',
+          cso: mapping.suggested?.cso ?? '',
           defaultQuantity: 1,
+          defaultUnit: canonicalUnit(this.form.controls.defaultUnit.value || 'EA', this.units) || 'EA',
+          defaultCondition: canonicalCondition(this.form.controls.defaultCondition.value || 'NE', this.conditions) || 'NE',
         });
         if (!this.columns.length) {
           this.error = 'The file has no columns to map.';
@@ -239,12 +299,36 @@ export class ImportActivityDialog {
       typeColumn: value.type ?? '',
       quantityColumn: value.quantity ?? '',
       budgetColumn: value.budget ?? '',
+      labelColumn: value.label ?? '',
+      unitColumn: value.unit ?? '',
+      conditionColumn: value.condition ?? '',
+      serialNoColumn: value.serialNo ?? '',
+      tsnColumn: value.tsn ?? '',
+      tsoColumn: value.tso ?? '',
+      csnColumn: value.csn ?? '',
+      csoColumn: value.cso ?? '',
       defaultDsnNo: String(value.defaultDsn ?? '').trim(),
       defaultPartNo: String(value.defaultPart ?? '').trim(),
       defaultTypeId: value.defaultTypeId,
       defaultQuantity: Number.isFinite(defaultQuantity) ? defaultQuantity : null,
       defaultBudget: Number.isFinite(defaultBudget) ? defaultBudget : null,
+      defaultUnit: canonicalUnit(String(value.defaultUnit ?? ''), this.units) || 'EA',
+      defaultCondition: canonicalCondition(String(value.defaultCondition ?? ''), this.conditions) || 'NE',
     };
+  }
+
+  setDefaultLookup(field: 'defaultUnit' | 'defaultCondition', value: string) {
+    this.form.controls[field].setValue(value);
+  }
+
+  normalizeDefaultUnit() {
+    const next = canonicalUnit(this.form.controls.defaultUnit.value ?? '', this.units);
+    this.form.controls.defaultUnit.setValue(next || 'EA');
+  }
+
+  normalizeDefaultCondition() {
+    const next = canonicalCondition(this.form.controls.defaultCondition.value ?? '', this.conditions);
+    this.form.controls.defaultCondition.setValue(next || 'NE');
   }
 
   private resetValidation() {

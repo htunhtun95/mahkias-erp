@@ -18,6 +18,14 @@ namespace Mahkias.Api.Modules.Projects
 
         public string Description { get; set; }
 
+        public string Condition { get; set; }
+
+        public string Unit { get; set; }
+
+        public int? LeadTime { get; set; }
+
+        public int? MinimumQty { get; set; }
+
         public decimal? UnitPrice { get; set; }
 
         public int? Quantity { get; set; }
@@ -33,6 +41,13 @@ namespace Mahkias.Api.Modules.Projects
         public int? CurrencyId { get; set; }
     }
 
+    public class QuotationChargeRequest
+    {
+        public string Name { get; set; }
+
+        public decimal? Amount { get; set; }
+    }
+
     public class CreateQuotationRequest
     {
         public int SupplierId { get; set; }
@@ -45,9 +60,36 @@ namespace Mahkias.Api.Modules.Projects
 
         public int? CurrencyId { get; set; }
 
+        public DateTime? QuotedDate { get; set; }
+
+        public DateTime? ValidUntil { get; set; }
+
         public List<QuotationItemRequest> Items { get; set; } = new List<QuotationItemRequest>();
 
+        public List<QuotationChargeRequest> Charges { get; set; }
+
         public string DuplicateHandling { get; set; }
+    }
+
+    public class QuotationImportForm
+    {
+        public int SupplierId { get; set; }
+
+        public string SupplierReference { get; set; }
+
+        public int? CurrencyId { get; set; }
+
+        public string QuotedDate { get; set; }
+
+        public string ValidUntil { get; set; }
+
+        public string Items { get; set; }
+
+        public string Charges { get; set; }
+
+        public IFormFile File { get; set; }
+
+        public int DocumentId { get; set; }
     }
 
     public class QuotationExcelUploadForm
@@ -59,6 +101,18 @@ namespace Mahkias.Api.Modules.Projects
         public string PartNoColumn { get; set; }
 
         public string DescriptionColumn { get; set; }
+
+        public string ConditionColumn { get; set; }
+
+        public string UnitColumn { get; set; }
+
+        public string LeadTimeColumn { get; set; }
+
+        public string MinimumQtyColumn { get; set; }
+
+        public string QuotedDateColumn { get; set; }
+
+        public string ValidUntilColumn { get; set; }
 
         public string UnitPriceColumn { get; set; }
 
@@ -73,6 +127,18 @@ namespace Mahkias.Api.Modules.Projects
         public string DefaultPartNo { get; set; }
 
         public string DefaultDescription { get; set; }
+
+        public string DefaultCondition { get; set; }
+
+        public string DefaultUnit { get; set; }
+
+        public string DefaultLeadTime { get; set; }
+
+        public string DefaultMinimumQty { get; set; }
+
+        public string DefaultQuotedDate { get; set; }
+
+        public string DefaultValidUntil { get; set; }
 
         public string DefaultUnitPrice { get; set; }
 

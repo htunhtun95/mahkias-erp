@@ -6,6 +6,7 @@ using Mahkias.Core.Modules.Projects.Data.Args;
 using Mahkias.Core.Modules.Projects.Data.Result;
 using Microsoft.Data.SqlClient;
 using System.Data;
+using System.Text.Json;
 
 namespace Mahkias.Data.Modules.Projects.Repositories
 {
@@ -48,6 +49,13 @@ namespace Mahkias.Data.Modules.Projects.Repositories
                                 Description = reader.ReadStringValue("Description"),
                                 DSNNo = reader.ReadStringValue("DSNNo"),
                                 Quantity = reader.ReadNullableDecimalValue("Quantity"),
+                                Unit = reader.ReadStringValue("Unit"),
+                                Condition = reader.ReadStringValue("Condition"),
+                                SerialNo = reader.ReadStringValue("SerialNo"),
+                                TSN = reader.ReadStringValue("TSN"),
+                                TSO = reader.ReadStringValue("TSO"),
+                                CSN = reader.ReadStringValue("CSN"),
+                                CSO = reader.ReadStringValue("CSO"),
                                 TypeId = reader.ReadNullableIntValue("TypeId"),
                                 Type = reader.ReadStringValue("Type"),
                                 CreatedAt = reader.ReadDateTimeValue("CreatedAt"),
@@ -105,6 +113,9 @@ namespace Mahkias.Data.Modules.Projects.Repositories
                 command.Parameters.AddNVarChar("DSNNo", string.IsNullOrWhiteSpace(args.DSNNo) ? null : args.DSNNo, 100, false);
                 command.Parameters.AddNullableInt("Quantity", args.Quantity);
                 command.Parameters.AddNullableInt("TypeId", args.TypeId);
+                command.Parameters.AddNVarChar("Unit", string.IsNullOrWhiteSpace(args.Unit) ? null : args.Unit.Trim(), 100, false);
+                command.Parameters.AddNVarChar("Condition", string.IsNullOrWhiteSpace(args.Condition) ? null : args.Condition.Trim(), 100, false);
+                AddUsage(command, args);
                 command.Connection = _connection;
                 _connection.Open();
 
@@ -157,6 +168,11 @@ namespace Mahkias.Data.Modules.Projects.Repositories
                         ? $"'{row.Quantity.Value}' is not a valid number."
                         : "Quantity must be a numeric integer."));
                 }
+
+                if (!string.IsNullOrWhiteSpace(row.Label) && row.Label.Trim().Length > 200)
+                {
+                    issues.Add(Issue(row.RowNumber, "Label", "Label name must be 200 characters or fewer."));
+                }
             }
 
             return issues;
@@ -173,7 +189,8 @@ namespace Mahkias.Data.Modules.Projects.Repositories
                 Description = activity.Description,
                 Budget = activity.Budget,
                 Quantity = activity.Quantity,
-                TypeId = activity.TypeId
+                TypeId = activity.TypeId,
+                Label = activity.Label
             }));
             if (issues.Count > 0)
             {
@@ -189,7 +206,11 @@ namespace Mahkias.Data.Modules.Projects.Repositories
                     TextValue3 = string.IsNullOrWhiteSpace(activity.DSNNo) ? null : activity.DSNNo,
                     DecimalValue1 = activity.Budget,
                     NumericValue1 = activity.Quantity,
-                    NumericValue2 = activity.TypeId.HasValue && activity.TypeId.Value > 0 ? activity.TypeId : null
+                    NumericValue2 = activity.TypeId.HasValue && activity.TypeId.Value > 0 ? activity.TypeId : null,
+                    TextValue4 = string.IsNullOrWhiteSpace(activity.Label) ? null : activity.Label.Trim(),
+                    TextValue5 = string.IsNullOrWhiteSpace(activity.Condition) ? null : activity.Condition.Trim(),
+                    TextValue6 = string.IsNullOrWhiteSpace(activity.Unit) ? null : activity.Unit.Trim(),
+                    TextValue7 = UsageJson(activity)
                 })
                 .ToList();
 
@@ -278,6 +299,9 @@ namespace Mahkias.Data.Modules.Projects.Repositories
                 TextValue1 = activity.Args.PartNo,
                 TextValue2 = activity.Args.Description,
                 TextValue3 = activity.Args.DSNNo,
+                TextValue5 = string.IsNullOrWhiteSpace(activity.Args.Condition) ? null : activity.Args.Condition.Trim(),
+                TextValue6 = string.IsNullOrWhiteSpace(activity.Args.Unit) ? null : activity.Args.Unit.Trim(),
+                TextValue7 = UsageJson(activity.Args),
                 DecimalValue1 = activity.Args.Budget
             }).ToList();
 
@@ -388,6 +412,45 @@ namespace Mahkias.Data.Modules.Projects.Repositories
             {
                 description.Value = DBNull.Value;
             }
+            command.Parameters.AddNVarChar("Unit", string.IsNullOrWhiteSpace(args.Unit) ? null : args.Unit.Trim(), 100, false);
+            command.Parameters.AddNVarChar("Condition", string.IsNullOrWhiteSpace(args.Condition) ? null : args.Condition.Trim(), 100, false);
+            AddUsage(command, args);
+        }
+
+        private static void AddUsage(SqlCommand command, CreateActivityArgs args)
+        {
+            command.Parameters.AddNVarChar("SerialNo", Trimmed(args?.SerialNo), 100, false);
+            command.Parameters.AddNVarChar("TSN", Trimmed(args?.TSN), 100, false);
+            command.Parameters.AddNVarChar("TSO", Trimmed(args?.TSO), 100, false);
+            command.Parameters.AddNVarChar("CSN", Trimmed(args?.CSN), 100, false);
+            command.Parameters.AddNVarChar("CSO", Trimmed(args?.CSO), 100, false);
+        }
+
+        private static string UsageJson(CreateActivityArgs activity)
+        {
+            var serialNo = Trimmed(activity?.SerialNo);
+            var tsn = Trimmed(activity?.TSN);
+            var tso = Trimmed(activity?.TSO);
+            var csn = Trimmed(activity?.CSN);
+            var cso = Trimmed(activity?.CSO);
+            if (serialNo == null && tsn == null && tso == null && csn == null && cso == null)
+            {
+                return null;
+            }
+
+            return JsonSerializer.Serialize(new
+            {
+                SerialNo = serialNo,
+                TSN = tsn,
+                TSO = tso,
+                CSN = csn,
+                CSO = cso,
+            });
+        }
+
+        private static string Trimmed(string value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
         }
 
         public override Activity PopulateRecord(SqlDataReader reader)

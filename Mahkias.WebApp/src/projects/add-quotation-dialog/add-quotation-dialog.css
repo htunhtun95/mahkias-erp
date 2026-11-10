@@ -1,10 +1,11 @@
 :host {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   height: auto;
-  min-height: 0;
-  max-height: 90vh;
-  overflow: hidden;
+  min-height: 100%;
+  max-height: none;
+  overflow: visible;
   color: #202124;
 }
 
@@ -12,10 +13,47 @@
   position: relative;
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   height: auto;
-  min-height: 0;
-  max-height: 90vh;
-  overflow: hidden;
+  min-height: 100%;
+  max-height: none;
+  overflow: visible;
+}
+
+.import-overlay.prepare-cover {
+  z-index: 1;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.quote-spinner {
+  box-sizing: border-box;
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(26, 115, 232, 0.18);
+  border-top-color: #1a73e8;
+  border-right-color: #1a73e8;
+  border-bottom-color: #1a73e8;
+  border-left-color: transparent;
+  border-radius: 50%;
+  animation: quote-spinner-spin 0.75s linear infinite;
+}
+
+.quote-spinner.is-saving {
+  width: 40px;
+  height: 40px;
+  border-width: 3px;
+}
+
+@keyframes quote-spinner-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.quotation-dialog-container:has(.prepare-cover) .quotation-dialog-header,
+.quotation-dialog-container:has(.prepare-cover) .quotation-dialog-footer {
+  position: relative;
+  z-index: 2;
 }
 
 .quotation-dialog-header {
@@ -23,19 +61,27 @@
   position: relative;
   z-index: 2;
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 20px 24px 12px;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 16px 24px;
 }
 
 .quotation-dialog-body {
   flex: 1 1 auto;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 8px 24px 12px;
+  gap: 16px;
+  padding: 16px 24px 12px;
+}
+
+.quotation-dialog-body > * {
+  flex: 0 0 auto;
+  min-height: min-content;
 }
 
 .quotation-dialog-footer {
@@ -43,7 +89,7 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 8px;
+  gap: 10px;
   padding: 16px 24px;
   border-top: 1px solid #e0e0e0;
   background: #fff;
@@ -53,7 +99,13 @@
 .footer-actions {
   display: flex;
   align-items: center;
+  width: 100%;
+  min-width: 0;
   gap: 12px;
+}
+
+.title-row .erp-modal-close {
+  margin-left: auto;
 }
 
 .title-row,
@@ -95,7 +147,7 @@ h2 {
 label {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
   color: #5f6368;
   font-size: 12px;
@@ -116,9 +168,11 @@ select {
   box-sizing: border-box;
 }
 
-label.invalid input {
-  border: 1.5px solid #d93025;
-  background: #fce8e6;
+label.invalid input,
+label.invalid input:focus {
+  border-color: var(--field-invalid);
+  background: #fff;
+  box-shadow: var(--field-invalid-ring);
 }
 
 .supplier-field {
@@ -262,21 +316,54 @@ label.invalid input {
 }
 
 .sheet-wrap {
-  flex: 0 1 auto;
-  max-height: 360px;
+  flex: 0 0 auto;
+  min-height: 0;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.sheet-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
 }
 
 .row-search {
   display: flex;
+  flex: 1 1 280px;
   flex-direction: column;
   gap: 6px;
-  margin-bottom: 12px;
+  max-width: 360px;
+  min-width: min(100%, 220px);
+  margin-bottom: 0;
   color: #5f6368;
   font-size: 12px;
   font-weight: 500;
+}
+
+.sheet-filters:not(:has(.label-switch)):not(:has(.type-filter)) .row-search {
+  flex-basis: 100%;
+  max-width: none;
+}
+
+.type-filter {
+  flex: 0 1 220px;
+  max-width: 240px;
+}
+
+.row-search select,
+.type-filter select {
+  height: 36px;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #fff;
+  color: #202124;
+  font: inherit;
+  font-size: 13px;
 }
 
 .row-search input {
@@ -292,23 +379,96 @@ label.invalid input {
 
 .row-search input:focus {
   outline: none;
+  border-color: var(--field-focus);
+  box-shadow: var(--field-focus-ring);
+}
+
+.label-switch {
+  display: flex;
+  flex: 1 1 240px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+}
+
+.label-switch .segment-btn {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid #dadce0;
+  border-radius: 999px;
+  background: #fff;
+  color: #5f6368;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.label-switch .segment-btn:hover:not(.active):not(:disabled) {
+  background: #f8f9fa;
+  border-color: #bdc1c6;
+  color: #202124;
+}
+
+.label-switch .segment-btn.active {
   border-color: #1a73e8;
-  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.16);
+  background: #1a73e8;
+  color: #fff;
+  font-weight: 600;
+}
+
+.label-switch .segment-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.label-switch .segment-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #f1f3f4;
+  color: #5f6368;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.label-switch .segment-btn.active .segment-count {
+  background: rgba(255, 255, 255, 0.24);
+  color: #fff;
 }
 
 .sheet {
   width: 100%;
-  min-width: 980px;
-  border-collapse: collapse;
+  min-width: 1440px;
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: fixed;
 }
 
 .col-dsn { width: 100px; }
 .col-part { width: 160px; }
 .col-description { width: auto; }
+.col-condition { width: 110px; }
+.col-unit { width: 100px; }
+.col-lead { width: 120px; }
 .col-currency { width: 118px; }
 .col-price { width: 148px; }
 .col-qty { width: 90px; }
+.col-moq { width: 90px; }
 
 .price-field {
   display: flex;
@@ -353,6 +513,9 @@ label.invalid input {
 .sheet th.part,
 .sheet td.part {
   min-width: 150px;
+}
+
+.sheet td.part {
   position: relative;
 }
 
@@ -385,22 +548,29 @@ label.invalid input {
 .sheet th,
 .sheet td {
   vertical-align: middle;
+  border: 0;
+  border-right: 1px solid #e0e0e0;
+  border-bottom: 1px solid #e0e0e0;
 }
 
-.sheet th {
-  border: 1px solid #e0e0e0;
+.sheet th:first-child,
+.sheet td:first-child {
+  border-left: 1px solid #e0e0e0;
 }
 
-.sheet th {
+.sheet thead th {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 3;
+  border-top: 1px solid #e0e0e0;
   background: #f8f9fa;
+  background-clip: padding-box;
   color: #5f6368;
   font-size: 12px;
   font-weight: 500;
   text-align: left;
   padding: 10px 12px;
+  box-shadow: 0 1px 0 #e0e0e0;
 }
 
 .sheet td.dsn input,
@@ -409,21 +579,34 @@ label.invalid input {
   text-align: center;
 }
 
-.qty-stack {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 0;
-}
-
-.qty-stack input {
-  width: 100%;
-}
-
 .sheet td.invalid {
-  box-shadow: inset 0 0 0 1.5px #d93025;
-  background: #fce8e6;
+  background: #fff;
+  box-shadow: none;
+}
+
+.sheet tbody td input,
+.sheet tbody td select,
+.sheet tbody td textarea {
+  border: none;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.sheet tbody td:focus-within {
+  position: relative;
+  z-index: 2;
+  border: 2px solid #1a73e8;
+  box-shadow: none;
+}
+
+.sheet tbody td input:focus,
+.sheet tbody td select:focus,
+.sheet tbody td textarea:focus {
+  outline: none;
+  border: none;
+  box-shadow: none;
 }
 
 .sheet td.warn {

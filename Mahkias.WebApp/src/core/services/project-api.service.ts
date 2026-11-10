@@ -1,5 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { map, Observable, shareReplay, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 export interface Project {
@@ -20,6 +21,10 @@ export interface ProjectDocument {
   googleDriveFileId: string;
   webViewLink: string;
   uploadedAt?: string | null;
+  assetId?: string;
+  fileSize?: number;
+  sortOrder?: number;
+  isOriginal?: boolean;
 }
 
 export interface QuotationDocument {
@@ -30,6 +35,10 @@ export interface QuotationDocument {
   googleDriveFileId: string;
   webViewLink: string;
   uploadedAt?: string | null;
+  assetId?: string;
+  fileSize?: number;
+  sortOrder?: number;
+  isOriginal?: boolean;
 }
 
 export interface Activity {
@@ -42,6 +51,13 @@ export interface Activity {
   description: string | null;
   dsnNo: string | null;
   quantity: number | null;
+  unit?: string | null;
+  condition?: string | null;
+  serialNo?: string | null;
+  tsn?: string | null;
+  tso?: string | null;
+  csn?: string | null;
+  cso?: string | null;
   typeId: number | null;
   type: string | null;
   createdAt?: string | null;
@@ -59,6 +75,16 @@ export interface ActivityGroup {
   description?: string | null;
   typeId?: number | null;
   createdAt?: string | null;
+}
+
+export interface ActivityLabel {
+  id: number;
+  projectId: number;
+  name: string;
+  typeId: number;
+  createdAt?: string | null;
+  activityIds: number[];
+  activityGroupIds: number[];
 }
 
 export interface ActivityType {
@@ -80,6 +106,14 @@ export interface CreateActivityRequest {
   dsnNo: string;
   quantity: number | null;
   typeId: number | null;
+  label?: string | null;
+  unit?: string | null;
+  condition?: string | null;
+  serialNo?: string | null;
+  tsn?: string | null;
+  tso?: string | null;
+  csn?: string | null;
+  cso?: string | null;
 }
 
 export interface ExcelColumn {
@@ -97,6 +131,14 @@ export interface ActivityExcelMapping {
     type?: string;
     quantity?: string;
     budget?: string;
+    label?: string;
+    unit?: string;
+    condition?: string;
+    serialNo?: string;
+    tsn?: string;
+    tso?: string;
+    csn?: string;
+    cso?: string;
   };
 }
 
@@ -124,18 +166,35 @@ export interface Supplier {
   quotationCount?: number;
 }
 
+export interface SupplierQuotationProject {
+  id: number;
+  reference?: string | null;
+  name: string;
+}
+
 export interface SupplierQuotation {
   id: number;
   code: string;
+  supplierReference?: string | null;
   projectNames?: string | null;
   projectId?: number | null;
+  projects?: SupplierQuotationProject[];
   itemCount: number;
   createdAt?: string | null;
+  quotedDate?: string | null;
+  validUntil?: string | null;
 }
 
 export interface SupplierDetail extends Supplier {
   projectCount: number;
   quotations: SupplierQuotation[];
+}
+
+export interface LookupValue {
+  id: number;
+  name: string;
+  code: string;
+  isDefault?: boolean;
 }
 
 export interface Currency {
@@ -154,6 +213,8 @@ export interface QuotationListItem {
   supplierReference?: string | null;
   createdAt?: string | null;
   modifiedAt?: string | null;
+  quotedDate?: string | null;
+  validUntil?: string | null;
   itemCount: number;
   totalPrice: number;
   currencyId?: number | null;
@@ -167,7 +228,12 @@ export interface QuotationLine {
   id: number;
   dsnNo?: string | null;
   partNo?: string | null;
+  isAlternativePart?: boolean;
   description?: string | null;
+  condition?: string | null;
+  unit?: string | null;
+  leadTime?: number | null;
+  minimumQty?: number | null;
   unitPrice?: number | null;
   quantity: number;
   totalPrice?: number | null;
@@ -181,12 +247,29 @@ export interface QuotationLine {
   baseTotalPrice?: number | null;
 }
 
+export interface QuotationCharge {
+  id: number;
+  name: string;
+  basis?: string | null;
+  amount?: number | null;
+  rate?: number | null;
+  baseAmount: number;
+  sortOrder: number;
+}
+
+export interface QuotationChargeInput {
+  name: string;
+  amount: number;
+}
+
 export interface QuotationDetail extends QuotationListItem {
   items: QuotationLine[];
+  charges?: QuotationCharge[];
 }
 
 export interface ActivityQuotationLink {
   activityId: number;
+  supplierId?: number;
   itemId?: number;
   quotationId: number;
   quotationRef: string;
@@ -194,6 +277,12 @@ export interface ActivityQuotationLink {
   supplierQuotationRef?: string | null;
   partNo?: string | null;
   description?: string | null;
+  condition?: string | null;
+  unit?: string | null;
+  leadTime?: number | null;
+  minimumQty?: number | null;
+  quotedDate?: string | null;
+  validUntil?: string | null;
   quantity?: number | null;
   alternativePart?: boolean;
   unitPrice?: number | null;
@@ -210,6 +299,10 @@ export interface QuotationItemInput {
   dsnNo: string;
   partNo: string;
   description: string;
+  condition?: string | null;
+  unit?: string | null;
+  leadTime?: number | null;
+  minimumQty?: number | null;
   unitPrice: number | null;
   quantity: number;
   totalPrice: number | null;
@@ -247,6 +340,12 @@ export interface QuotationExcelMapping {
     dsnNo?: string;
     partNo?: string;
     description?: string;
+    condition?: string;
+    unit?: string;
+    leadTime?: string;
+    minimumQty?: string;
+    quotedDate?: string;
+    validUntil?: string;
     unitPrice?: string;
     quantity?: string;
     totalPrice?: string;
@@ -265,6 +364,159 @@ export interface QuotationImportValidation {
   items: QuotationItemInput[];
   choices?: QuotationMapChoice[];
   supplierReference?: string | null;
+  quotedDate?: string | null;
+  validUntil?: string | null;
+}
+
+export interface PurchaseOrderListItem {
+  id: number;
+  supplierId: number;
+  supplierName: string;
+  code: string;
+  poDate?: string | null;
+  shipToAddress?: string | null;
+  itemCount: number;
+  currencyId: number;
+  currencyCode?: string | null;
+  currencySymbol?: string | null;
+  exchangeRate: number;
+  subTotal: number;
+  baseSubTotal: number;
+  total: number;
+  baseTotalAmount: number;
+  statusId: number;
+  statusCode?: string | null;
+  statusName?: string | null;
+}
+
+export interface PurchaseOrderLine {
+  id: number;
+  activityId?: number | null;
+  quotationId?: number | null;
+  quotationCode?: string | null;
+  dsnNo?: string | null;
+  partNo?: string | null;
+  description?: string | null;
+  condition?: string | null;
+  unit?: string | null;
+  leadTime?: number | null;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  currencyId?: number | null;
+  currencyCode?: string | null;
+  currencySymbol?: string | null;
+}
+
+export interface PurchaseOrderTraceLine {
+  purchaseOrderId: number;
+  code: string;
+  poDate?: string | null;
+  supplierName: string;
+  lineId: number;
+  activityId?: number | null;
+  quotationId?: number | null;
+  quotationCode?: string | null;
+  dsnNo?: string | null;
+  partNo?: string | null;
+  description?: string | null;
+  condition?: string | null;
+  unit?: string | null;
+  leadTime?: number | null;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  currencyCode?: string | null;
+  currencySymbol?: string | null;
+  statusCode?: string | null;
+  statusName?: string | null;
+}
+
+export interface PurchaseOrderHistoryEntry {
+  id: number;
+  action: string;
+  summary: string;
+  statusCode?: string | null;
+  statusName?: string | null;
+  actorName?: string | null;
+  actorEmail?: string | null;
+  userId?: number | null;
+  createdAt?: string | null;
+}
+
+export interface PurchaseOrderDetail extends PurchaseOrderListItem {
+  items: PurchaseOrderLine[];
+  charges: QuotationCharge[];
+  history: PurchaseOrderHistoryEntry[];
+}
+
+export interface PurchaseOrderItemInput {
+  activityId?: number | null;
+  quotationId?: number | null;
+  dsnNo?: string | null;
+  partNo?: string | null;
+  description?: string | null;
+  condition?: string | null;
+  unit?: string | null;
+  leadTime?: number | null;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+export interface PurchaseOrderWrite {
+  code?: string | null;
+  supplierId: number;
+  poDate?: string | null;
+  shipToAddress?: string | null;
+  currencyId?: number | null;
+  status?: string | null;
+  projectIds: number[];
+  items: PurchaseOrderItemInput[];
+  charges?: QuotationChargeInput[];
+}
+
+export interface PurchaseOrderDocument {
+  documentId: number;
+  purchaseOrderId: number;
+  fileName: string;
+  fileType: string;
+  webViewLink: string;
+  uploadedAt?: string | null;
+  assetId?: string;
+  fileSize?: number;
+  sortOrder?: number;
+  isOriginal?: boolean;
+}
+
+export interface PurchaseOrderExcelMappingInput {
+  dsnNoColumn?: string;
+  partNoColumn?: string;
+  descriptionColumn?: string;
+  conditionColumn?: string;
+  unitColumn?: string;
+  leadTimeColumn?: string;
+  quantityColumn?: string;
+  unitPriceColumn?: string;
+  totalPriceColumn?: string;
+  defaultDsnNo?: string;
+  defaultPartNo?: string;
+  defaultDescription?: string;
+  defaultCondition?: string;
+  defaultUnit?: string;
+  defaultLeadTime?: string;
+  defaultQuantity?: string;
+  defaultUnitPrice?: string;
+  defaultTotalPrice?: string;
+}
+
+export interface PurchaseOrderExcelValidation {
+  valid: boolean;
+  ready: number;
+  rowCount: number;
+  errorCount: number;
+  errors: ActivityImportIssue[];
+  items: PurchaseOrderItemInput[];
 }
 
 export interface ActivityExcelUpload {
@@ -274,18 +526,59 @@ export interface ActivityExcelUpload {
   typeColumn: string;
   quantityColumn: string;
   budgetColumn: string;
+  labelColumn: string;
+  unitColumn: string;
+  conditionColumn: string;
+  serialNoColumn: string;
+  tsnColumn: string;
+  tsoColumn: string;
+  csnColumn: string;
+  csoColumn: string;
   defaultDsnNo: string;
   defaultPartNo: string;
   defaultTypeId: number | null;
   defaultQuantity: number | null;
   defaultBudget: number | null;
+  defaultUnit: string;
+  defaultCondition: string;
 }
 
 @Injectable({ providedIn: 'root' })
 export class ProjectApiService {
   private readonly baseUrl = `${environment.apiUrl}/api`;
+  private readonly reads = new Map<string, Observable<unknown>>();
 
   constructor(private http: HttpClient) {}
+
+  forgetProject(projectId: number) {
+    const prefix = `${projectId}:`;
+    for (const key of this.reads.keys()) {
+      if (key.startsWith(prefix)) {
+        this.reads.delete(key);
+      }
+    }
+  }
+
+  private cached<T>(key: string, source: () => Observable<T>): Observable<T> {
+    const existing = this.reads.get(key) as Observable<T> | undefined;
+    if (existing) {
+      return existing;
+    }
+    const shared = new Observable<T>((subscriber) => source().subscribe({
+      next: (value) => subscriber.next(value),
+      error: (error) => {
+        this.reads.delete(key);
+        subscriber.error(error);
+      },
+      complete: () => subscriber.complete(),
+    })).pipe(shareReplay({ bufferSize: 1, refCount: false }));
+    this.reads.set(key, shared);
+    return shared;
+  }
+
+  private forget(key: string) {
+    this.reads.delete(key);
+  }
 
   list(search?: string, sortBy = 'createdAt', sortDirection: 'asc' | 'desc' = 'desc') {
     const params: Record<string, string> = { sortBy, sortDirection };
@@ -305,20 +598,66 @@ export class ProjectApiService {
     return this.http.get<ProjectDocument[]>(`${this.baseUrl}/projects/${projectId}/documents`);
   }
 
-  uploadProjectDocument(projectId: number, file: File) {
+  uploadProjectDocument(projectId: number, file: File, isOriginal = false, sortOrder?: number) {
     const body = new FormData();
     body.append('file', file, file.name);
+    body.append('isOriginal', String(isOriginal));
+    if (sortOrder != null) {
+      body.append('sortOrder', String(sortOrder));
+    }
     return this.http.post<ProjectDocument>(`${this.baseUrl}/projects/${projectId}/documents`, body);
+  }
+
+  removeProjectDocument(projectId: number, documentId: number) {
+    return this.http.delete<void>(`${this.baseUrl}/projects/${projectId}/documents/${documentId}`);
   }
 
   quotationDocuments(projectId: number, quotationId: number) {
     return this.http.get<QuotationDocument[]>(`${this.baseUrl}/projects/${projectId}/quotations/${quotationId}/documents`);
   }
 
-  uploadQuotationDocuments(projectId: number, quotationId: number, file: File) {
+  uploadQuotationDocuments(projectId: number, quotationId: number, file: File, isOriginal = false, sortOrder?: number) {
     const body = new FormData();
     body.append('files', file, file.name);
+    body.append('isOriginal', String(isOriginal));
+    if (sortOrder != null) {
+      body.append('sortOrder', String(sortOrder));
+    }
     return this.http.post<QuotationDocument[]>(`${this.baseUrl}/projects/${projectId}/quotations/${quotationId}/documents`, body);
+  }
+
+  uploadOwnedDocument(kind: 'quotation' | 'purchase-order' | 'project', projectId: number, ownerId: number, file: File, isOriginal: boolean, sortOrder: number): Observable<QuotationDocument | PurchaseOrderDocument | ProjectDocument> {
+    if (kind === 'project') {
+      return this.uploadProjectDocument(projectId, file, isOriginal, sortOrder);
+    }
+    if (kind === 'quotation') {
+      return this.uploadQuotationDocuments(projectId, ownerId, file, isOriginal, sortOrder).pipe(map((documents) => {
+        const document = documents[0];
+        if (!document) {
+          throw new Error('The file was stored, but its record could not be saved.');
+        }
+        return document;
+      }));
+    }
+    const body = new FormData();
+    body.append('file', file, file.name);
+    body.append('isOriginal', String(isOriginal));
+    body.append('sortOrder', String(sortOrder));
+    return this.http.post<PurchaseOrderDocument>(`${this.baseUrl}/projects/${projectId}/purchase-orders/${ownerId}/documents`, body);
+  }
+
+  orderDocuments(
+    kind: 'quotation' | 'purchase-order' | 'project',
+    projectId: number,
+    ownerId: number,
+    body: { documents: { documentId: number; sortOrder: number }[]; originalDocumentId?: number | null },
+  ) {
+    const path = kind === 'project'
+      ? `${this.baseUrl}/projects/${projectId}/documents/order`
+      : kind === 'quotation'
+        ? `${this.baseUrl}/projects/${projectId}/quotations/${ownerId}/documents/order`
+        : `${this.baseUrl}/projects/${projectId}/purchase-orders/${ownerId}/documents/order`;
+    return this.http.put<QuotationDocument[] | PurchaseOrderDocument[] | ProjectDocument[]>(path, body);
   }
 
   replaceQuotationDocument(projectId: number, quotationId: number, documentId: number, file: File) {
@@ -344,7 +683,9 @@ export class ProjectApiService {
   }
 
   updateActivity(id: number, body: CreateActivityRequest & { projectId: number }) {
-    return this.http.put<Activity>(`${this.baseUrl}/activities/${id}`, body);
+    return this.http.put<Activity>(`${this.baseUrl}/activities/${id}`, body).pipe(
+      tap(() => this.forgetProject(body.projectId)),
+    );
   }
 
   updateActivities(
@@ -358,30 +699,88 @@ export class ProjectApiService {
   }
 
   activityGroups(projectId: number) {
-    return this.http.get<ActivityGroup[]>(`${this.baseUrl}/projects/${projectId}/activity-groups`);
+    return this.cached(`${projectId}:groups`, () => this.http.get<ActivityGroup[]>(`${this.baseUrl}/projects/${projectId}/activity-groups`));
   }
 
   createActivityGroup(projectId: number, name: string, description: string) {
-    return this.http.post<ActivityGroup>(`${this.baseUrl}/projects/${projectId}/activity-groups`, { name, description });
+    return this.http.post<ActivityGroup>(`${this.baseUrl}/projects/${projectId}/activity-groups`, { name, description }).pipe(
+      tap(() => this.forgetProject(projectId)),
+    );
   }
 
   updateActivityGroup(projectId: number, id: number, name: string, description: string) {
-    return this.http.put<ActivityGroup>(`${this.baseUrl}/projects/${projectId}/activity-groups/${id}`, { name, description });
+    return this.http.put<ActivityGroup>(`${this.baseUrl}/projects/${projectId}/activity-groups/${id}`, { name, description }).pipe(
+      tap(() => this.forgetProject(projectId)),
+    );
   }
 
   deleteActivityGroup(projectId: number, id: number) {
-    return this.http.delete<void>(`${this.baseUrl}/projects/${projectId}/activity-groups/${id}`);
+    return this.http.delete<void>(`${this.baseUrl}/projects/${projectId}/activity-groups/${id}`).pipe(
+      tap(() => this.forgetProject(projectId)),
+    );
   }
 
   assignActivityGroup(projectId: number, activityId: number, activityGroupId: number | null) {
-    return this.http.put<void>(`${this.baseUrl}/projects/${projectId}/activities/${activityId}/group`, { activityGroupId });
+    return this.http.put<void>(`${this.baseUrl}/projects/${projectId}/activities/${activityId}/group`, { activityGroupId }).pipe(
+      tap(() => this.forgetProject(projectId)),
+    );
   }
 
   assignActivities(projectId: number, activityIds: number[], activityGroupId: number | null) {
     return this.http.put<{ updated: number }>(`${this.baseUrl}/projects/${projectId}/activity-groups/assign`, {
       activityIds,
       activityGroupId,
-    });
+    }).pipe(tap(() => this.forgetProject(projectId)));
+  }
+
+  activityLabels(projectId: number) {
+    return this.cached(`${projectId}:labels`, () => this.http.get<ActivityLabel[]>(`${this.baseUrl}/projects/${projectId}/activity-labels`));
+  }
+
+  createActivityLabel(projectId: number, name: string, typeId: number) {
+    return this.http.post<ActivityLabel>(`${this.baseUrl}/projects/${projectId}/activity-labels`, { name, typeId }).pipe(
+      tap(() => this.forgetProject(projectId)),
+    );
+  }
+
+  deleteActivityLabel(projectId: number, id: number) {
+    return this.http.delete<void>(`${this.baseUrl}/projects/${projectId}/activity-labels/${id}`).pipe(
+      tap(() => this.forgetProject(projectId)),
+    );
+  }
+
+  setActivityLabels(projectId: number, activityIds: number[], labelIds: number[]) {
+    return this.http.put<{ updated: number }>(`${this.baseUrl}/projects/${projectId}/activity-labels/activities`, {
+      activityIds,
+      labelIds,
+    }).pipe(tap(() => this.forgetProject(projectId)));
+  }
+
+  setGroupLabels(projectId: number, activityGroupIds: number[], labelIds: number[]) {
+    return this.http.put<{ updated: number }>(`${this.baseUrl}/projects/${projectId}/activity-labels/groups`, {
+      activityGroupIds,
+      labelIds,
+    }).pipe(tap(() => this.forgetProject(projectId)));
+  }
+
+  removeActivityLabel(projectId: number, activityId: number, labelId: number) {
+    return this.http.delete<{ updated: number }>(`${this.baseUrl}/projects/${projectId}/activities/${activityId}/labels/${labelId}`).pipe(
+      tap(() => this.forgetProject(projectId)),
+    );
+  }
+
+  removeActivityLabels(projectId: number, activityId: number) {
+    return this.http.delete<{ updated: number }>(`${this.baseUrl}/projects/${projectId}/activities/${activityId}/labels`).pipe(
+      tap(() => this.forgetProject(projectId)),
+    );
+  }
+
+  removeLabelMembers(projectId: number, activityIds: number[], activityGroupIds: number[], labelId: number | null) {
+    return this.http.put<{ updated: number }>(`${this.baseUrl}/projects/${projectId}/activity-labels/remove`, {
+      activityIds,
+      activityGroupIds,
+      labelId,
+    }).pipe(tap(() => this.forgetProject(projectId)));
   }
 
   addActivity(projectId: number, body: CreateActivityRequest) {
@@ -423,6 +822,14 @@ export class ProjectApiService {
     body.append('typeColumn', mapping.typeColumn ?? '');
     body.append('quantityColumn', mapping.quantityColumn ?? '');
     body.append('budgetColumn', mapping.budgetColumn ?? '');
+    body.append('labelColumn', mapping.labelColumn ?? '');
+    body.append('unitColumn', mapping.unitColumn ?? '');
+    body.append('conditionColumn', mapping.conditionColumn ?? '');
+    body.append('serialNoColumn', mapping.serialNoColumn ?? '');
+    body.append('tsnColumn', mapping.tsnColumn ?? '');
+    body.append('tsoColumn', mapping.tsoColumn ?? '');
+    body.append('csnColumn', mapping.csnColumn ?? '');
+    body.append('csoColumn', mapping.csoColumn ?? '');
     body.append('defaultDsnNo', mapping.defaultDsnNo ?? '');
     body.append('defaultPartNo', mapping.defaultPartNo ?? '');
     if (mapping.defaultTypeId) {
@@ -434,23 +841,29 @@ export class ProjectApiService {
     if (mapping.defaultBudget != null) {
       body.append('defaultBudget', String(mapping.defaultBudget));
     }
+    body.append('defaultUnit', mapping.defaultUnit ?? '');
+    body.append('defaultCondition', mapping.defaultCondition ?? '');
     return body;
   }
 
   activityTypes() {
-    return this.http.get<ActivityType[]>(`${this.baseUrl}/lookup/activity-types`);
+    return this.cached('activity-types', () => this.http.get<ActivityType[]>(`${this.baseUrl}/lookup/activity-types`));
   }
 
   suppliers(search?: string) {
     const params: Record<string, string> = {};
-    if (search?.trim()) {
-      params['search'] = search.trim();
+    const term = search?.trim() ?? '';
+    if (term) {
+      params['search'] = term;
+      return this.http.get<Supplier[]>(`${this.baseUrl}/suppliers`, { params });
     }
-    return this.http.get<Supplier[]>(`${this.baseUrl}/suppliers`, { params });
+    return this.cached('suppliers', () => this.http.get<Supplier[]>(`${this.baseUrl}/suppliers`));
   }
 
   createSupplier(name: string, reference?: string) {
-    return this.http.post<Supplier>(`${this.baseUrl}/suppliers`, { name, reference: reference ?? null });
+    return this.http.post<Supplier>(`${this.baseUrl}/suppliers`, { name, reference: reference ?? null }).pipe(
+      tap(() => this.forget('suppliers')),
+    );
   }
 
   supplier(id: number) {
@@ -458,19 +871,35 @@ export class ProjectApiService {
   }
 
   updateSupplier(id: number, name: string, reference?: string) {
-    return this.http.put<SupplierDetail>(`${this.baseUrl}/suppliers/${id}`, { name, reference: reference ?? null });
+    return this.http.put<SupplierDetail>(`${this.baseUrl}/suppliers/${id}`, { name, reference: reference ?? null }).pipe(
+      tap(() => this.forget('suppliers')),
+    );
   }
 
   deleteSupplier(id: number) {
-    return this.http.delete<void>(`${this.baseUrl}/suppliers/${id}`);
+    return this.http.delete<void>(`${this.baseUrl}/suppliers/${id}`).pipe(
+      tap(() => this.forget('suppliers')),
+    );
   }
 
   quotations(projectId: number) {
-    return this.http.get<QuotationListItem[]>(`${this.baseUrl}/projects/${projectId}/quotations`);
+    return this.cached(`${projectId}:quotations`, () => this.http.get<QuotationListItem[]>(`${this.baseUrl}/projects/${projectId}/quotations`));
   }
 
   currencies() {
-    return this.http.get<Currency[]>(`${this.baseUrl}/currencies`);
+    return this.cached('currencies', () => this.http.get<Currency[]>(`${this.baseUrl}/currencies`));
+  }
+
+  units() {
+    return this.cached('units', () => this.http.get<LookupValue[]>(`${this.baseUrl}/units`));
+  }
+
+  conditions() {
+    return this.cached('conditions', () => this.http.get<LookupValue[]>(`${this.baseUrl}/conditions`));
+  }
+
+  purchaseOrderStatuses() {
+    return this.cached('purchase-order-statuses', () => this.http.get<LookupValue[]>(`${this.baseUrl}/purchase-order-statuses`));
   }
 
   quotation(id: number) {
@@ -478,7 +907,7 @@ export class ProjectApiService {
   }
 
   quotationLinks(projectId: number) {
-    return this.http.get<ActivityQuotationLink[]>(`${this.baseUrl}/projects/${projectId}/quotation-links`);
+    return this.cached(`${projectId}:links`, () => this.http.get<ActivityQuotationLink[]>(`${this.baseUrl}/projects/${projectId}/quotation-links`));
   }
 
   updateQuotation(id: number, body: {
@@ -486,7 +915,10 @@ export class ProjectApiService {
     supplierReference: string;
     projectIds: number[];
     currencyId?: number | null;
+    quotedDate?: string | null;
+    validUntil?: string | null;
     items: QuotationItemInput[];
+    charges?: QuotationChargeInput[];
   }) {
     return this.http.put<QuotationDetail>(`${this.baseUrl}/quotations/${id}`, body);
   }
@@ -510,6 +942,67 @@ export class ProjectApiService {
     return this.http.post<QuotationListItem>(`${this.baseUrl}/quotations`, body);
   }
 
+  importQuotation(
+    projectId: number,
+    body: {
+      supplierId: number;
+      supplierReference: string;
+      currencyId?: number | null;
+      quotedDate?: string | null;
+      validUntil?: string | null;
+      items: QuotationItemInput[];
+      charges?: QuotationChargeInput[];
+    },
+    file: File | null,
+  ) {
+    const form = new FormData();
+    form.append('supplierId', String(body.supplierId));
+    form.append('supplierReference', body.supplierReference ?? '');
+    if (body.currencyId != null) {
+      form.append('currencyId', String(body.currencyId));
+    }
+    form.append('quotedDate', body.quotedDate ?? '');
+    form.append('validUntil', body.validUntil ?? '');
+    form.append('items', JSON.stringify(body.items));
+    form.append('charges', JSON.stringify(body.charges ?? []));
+    if (file) {
+      form.append('file', file, file.name);
+    }
+    return this.http.post<QuotationListItem>(`${this.baseUrl}/projects/${projectId}/quotations/import`, form);
+  }
+
+  saveQuotation(
+    projectId: number,
+    quotationId: number,
+    body: {
+      supplierId: number;
+      supplierReference: string;
+      currencyId?: number | null;
+      quotedDate?: string | null;
+      validUntil?: string | null;
+      items: QuotationItemInput[];
+      charges?: QuotationChargeInput[];
+    },
+    file: File,
+    documentId?: number | null,
+  ) {
+    const form = new FormData();
+    form.append('supplierId', String(body.supplierId));
+    form.append('supplierReference', body.supplierReference ?? '');
+    if (body.currencyId != null) {
+      form.append('currencyId', String(body.currencyId));
+    }
+    form.append('quotedDate', body.quotedDate ?? '');
+    form.append('validUntil', body.validUntil ?? '');
+    form.append('items', JSON.stringify(body.items));
+    form.append('charges', JSON.stringify(body.charges ?? []));
+    if (documentId) {
+      form.append('documentId', String(documentId));
+    }
+    form.append('file', file, file.name);
+    return this.http.post<QuotationDetail>(`${this.baseUrl}/projects/${projectId}/quotations/${quotationId}/save`, form);
+  }
+
   quotationExcelMapping(projectId: number, file: File) {
     const body = new FormData();
     body.append('file', file);
@@ -526,12 +1019,24 @@ export class ProjectApiService {
       dsnNoColumn: string;
       partNoColumn: string;
       descriptionColumn: string;
+      conditionColumn?: string;
+      unitColumn?: string;
+      leadTimeColumn?: string;
+      minimumQtyColumn?: string;
+      quotedDateColumn?: string;
+      validUntilColumn?: string;
       unitPriceColumn: string;
       quantityColumn: string;
       totalPriceColumn: string;
       defaultDsnNo: string;
       defaultPartNo: string;
       defaultDescription: string;
+      defaultCondition?: string;
+      defaultUnit?: string;
+      defaultLeadTime?: string;
+      defaultMinimumQty?: string;
+      defaultQuotedDate?: string;
+      defaultValidUntil?: string;
       defaultUnitPrice: string;
       defaultQuantity: string;
       defaultTotalPrice: string;
@@ -545,6 +1050,12 @@ export class ProjectApiService {
     body.append('dsnNoColumn', mapping.dsnNoColumn ?? '');
     body.append('partNoColumn', mapping.partNoColumn ?? '');
     body.append('descriptionColumn', mapping.descriptionColumn ?? '');
+    body.append('conditionColumn', mapping.conditionColumn ?? '');
+    body.append('unitColumn', mapping.unitColumn ?? '');
+    body.append('leadTimeColumn', mapping.leadTimeColumn ?? '');
+    body.append('minimumQtyColumn', mapping.minimumQtyColumn ?? '');
+    body.append('quotedDateColumn', mapping.quotedDateColumn ?? '');
+    body.append('validUntilColumn', mapping.validUntilColumn ?? '');
     body.append('unitPriceColumn', mapping.unitPriceColumn ?? '');
     body.append('quantityColumn', mapping.quantityColumn ?? '');
     body.append('totalPriceColumn', mapping.totalPriceColumn ?? '');
@@ -552,6 +1063,12 @@ export class ProjectApiService {
     body.append('defaultDsnNo', mapping.defaultDsnNo ?? '');
     body.append('defaultPartNo', mapping.defaultPartNo ?? '');
     body.append('defaultDescription', mapping.defaultDescription ?? '');
+    body.append('defaultCondition', mapping.defaultCondition ?? '');
+    body.append('defaultUnit', mapping.defaultUnit ?? '');
+    body.append('defaultLeadTime', mapping.defaultLeadTime ?? '');
+    body.append('defaultMinimumQty', mapping.defaultMinimumQty ?? '');
+    body.append('defaultQuotedDate', mapping.defaultQuotedDate ?? '');
+    body.append('defaultValidUntil', mapping.defaultValidUntil ?? '');
     body.append('defaultUnitPrice', mapping.defaultUnitPrice ?? '');
     body.append('defaultQuantity', mapping.defaultQuantity ?? '');
     body.append('defaultTotalPrice', mapping.defaultTotalPrice ?? '');
@@ -564,4 +1081,102 @@ export class ProjectApiService {
       body,
     );
   }
+
+  purchaseOrders(projectId: number) {
+    return this.cached(`${projectId}:orders`, () => this.http.get<PurchaseOrderListItem[]>(`${this.baseUrl}/projects/${projectId}/purchase-orders`));
+  }
+
+  purchaseOrderLines(projectId: number) {
+    return this.cached(`${projectId}:po-lines`, () => this.http.get<PurchaseOrderTraceLine[]>(`${this.baseUrl}/projects/${projectId}/purchase-orders/lines`));
+  }
+
+  purchaseOrder(id: number) {
+    return this.http.get<PurchaseOrderDetail>(`${this.baseUrl}/purchase-orders/${id}`);
+  }
+
+  nextPurchaseOrderCode() {
+    return this.http.get<{ code: string }>(`${this.baseUrl}/purchase-orders/next-code`);
+  }
+
+  purchaseOrderDocuments(projectId: number, purchaseOrderId: number) {
+    return this.http.get<PurchaseOrderDocument[]>(`${this.baseUrl}/projects/${projectId}/purchase-orders/${purchaseOrderId}/documents`);
+  }
+
+  removePurchaseOrderDocument(projectId: number, purchaseOrderId: number, documentId: number) {
+    return this.http.delete<void>(`${this.baseUrl}/projects/${projectId}/purchase-orders/${purchaseOrderId}/documents/${documentId}`);
+  }
+
+  createPurchaseOrder(body: PurchaseOrderWrite) {
+    return this.http.post<PurchaseOrderDetail>(`${this.baseUrl}/purchase-orders`, body);
+  }
+
+  updatePurchaseOrder(id: number, body: PurchaseOrderWrite) {
+    return this.http.put<PurchaseOrderDetail>(`${this.baseUrl}/purchase-orders/${id}`, body);
+  }
+
+  deletePurchaseOrder(id: number) {
+    return this.http.delete<void>(`${this.baseUrl}/purchase-orders/${id}`);
+  }
+
+  importPurchaseOrder(projectId: number, body: PurchaseOrderWrite, file?: File | null) {
+    return this.http.post<PurchaseOrderDetail>(
+      `${this.baseUrl}/projects/${projectId}/purchase-orders/import`,
+      purchaseOrderForm(body, file),
+    );
+  }
+
+  savePurchaseOrder(projectId: number, purchaseOrderId: number, body: PurchaseOrderWrite, file: File) {
+    return this.http.post<PurchaseOrderDetail>(
+      `${this.baseUrl}/projects/${projectId}/purchase-orders/${purchaseOrderId}/save`,
+      purchaseOrderForm(body, file),
+    );
+  }
+
+  purchaseOrderExcelValidate(projectId: number, file: File, mapping: PurchaseOrderExcelMappingInput) {
+    const body = new FormData();
+    body.append('file', file);
+    body.append('dsnNoColumn', mapping.dsnNoColumn ?? '');
+    body.append('partNoColumn', mapping.partNoColumn ?? '');
+    body.append('descriptionColumn', mapping.descriptionColumn ?? '');
+    body.append('conditionColumn', mapping.conditionColumn ?? '');
+    body.append('unitColumn', mapping.unitColumn ?? '');
+    body.append('leadTimeColumn', mapping.leadTimeColumn ?? '');
+    body.append('quantityColumn', mapping.quantityColumn ?? '');
+    body.append('unitPriceColumn', mapping.unitPriceColumn ?? '');
+    body.append('totalPriceColumn', mapping.totalPriceColumn ?? '');
+    body.append('defaultDsnNo', mapping.defaultDsnNo ?? '');
+    body.append('defaultPartNo', mapping.defaultPartNo ?? '');
+    body.append('defaultDescription', mapping.defaultDescription ?? '');
+    body.append('defaultCondition', mapping.defaultCondition ?? '');
+    body.append('defaultUnit', mapping.defaultUnit ?? '');
+    body.append('defaultLeadTime', mapping.defaultLeadTime ?? '');
+    body.append('defaultMinimumQty', '');
+    body.append('defaultQuotedDate', '');
+    body.append('defaultValidUntil', '');
+    body.append('defaultUnitPrice', mapping.defaultUnitPrice ?? '');
+    body.append('defaultQuantity', mapping.defaultQuantity ?? '');
+    body.append('defaultTotalPrice', mapping.defaultTotalPrice ?? '');
+    return this.http.post<PurchaseOrderExcelValidation>(
+      `${this.baseUrl}/projects/${projectId}/purchase-orders/excel/validate`,
+      body,
+    );
+  }
+}
+
+function purchaseOrderForm(body: PurchaseOrderWrite, file?: File | null): FormData {
+  const form = new FormData();
+  form.append('code', body.code ?? '');
+  form.append('supplierId', String(body.supplierId));
+  form.append('poDate', body.poDate ?? '');
+  form.append('shipToAddress', body.shipToAddress ?? '');
+  form.append('status', body.status ?? '');
+  if (body.currencyId != null) {
+    form.append('currencyId', String(body.currencyId));
+  }
+  form.append('items', JSON.stringify(body.items));
+  form.append('charges', JSON.stringify(body.charges ?? []));
+  if (file) {
+    form.append('file', file, file.name);
+  }
+  return form;
 }

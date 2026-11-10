@@ -1,6 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MaterialModule } from '../../../../app/material-module';
+import { closeOnEscape } from '../../../../core/close-on-escape';
 import { Activity, ActivityGroup } from '../../../../core/services/project-api.service';
 
 @Component({
@@ -13,6 +14,10 @@ import { Activity, ActivityGroup } from '../../../../core/services/project-api.s
 export class GroupDetailDialog {
   private dialogRef = inject(MatDialogRef<GroupDetailDialog>);
   data = inject<{ group: ActivityGroup; activities: Activity[]; canDelete?: boolean }>(MAT_DIALOG_DATA);
+
+  constructor() {
+    closeOnEscape(this.dialogRef, () => this.close());
+  }
 
   get activities(): Activity[] {
     return [...(this.data.activities ?? [])].sort((left, right) =>

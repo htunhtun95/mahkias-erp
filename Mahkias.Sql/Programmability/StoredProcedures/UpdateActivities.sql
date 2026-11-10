@@ -1,7 +1,9 @@
-CREATE OR ALTER PROCEDURE [dbo].[UpdateActivities]
+CREATE PROCEDURE [dbo].[UpdateActivities]
 (
     -- NumericValue1 = Id, NumericValue2 = ProjectId, NumericValue3 = Quantity, NumericValue4 = TypeId
     -- TextValue1 = PartNo, TextValue2 = Description, TextValue3 = DSNNo, DecimalValue1 = Budget
+    -- TextValue5 = Condition, TextValue6 = Unit
+    -- TextValue7 = JSON {"SerialNo","TSN","TSO","CSN","CSO"}
     @Activities [dbo].[DefaultGenericTableType] READONLY
 )
 AS
@@ -58,6 +60,13 @@ BEGIN
             Quantity = S.NumericValue3,
             Budget = CAST(S.DecimalValue1 AS DECIMAL(18, 2)),
             Description = NULLIF(S.TextValue2, N''),
+            Condition = LEFT(NULLIF(LTRIM(RTRIM(S.TextValue5)), N''), 100),
+            Unit = LEFT(NULLIF(LTRIM(RTRIM(S.TextValue6)), N''), 100),
+            SerialNo = LEFT(NULLIF(LTRIM(RTRIM(JSON_VALUE(S.TextValue7, '$.SerialNo'))), N''), 100),
+            TSN = LEFT(NULLIF(LTRIM(RTRIM(JSON_VALUE(S.TextValue7, '$.TSN'))), N''), 100),
+            TSO = LEFT(NULLIF(LTRIM(RTRIM(JSON_VALUE(S.TextValue7, '$.TSO'))), N''), 100),
+            CSN = LEFT(NULLIF(LTRIM(RTRIM(JSON_VALUE(S.TextValue7, '$.CSN'))), N''), 100),
+            CSO = LEFT(NULLIF(LTRIM(RTRIM(JSON_VALUE(S.TextValue7, '$.CSO'))), N''), 100),
             ModifiedAt = GETDATE()
         OUTPUT inserted.Id, inserted.ProjectId, inserted.PartNo
             INTO @Updated (ActivityId, ProjectId, PartNo)

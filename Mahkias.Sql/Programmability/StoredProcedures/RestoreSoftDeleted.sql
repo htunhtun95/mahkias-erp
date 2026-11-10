@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[RestoreSoftDeleted]
+CREATE PROCEDURE [dbo].[RestoreSoftDeleted]
 (
     @Entity NVARCHAR(50),
     @Id INT,

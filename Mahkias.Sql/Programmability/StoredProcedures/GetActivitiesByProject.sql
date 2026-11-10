@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[GetActivitiesByProject]
+CREATE PROCEDURE [dbo].[GetActivitiesByProject]
 (
     @ProjectId INT,
     @SortBy NVARCHAR(50) = N'createdAt',
@@ -32,38 +32,31 @@ BEGIN
         A.Description,
         A.DSNNo,
         A.Quantity,
+        A.Unit,
+        A.Condition,
+        A.SerialNo,
+        A.TSN,
+        A.TSO,
+        A.CSN,
+        A.CSO,
         A.CreatedAt,
         A.ModifiedAt,
         A.ActivityGroupId,
         ActivityGroupName = G.Name,
         TypeId = A.ActivityTypeId,
         [Type] = T.Name,
-        QuoteReceived = (
-            SELECT CASE
-                WHEN ISNULL(A.Quantity, 0) <= 0 THEN 0
-                WHEN ISNULL(SUM(CASE WHEN I.UnitPrice IS NOT NULL OR I.TotalPrice IS NOT NULL THEN ISNULL(I.Quantity, 0) ELSE 0 END), 0) >= A.Quantity THEN 100
-                ELSE CAST(ROUND(100.0 * ISNULL(SUM(CASE WHEN I.UnitPrice IS NOT NULL OR I.TotalPrice IS NOT NULL THEN ISNULL(I.Quantity, 0) ELSE 0 END), 0) / A.Quantity, 0) AS INT)
+        QuoteReceived = CASE
+            WHEN ISNULL(A.Quantity, 0) <= 0 THEN 0
+            WHEN ISNULL(Progress.QuotedQty, 0) >= A.Quantity THEN 100
+            ELSE CAST(ROUND(100.0 * ISNULL(Progress.QuotedQty, 0) / A.Quantity, 0) AS INT)
+        END,
+        DeliveryProgress = CASE
+            WHEN ISNULL(Progress.QtySum, 0) <= 0 THEN 0
+            ELSE CASE
+                WHEN 100 * Progress.AwardedSum / Progress.QtySum > 100 THEN 100
+                ELSE CAST(100 * Progress.AwardedSum / Progress.QtySum AS INT)
             END
-            FROM projects.QuotationItems AS I
-            INNER JOIN projects.Quotations AS Q
-                ON Q.Id = I.QuotationId
-               AND Q.IsDeleted = 0
-            WHERE I.ActivityId = A.Id
-        ),
-        DeliveryProgress = (
-            SELECT CASE
-                WHEN ISNULL(SUM(I.Quantity), 0) <= 0 THEN 0
-                ELSE CASE
-                    WHEN 100 * SUM(I.AwardedQuantity) / SUM(I.Quantity) > 100 THEN 100
-                    ELSE CAST(100 * SUM(I.AwardedQuantity) / SUM(I.Quantity) AS INT)
-                END
-            END
-            FROM projects.QuotationItems AS I
-            INNER JOIN projects.Quotations AS Q
-                ON Q.Id = I.QuotationId
-               AND Q.IsDeleted = 0
-            WHERE I.ActivityId = A.Id
-        ),
+        END,
         MainPartNo =
         (
             SELECT TOP (1) S.PartValue
@@ -75,6 +68,23 @@ BEGIN
         ON T.Id = A.ActivityTypeId
     LEFT JOIN projects.ActivityGroups AS G
         ON G.Id = A.ActivityGroupId
+    LEFT JOIN (
+        SELECT
+            I.ActivityId,
+            QuotedQty = SUM(CASE WHEN I.UnitPrice IS NOT NULL OR I.TotalPrice IS NOT NULL THEN ISNULL(I.Quantity, 0) ELSE 0 END),
+            QtySum = SUM(I.Quantity),
+            AwardedSum = SUM(I.AwardedQuantity)
+        FROM projects.QuotationItems AS I
+        INNER JOIN projects.Quotations AS Q
+            ON Q.Id = I.QuotationId
+           AND Q.IsDeleted = 0
+        INNER JOIN projects.Activities AS AA
+            ON AA.Id = I.ActivityId
+           AND AA.ProjectId = @ProjectId
+           AND AA.IsDeleted = 0
+        GROUP BY I.ActivityId
+    ) AS Progress
+        ON Progress.ActivityId = A.Id
     WHERE A.ProjectId = @ProjectId
       AND A.IsDeleted = 0
     ORDER BY

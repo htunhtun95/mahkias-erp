@@ -1,13 +1,15 @@
-CREATE OR ALTER PROCEDURE [dbo].[CreateQuotation]
+CREATE PROCEDURE [dbo].[CreateQuotation]
 (
     @SupplierId INT,
     @SupplierReference NVARCHAR(100) = NULL,
     @DriveFileLink NVARCHAR(1000) = NULL,
     @CurrencyId INT = NULL,
+    @QuotedDate DATETIME = NULL,
+    @ValidUntil DATETIME = NULL,
     @ProjectIds [dbo].[NumberTableType] READONLY,
-    -- NumericValue1 = ActivityId, NumericValue2 = ActivityGroupId, NumericValue3 = AlternativePartId, NumericValue4 = Quantity, NumericValue5 = CurrencyId
+    -- NumericValue1 = ActivityId, NumericValue2 = ActivityGroupId, NumericValue3 = AlternativePartId, NumericValue4 = Quantity, NumericValue5 = CurrencyId, NumericValue6 = MinimumQty
     -- BitValue1 = IsAlternativePart
-    -- TextValue1 = DsnNo, TextValue2 = PartNo, TextValue3 = PartDescription
+    -- TextValue1 = DsnNo, TextValue2 = PartNo, TextValue3 = PartDescription, TextValue4 = Condition, TextValue5 = LeadTime (days), TextValue6 = Unit
     -- DecimalValue1 = UnitPrice, DecimalValue2 = TotalPrice
     @Items [dbo].[DefaultGenericTableType] READONLY
 )
@@ -17,7 +19,12 @@ BEGIN
     SET XACT_ABORT ON;
 
     BEGIN TRY
-        BEGIN TRANSACTION;
+        DECLARE @OwnTransaction BIT = 0;
+        IF @@TRANCOUNT = 0
+        BEGIN
+            BEGIN TRANSACTION;
+            SET @OwnTransaction = 1;
+        END
 
         DECLARE @BaseCurrencyId INT;
         SELECT @BaseCurrencyId = Id
@@ -54,7 +61,7 @@ BEGIN
 
         DECLARE @Id INT;
 
-        INSERT INTO projects.Quotations (SupplierId, Code, SupplierReference, DriveFileLink, CurrencyId, ExchangeRate, BaseTotalAmount)
+        INSERT INTO projects.Quotations (SupplierId, Code, SupplierReference, DriveFileLink, CurrencyId, ExchangeRate, BaseTotalAmount, QuotedDate, ValidUntil)
         VALUES (
             @SupplierId,
             N'T' + REPLACE(CONVERT(NVARCHAR(36), NEWID()), N'-', N''),
@@ -62,7 +69,9 @@ BEGIN
             NULLIF(LTRIM(RTRIM(@DriveFileLink)), N''),
             @ResolvedCurrencyId,
             @ExchangeRate,
-            0
+            0,
+            @QuotedDate,
+            @ValidUntil
         );
 
         SET @Id = CAST(SCOPE_IDENTITY() AS INT);
@@ -78,6 +87,71 @@ BEGIN
         SELECT DISTINCT @Id, P.NumericID
         FROM @ProjectIds AS P
         WHERE P.NumericID > 0;
+
+        DECLARE @UnitSeed INT;
+        SELECT @UnitSeed = ISNULL(MAX(Id), 0) FROM dbo.Units WITH (UPDLOCK, HOLDLOCK);
+
+        ;WITH IncomingUnits AS (
+            SELECT DISTINCT Value = LEFT(LTRIM(RTRIM(I.TextValue6)), 100)
+            FROM @Items AS I
+            WHERE NULLIF(LTRIM(RTRIM(I.TextValue6)), N'') IS NOT NULL
+        ),
+        MissingUnits AS (
+            SELECT
+                IncomingUnits.Value,
+                Code = LEFT(REPLACE(IncomingUnits.Value, N' ', N''), 100)
+            FROM IncomingUnits
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM dbo.Units AS U
+                WHERE UPPER(U.Name) = UPPER(IncomingUnits.Value)
+            )
+              AND NOT EXISTS (
+                SELECT 1
+                FROM dbo.Units AS U
+                WHERE UPPER(U.Code) = UPPER(LEFT(REPLACE(IncomingUnits.Value, N' ', N''), 100))
+              )
+        )
+        INSERT INTO dbo.Units (Id, Name, Code, IsDefault)
+        SELECT
+            @UnitSeed + ROW_NUMBER() OVER (ORDER BY MissingUnits.Value),
+            MissingUnits.Value,
+            MissingUnits.Code,
+            0
+        FROM MissingUnits
+        WHERE MissingUnits.Code <> N'';
+
+        DECLARE @ConditionSeed INT;
+        SELECT @ConditionSeed = ISNULL(MAX(Id), 0) FROM dbo.Conditions WITH (UPDLOCK, HOLDLOCK);
+
+        ;WITH IncomingConditions AS (
+            SELECT DISTINCT Value = LEFT(LTRIM(RTRIM(I.TextValue4)), 100)
+            FROM @Items AS I
+            WHERE NULLIF(LTRIM(RTRIM(I.TextValue4)), N'') IS NOT NULL
+        ),
+        MissingConditions AS (
+            SELECT
+                IncomingConditions.Value,
+                Code = LEFT(REPLACE(IncomingConditions.Value, N' ', N''), 100)
+            FROM IncomingConditions
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM dbo.Conditions AS C
+                WHERE UPPER(C.Name) = UPPER(IncomingConditions.Value)
+            )
+              AND NOT EXISTS (
+                SELECT 1
+                FROM dbo.Conditions AS C
+                WHERE UPPER(C.Code) = UPPER(LEFT(REPLACE(IncomingConditions.Value, N' ', N''), 100))
+              )
+        )
+        INSERT INTO dbo.Conditions (Id, Name, Code)
+        SELECT
+            @ConditionSeed + ROW_NUMBER() OVER (ORDER BY MissingConditions.Value),
+            MissingConditions.Value,
+            MissingConditions.Code
+        FROM MissingConditions
+        WHERE MissingConditions.Code <> N'';
 
         INSERT INTO projects.QuotationItems
         (
@@ -96,7 +170,12 @@ BEGIN
             Quantity,
             TotalPrice,
             BaseTotalPrice,
-            AwardedQuantity
+            AwardedQuantity,
+            Condition,
+            LeadTime,
+            MinimumQty,
+            UnitId,
+            ConditionId
         )
         SELECT
             @Id,
@@ -114,7 +193,12 @@ BEGIN
             ISNULL(I.NumericValue4, 1),
             CAST(I.DecimalValue2 AS DECIMAL(18, 2)),
             CAST(ROUND(I.DecimalValue2 * Resolved.Rate, 2) AS DECIMAL(18, 2)),
-            0
+            0,
+            LEFT(COALESCE(ConditionMatch.Name, NULLIF(LTRIM(RTRIM(I.TextValue4)), N'')), 100),
+            TRY_CONVERT(INT, NULLIF(LTRIM(RTRIM(I.TextValue5)), N'')),
+            CASE WHEN I.NumericValue6 > 0 THEN I.NumericValue6 ELSE NULL END,
+            UnitMatch.Id,
+            ConditionMatch.Id
         FROM @Items AS I
         CROSS APPLY (
             SELECT
@@ -134,7 +218,27 @@ BEGIN
             LEFT JOIN dbo.Currencies AS Active
                 ON Active.Id = NULLIF(I.NumericValue5, 0)
                AND Active.IsActive = 1
-        ) AS Resolved;
+        ) AS Resolved
+        OUTER APPLY (
+            SELECT TOP (1) U.Id, U.Name
+            FROM dbo.Units AS U
+            WHERE NULLIF(LTRIM(RTRIM(I.TextValue6)), N'') IS NOT NULL
+              AND (
+                    UPPER(U.Name) = UPPER(LEFT(LTRIM(RTRIM(I.TextValue6)), 100))
+                 OR UPPER(U.Code) = UPPER(LEFT(REPLACE(LTRIM(RTRIM(I.TextValue6)), N' ', N''), 100))
+              )
+            ORDER BY CASE WHEN UPPER(U.Name) = UPPER(LEFT(LTRIM(RTRIM(I.TextValue6)), 100)) THEN 0 ELSE 1 END, U.Id
+        ) AS UnitMatch
+        OUTER APPLY (
+            SELECT TOP (1) C.Id, C.Name
+            FROM dbo.Conditions AS C
+            WHERE NULLIF(LTRIM(RTRIM(I.TextValue4)), N'') IS NOT NULL
+              AND (
+                    UPPER(C.Name) = UPPER(LEFT(LTRIM(RTRIM(I.TextValue4)), 100))
+                 OR UPPER(C.Code) = UPPER(LEFT(REPLACE(LTRIM(RTRIM(I.TextValue4)), N' ', N''), 100))
+              )
+            ORDER BY CASE WHEN UPPER(C.Name) = UPPER(LEFT(LTRIM(RTRIM(I.TextValue4)), 100)) THEN 0 ELSE 1 END, C.Id
+        ) AS ConditionMatch;
 
         UPDATE projects.Quotations
         SET BaseTotalAmount = ROUND(ISNULL((
@@ -144,11 +248,15 @@ BEGIN
             ), 0), 2)
         WHERE Id = @Id;
 
-        COMMIT TRANSACTION;
+        IF @OwnTransaction = 1
+        BEGIN
+            COMMIT TRANSACTION;
+        END
+
         SELECT Id = @Id;
     END TRY
     BEGIN CATCH
-        IF @@TRANCOUNT > 0
+        IF @OwnTransaction = 1 AND @@TRANCOUNT > 0
         BEGIN
             ROLLBACK TRANSACTION;
         END

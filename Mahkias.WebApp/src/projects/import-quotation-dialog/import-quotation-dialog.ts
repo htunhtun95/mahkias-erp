@@ -1,20 +1,33 @@
-import { Component, ElementRef, ViewChild, inject } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { Component, ElementRef, QueryList, ViewChild, ViewChildren, inject } from '@angular/core';
+import { FormsModule, NgModel } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { Observable, of, switchMap, tap } from 'rxjs';
 import { MaterialModule } from '../../app/material-module';
+import { DocumentManagerComponent, syncDocumentDrafts } from '../document-manager/document-manager';
 import { DriveUploadCardComponent } from '../drive-upload-card/drive-upload-card';
 import { blockEnterSubmit } from '../../core/block-enter-submit';
+import { closeOnEscape } from '../../core/close-on-escape';
+import { SheetCellFocusDirective } from '../sheet-cell-focus';
 import { whileBusy } from '../../core/while-busy';
 import { Activity, ActivityImportIssue, Currency, ProjectApiService, QuotationItemInput, Supplier } from '../../core/services/project-api.service';
 import { directActivityId } from '../quotation-map';
+import { duplicateSupplierReferenceMessage, hasDuplicateSupplierReference } from '../../suppliers/supplier-reference';
+import { leadTimeDays, leadTimeInvalid, leadTimeText, LeadTimeDaysDirective } from '../lead-time';
+import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-date-field';
+import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
+import { LookupValue, canonicalCondition, canonicalUnit } from '../quotation-lookups';
+import { QuotationChargeRow, QuotationChargesComponent, readQuotationCharges } from '../quotation-charges/quotation-charges';
 
 interface ImportLine {
   row: number;
   dsnNo: string;
   partNo: string;
   description: string;
+  condition: string;
+  unit: string;
+  leadTime: string;
+  minimumQty: string;
   unitPrice: string;
   quantity: string;
   totalPrice: string;
@@ -31,6 +44,12 @@ interface QuoteMapping {
   dsnNoColumn: string;
   partNoColumn: string;
   descriptionColumn: string;
+  conditionColumn: string;
+  unitColumn: string;
+  leadTimeColumn: string;
+  minimumQtyColumn: string;
+  quotedDateColumn: string;
+  validUntilColumn: string;
   unitPriceColumn: string;
   quantityColumn: string;
   totalPriceColumn: string;
@@ -38,6 +57,12 @@ interface QuoteMapping {
   defaultDsnNo: string;
   defaultPartNo: string;
   defaultDescription: string;
+  defaultCondition: string;
+  defaultUnit: string;
+  defaultLeadTime: string;
+  defaultMinimumQty: string;
+  defaultQuotedDate: string;
+  defaultValidUntil: string;
   defaultUnitPrice: string;
   defaultQuantity: string;
   defaultTotalPrice: string;
@@ -48,12 +73,15 @@ type CheckState = 'idle' | 'checking' | 'passed' | 'failed';
 @Component({
   selector: 'app-import-quotation-dialog',
   standalone: true,
-  imports: [FormsModule, MaterialModule, DriveUploadCardComponent],
+  imports: [FormsModule, MaterialModule, DriveUploadCardComponent, QuotationDateFieldComponent, LookupComboboxComponent, QuotationChargesComponent, SheetCellFocusDirective, DocumentManagerComponent, LeadTimeDaysDirective],
   templateUrl: './import-quotation-dialog.html',
   styleUrl: './import-quotation-dialog.css',
 })
 export class ImportQuotationDialogComponent {
   @ViewChild('supplierInput') private supplierInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('library') private library?: DocumentManagerComponent;
+  @ViewChild('supplierField') private supplierField?: NgModel;
+  @ViewChildren(QuotationDateFieldComponent) private dateFields?: QueryList<QuotationDateFieldComponent>;
 
   private api = inject(ProjectApiService);
   private dialogRef = inject(MatDialogRef<ImportQuotationDialogComponent, boolean>);
@@ -66,17 +94,20 @@ export class ImportQuotationDialogComponent {
   supplierOpen = false;
   creatingSupplier = false;
   currencies: Currency[] = [];
+  units: LookupValue[] = [];
+  conditions: LookupValue[] = [];
   currencyId: number | null = null;
   newSupplierName = '';
   newSupplierReference = '';
+  referenceError = '';
   submitted = false;
   lines: ImportLine[] = [];
   file: File | null = null;
   spreadsheetIsOriginal = true;
   originalFile: File | null = null;
+  originalDragging = false;
   isVerifyStep = false;
   previewQuery = '';
-  importedQuotationId: number | null = null;
   readonly documentAccept = '.pdf,.doc,.docx,.xls,.xlsx,.xlsm,.csv,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tif,.tiff';
   columns: { letter: string; header: string | null }[] = [];
   mapping: QuoteMapping = this.blankMapping();
@@ -85,24 +116,42 @@ export class ImportQuotationDialogComponent {
   importErrors: ActivityImportIssue[] = [];
   isImporting = false;
   lineSubmitted = false;
+  quotedDate = '';
+  validUntil = '';
+  charges: QuotationChargeRow[] = [];
   error = '';
   private checkToken = 0;
   private mappingToken = 0;
 
   readonly fields = [
-    { key: 'dsnNoColumn', def: 'defaultDsnNo', label: 'DSN No' },
-    { key: 'partNoColumn', def: 'defaultPartNo', label: 'Part No' },
-    { key: 'descriptionColumn', def: 'defaultDescription', label: 'Description' },
-    { key: 'unitPriceColumn', def: 'defaultUnitPrice', label: 'Unit Price' },
-    { key: 'quantityColumn', def: 'defaultQuantity', label: 'Quantity' },
-    { key: 'totalPriceColumn', def: 'defaultTotalPrice', label: 'Total Price' },
-    { key: 'currencyColumn', def: '', label: 'Currency' },
+    { key: 'dsnNoColumn', def: 'defaultDsnNo', label: 'DSN No', required: true },
+    { key: 'partNoColumn', def: 'defaultPartNo', label: 'Part No', required: true },
+    { key: 'descriptionColumn', def: 'defaultDescription', label: 'Description', required: false },
+    { key: 'conditionColumn', def: 'defaultCondition', label: 'Condition', required: false },
+    { key: 'unitColumn', def: 'defaultUnit', label: 'Unit', required: false },
+    { key: 'leadTimeColumn', def: 'defaultLeadTime', label: 'Lead Time (days)', required: false },
+    { key: 'minimumQtyColumn', def: 'defaultMinimumQty', label: 'MOQ', required: false },
+    { key: 'unitPriceColumn', def: 'defaultUnitPrice', label: 'Unit Price', required: false },
+    { key: 'quantityColumn', def: 'defaultQuantity', label: 'Quantity', required: false },
+    { key: 'totalPriceColumn', def: 'defaultTotalPrice', label: 'Total Price', required: false },
+    { key: 'currencyColumn', def: '', label: 'Currency', required: false },
   ];
 
   constructor() {
+    closeOnEscape(this.dialogRef, () => this.cancel());
     this.api.suppliers().subscribe({
       next: (suppliers) => {
         this.suppliers = suppliers;
+      },
+    });
+    this.api.units().subscribe({
+      next: (units) => {
+        this.units = units ?? [];
+      },
+    });
+    this.api.conditions().subscribe({
+      next: (conditions) => {
+        this.conditions = conditions ?? [];
       },
     });
     this.api.currencies().subscribe({
@@ -146,8 +195,65 @@ export class ImportQuotationDialogComponent {
     return currency?.symbol || currency?.code || '$';
   }
 
-  lineInvalid(line: ImportLine, field: 'dsn' | 'part' | 'price' | 'qty'): boolean {
-    if (!this.lineSubmitted || !this.isPriced(line)) {
+  get chargeSymbol(): string {
+    return this.currencyMark(this.currencyId);
+  }
+
+  get conditionNames(): string[] {
+    return this.conditions.map((condition) => condition.name);
+  }
+
+  get unitNames(): string[] {
+    return this.units.map((unit) => unit.name);
+  }
+
+  normalizeUnit(line: ImportLine) {
+    line.unit = canonicalUnit(line.unit, this.units);
+  }
+
+  normalizeCondition(line: ImportLine) {
+    line.condition = canonicalCondition(line.condition, this.conditions);
+  }
+
+  mappingNoted = false;
+  private seen = new Set<string>();
+
+  touchLine(line: ImportLine, field: string) {
+    this.seen.add(`${line.row}:${field}`);
+  }
+
+  lineSeen(line: ImportLine, field: string): boolean {
+    return this.seen.has(`${line.row}:${field}`);
+  }
+
+  noteMap(key: string) {
+    if (key === 'dsnNoColumn' || key === 'partNoColumn' || key === 'defaultDsnNo' || key === 'defaultPartNo') {
+      this.mappingNoted = true;
+    }
+  }
+
+  get supplierMissing(): boolean {
+    return this.creatingSupplier ? !this.newSupplierName.trim() : !this.supplierId;
+  }
+
+  get canStartImport(): boolean {
+    if (this.isImporting || this.checkState !== 'passed' || this.supplierMissing || this.datesInvalid || !!this.dateOrderError) {
+      return false;
+    }
+    if (!this.lines.some((line) => this.isPriced(line))) {
+      return false;
+    }
+    if (this.lines.some((line) => this.isPriced(line) && (this.lineInvalid(line, 'dsn') || this.lineInvalid(line, 'part') || this.lineInvalid(line, 'qty') || this.lineInvalid(line, 'moq') || this.lineInvalid(line, 'price') || this.lineInvalid(line, 'lead')))) {
+      return false;
+    }
+    return !readQuotationCharges(this.charges).error;
+  }
+
+  lineInvalid(line: ImportLine, field: 'dsn' | 'part' | 'price' | 'qty' | 'moq' | 'lead'): boolean {
+    if (field === 'lead') {
+      return leadTimeInvalid(line.leadTime);
+    }
+    if (!this.isPriced(line)) {
       return false;
     }
     if (field === 'dsn') {
@@ -158,6 +264,9 @@ export class ImportQuotationDialogComponent {
     }
     if (field === 'qty') {
       return !this.validQuantity(line.quantity);
+    }
+    if (field === 'moq') {
+      return !!line.minimumQty.trim() && !this.validQuantity(line.minimumQty);
     }
     if (line.unitPrice.trim() && this.money(line.unitPrice) == null) {
       return true;
@@ -190,6 +299,10 @@ export class ImportQuotationDialogComponent {
   }
 
   onQuantity(line: ImportLine) {
+    this.recalculate(line);
+  }
+
+  onMinimum(line: ImportLine) {
     this.recalculate(line);
   }
 
@@ -227,7 +340,7 @@ export class ImportQuotationDialogComponent {
   }
 
   get canCheck(): boolean {
-    return !!this.file && this.columns.length > 0 && !this.requiredMissing && this.checkState !== 'checking' && !this.isImporting;
+    return !!this.file && this.columns.length > 0 && !this.requiredMissing && !this.supplierMissing && !this.datesInvalid && !this.dateOrderError && this.checkState !== 'checking' && !this.isImporting;
   }
 
   get busy(): boolean {
@@ -273,7 +386,7 @@ export class ImportQuotationDialogComponent {
     this.supplierOpen = false;
   }
 
-  clearSupplier() {
+  clearSupplier(field?: NgModel) {
     if (this.busy) {
       return;
     }
@@ -283,7 +396,10 @@ export class ImportQuotationDialogComponent {
     this.supplierQuery = '';
     this.supplierId = null;
     this.supplierOpen = true;
-    setTimeout(() => this.supplierInput?.nativeElement.focus());
+    setTimeout(() => {
+      (field ?? this.supplierField)?.control.markAsDirty();
+      this.supplierInput?.nativeElement.focus();
+    });
   }
 
   closeSuppliers() {
@@ -322,6 +438,10 @@ export class ImportQuotationDialogComponent {
           dsnNoColumn: mapping.suggested.dsnNo ?? '',
           partNoColumn: mapping.suggested.partNo ?? '',
           descriptionColumn: mapping.suggested.description ?? '',
+          conditionColumn: mapping.suggested.condition ?? '',
+          unitColumn: mapping.suggested.unit ?? '',
+          leadTimeColumn: mapping.suggested.leadTime ?? '',
+          minimumQtyColumn: mapping.suggested.minimumQty ?? '',
           unitPriceColumn: mapping.suggested.unitPrice ?? '',
           quantityColumn: mapping.suggested.quantity ?? '',
           totalPriceColumn: mapping.suggested.totalPrice ?? '',
@@ -342,6 +462,46 @@ export class ImportQuotationDialogComponent {
     const input = event.target as HTMLInputElement;
     this.originalFile = input.files?.[0] ?? null;
     input.value = '';
+  }
+
+  onOriginalDragOver(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!this.busy) {
+      this.originalDragging = true;
+    }
+  }
+
+  onOriginalDragLeave(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    const next = event.relatedTarget as Node | null;
+    if (next && (event.currentTarget as HTMLElement).contains(next)) {
+      return;
+    }
+    this.originalDragging = false;
+  }
+
+  onOriginalDrop(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.originalDragging = false;
+    if (this.busy) {
+      return;
+    }
+    const file = Array.from(event.dataTransfer?.files ?? []).find((item) => this.originalAccepted(item));
+    if (file) {
+      this.originalFile = file;
+    }
+  }
+
+  private originalAccepted(file: File) {
+    const name = file.name.toLowerCase();
+    return this.documentAccept
+      .split(',')
+      .map((item) => item.trim().toLowerCase())
+      .filter((item) => item.startsWith('.'))
+      .some((extension) => name.endsWith(extension));
   }
 
   clearOriginal() {
@@ -380,7 +540,11 @@ export class ImportQuotationDialogComponent {
     }
     this.submitted = true;
     this.error = '';
+    const datesInvalid = this.revealInvalidDates();
     if (!this.supplierReady() || this.requiredMissing) {
+      return;
+    }
+    if (datesInvalid || this.dateOrderError) {
       return;
     }
     const token = ++this.checkToken;
@@ -389,7 +553,14 @@ export class ImportQuotationDialogComponent {
     this.lines = [];
     this.error = '';
     this.dialogRef.disableClose = true;
-    this.api.quotationExcelValidate(this.data.projectId, this.file, { ...this.mapping, currencyId: this.currencyId }).subscribe({
+    this.api.quotationExcelValidate(this.data.projectId, this.file, {
+      ...this.mapping,
+      quotedDateColumn: '',
+      validUntilColumn: '',
+      defaultQuotedDate: this.quotedDate,
+      defaultValidUntil: this.validUntil,
+      currencyId: this.currencyId,
+    }).subscribe({
       next: (result) => {
         if (token !== this.checkToken) {
           return;
@@ -424,10 +595,6 @@ export class ImportQuotationDialogComponent {
   }
 
   startImport() {
-    if (this.importedQuotationId) {
-      this.uploadImportedFiles(this.importedQuotationId);
-      return;
-    }
     const items = this.lineItems();
     if (this.isImporting || this.checkState !== 'passed' || items.length === 0) {
       if (this.checkState === 'passed' && items.length === 0) {
@@ -438,31 +605,45 @@ export class ImportQuotationDialogComponent {
     }
     this.lineSubmitted = true;
     this.error = '';
-    if (this.lines.some((line) => this.isPriced(line) && (this.lineInvalid(line, 'dsn') || this.lineInvalid(line, 'part') || this.lineInvalid(line, 'qty') || this.lineInvalid(line, 'price')))) {
+    if (this.revealInvalidDates() || this.dateOrderError) {
+      return;
+    }
+    if (this.lines.some((line) => this.isPriced(line) && (this.lineInvalid(line, 'dsn') || this.lineInvalid(line, 'part') || this.lineInvalid(line, 'qty') || this.lineInvalid(line, 'moq') || this.lineInvalid(line, 'price')))) {
       this.error = 'DSN number, part number, and quantity are required. Check the highlighted rows.';
+      return;
+    }
+    if (this.lines.some((line) => this.isPriced(line) && leadTimeInvalid(line.leadTime))) {
+      this.error = 'Lead time must be a whole number of days, or left blank.';
       return;
     }
     if (!this.supplierReady()) {
       this.isVerifyStep = false;
       return;
     }
+    const charges = readQuotationCharges(this.charges);
+    if (charges.error) {
+      this.error = charges.error;
+      return;
+    }
     this.dialogRef.disableClose = true;
     this.withSupplier()
       .pipe(
-        switchMap(() => this.api.createQuotation({
+        switchMap(() => this.api.importQuotation(this.data.projectId, {
           supplierId: this.supplierId!,
           supplierReference: this.supplierQuotationRef.trim(),
-          projectIds: [this.data.projectId],
           currencyId: this.currencyId,
+          quotedDate: this.quotedDate || null,
+          validUntil: this.validUntil || null,
           items,
-        })),
+          charges: charges.charges,
+        }, this.storedFile())),
         switchMap((saved) => {
-          this.importedQuotationId = saved.id;
-          const file = this.storedFile();
-          if (!file) {
+          const id = saved?.id;
+          const drafts = this.library?.capture() ?? [];
+          if (!id || !drafts.some((draft) => draft.pendingFile && !draft.removed)) {
             return of(saved);
           }
-          return this.api.uploadQuotationDocuments(this.data.projectId, saved.id, file);
+          return syncDocumentDrafts(this.api, 'quotation', this.data.projectId, id, drafts, true, 100);
         }),
         whileBusy((busy) => (this.isImporting = busy)),
       )
@@ -471,23 +652,23 @@ export class ImportQuotationDialogComponent {
           this.dialogRef.close(true);
         },
         error: (error: HttpErrorResponse) => {
-          if (this.importedQuotationId) {
-            const body = error.error;
-            this.error = (typeof body === 'string' ? body : body?.message) || 'The quotation was imported, but the file could not be uploaded.';
-            return;
-          }
+          this.dialogRef.disableClose = false;
           if (this.creatingSupplier) {
-            this.error = error.error?.message || 'The supplier could not be created.';
+            this.referenceError = error.error?.message || 'The supplier could not be created.';
+            this.error = this.referenceError;
             return;
           }
           const issues = (error.error?.errors as ActivityImportIssue[] | undefined) ?? [];
-          this.isVerifyStep = false;
-          this.checkState = 'failed';
-          this.importErrors = issues;
-          this.lines = [];
-          this.error = issues.length
-            ? issues.map((issue) => `Row ${issue.row}: [${issue.field}] ${issue.message}`).join(' ')
-            : error.error?.message || 'The quotation could not be imported.';
+          if (issues.length) {
+            this.isVerifyStep = false;
+            this.checkState = 'failed';
+            this.importErrors = issues;
+            this.lines = [];
+            this.error = issues.map((issue) => `Row ${issue.row}: [${issue.field}] ${issue.message}`).join(' ');
+            return;
+          }
+          const body = error.error;
+          this.error = (typeof body === 'string' ? body : body?.message) || 'The quotation could not be imported.';
         },
       });
   }
@@ -498,10 +679,20 @@ export class ImportQuotationDialogComponent {
     }
   }
 
+  private get datesInvalid(): boolean {
+    return this.dateFields?.some((field) => field.invalid) ?? false;
+  }
+
   private supplierReady(): boolean {
     if (this.creatingSupplier) {
       if (!this.newSupplierName.trim()) {
         this.error = 'Supplier name is required.';
+        return false;
+      }
+      const reference = this.newSupplierReference.trim();
+      if (reference && hasDuplicateSupplierReference(reference, this.suppliers)) {
+        this.referenceError = duplicateSupplierReferenceMessage(reference);
+        this.error = this.referenceError;
         return false;
       }
       return true;
@@ -568,7 +759,7 @@ export class ImportQuotationDialogComponent {
 
   private lineSearchText(line: ImportLine): string {
     const currency = this.currencies.find((item) => item.id === line.currencyId);
-    return [line.dsnNo, line.partNo, line.description, line.quantity, line.unitPrice, line.totalPrice, currency?.code, currency?.symbol]
+    return [line.dsnNo, line.partNo, line.description, line.condition, line.unit, line.leadTime, line.quantity, line.unitPrice, line.totalPrice, currency?.code, currency?.symbol]
       .filter((value) => !!value)
       .join(' ')
       .toLowerCase();
@@ -579,6 +770,10 @@ export class ImportQuotationDialogComponent {
     dsnNo?: string | null;
     partNo?: string | null;
     description?: string | null;
+    condition?: string | null;
+    unit?: string | null;
+    leadTime?: number | null;
+    minimumQty?: number | null;
     unitPrice?: number | null;
     quantity?: number | null;
     totalPrice?: number | null;
@@ -596,6 +791,10 @@ export class ImportQuotationDialogComponent {
       dsnNo: source.dsnNo ?? '',
       partNo: source.partNo ?? '',
       description: source.description ?? '',
+      condition: source.condition ?? '',
+      unit: source.unit?.trim() || '',
+      leadTime: leadTimeText(source.leadTime),
+      minimumQty: source.minimumQty ? String(source.minimumQty) : '',
       unitPrice: unitText,
       quantity: String(source.quantity ?? 1),
       totalPrice: totalText,
@@ -614,7 +813,7 @@ export class ImportQuotationDialogComponent {
   }
 
   private recalculate(line: ImportLine) {
-    const quantity = this.quantity(line);
+    const quantity = this.effectiveQuantity(line);
     if (line.unitExplicit && !line.totalExplicit) {
       const unit = this.money(line.unitPrice);
       line.totalPrice = unit == null ? '' : this.formatMoney(unit * quantity);
@@ -630,27 +829,6 @@ export class ImportQuotationDialogComponent {
     return this.spreadsheetIsOriginal ? this.file : this.originalFile;
   }
 
-  private uploadImportedFiles(quotationId: number) {
-    const file = this.storedFile();
-    if (!file) {
-      this.dialogRef.close(true);
-      return;
-    }
-    this.error = '';
-    this.dialogRef.disableClose = true;
-    this.api.uploadQuotationDocuments(this.data.projectId, quotationId, file)
-      .pipe(whileBusy((busy) => (this.isImporting = busy)))
-      .subscribe({
-        next: () => {
-          this.dialogRef.close(true);
-        },
-        error: (error: HttpErrorResponse) => {
-          const body = error.error;
-          this.error = (typeof body === 'string' ? body : body?.message) || 'The quotation was imported, but the file could not be uploaded.';
-        },
-      });
-  }
-
   private lineItems(): QuotationItemInput[] {
     return this.lines.filter((line) => this.isPriced(line)).map((line) => {
       if (!line.quantity.trim()) {
@@ -661,6 +839,10 @@ export class ImportQuotationDialogComponent {
         dsnNo: line.dsnNo.trim(),
         partNo: line.partNo.trim(),
         description: line.description.trim(),
+        condition: line.condition.trim(),
+        unit: line.unit.trim(),
+        leadTime: leadTimeDays(line.leadTime),
+        minimumQty: this.optionalQuantity(line.minimumQty),
         unitPrice: this.money(line.unitPrice),
         quantity: this.quantity(line),
         totalPrice: this.money(line.totalPrice),
@@ -680,12 +862,42 @@ export class ImportQuotationDialogComponent {
     return Number.isInteger(parsed) && parsed >= 1 ? parsed : 1;
   }
 
+  private effectiveQuantity(line: ImportLine): number {
+    const minimum = Number(line.minimumQty);
+    if (line.minimumQty.trim() && Number.isInteger(minimum) && minimum > 0) {
+      return minimum;
+    }
+    const requested = Number(line.quantity);
+    return Number.isInteger(requested) && requested > 0 ? requested : 1;
+  }
+
+  private revealInvalidDates(): boolean {
+    const invalid = this.dateFields?.some((field) => field.invalid) ?? false;
+    this.dateFields?.forEach((field) => {
+      if (field.invalid) {
+        field.reveal();
+      }
+    });
+    return invalid;
+  }
+
+  get dateOrderError(): string {
+    if (this.quotedDate && this.validUntil && this.validUntil < this.quotedDate) {
+      return 'Valid until cannot be earlier than the quoted date.';
+    }
+    return '';
+  }
+
   private validQuantity(value: string): boolean {
     if (!value.trim()) {
       return true;
     }
     const parsed = Number(value);
     return Number.isInteger(parsed) && parsed >= 1;
+  }
+
+  private optionalQuantity(value: string): number | null {
+    return value.trim() && this.validQuantity(value) ? Number(value) : null;
   }
 
   private formatMoney(value: number): string {
@@ -706,6 +918,12 @@ export class ImportQuotationDialogComponent {
       dsnNoColumn: '',
       partNoColumn: '',
       descriptionColumn: '',
+      conditionColumn: '',
+      unitColumn: '',
+      leadTimeColumn: '',
+      minimumQtyColumn: '',
+      quotedDateColumn: '',
+      validUntilColumn: '',
       unitPriceColumn: '',
       quantityColumn: '',
       totalPriceColumn: '',
@@ -713,6 +931,12 @@ export class ImportQuotationDialogComponent {
       defaultDsnNo: '',
       defaultPartNo: '',
       defaultDescription: '',
+      defaultCondition: '',
+      defaultUnit: '',
+      defaultLeadTime: '',
+      defaultMinimumQty: '',
+      defaultQuotedDate: '',
+      defaultValidUntil: '',
       defaultUnitPrice: '',
       defaultQuantity: '',
       defaultTotalPrice: '',

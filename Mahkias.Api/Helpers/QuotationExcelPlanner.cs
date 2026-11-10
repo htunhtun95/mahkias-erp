@@ -15,6 +15,18 @@ namespace Mahkias.Api.Helpers
 
         public string Description { get; set; }
 
+        public string Condition { get; set; }
+
+        public string UnitName { get; set; }
+
+        public int? LeadTime { get; set; }
+
+        public int? MinimumQty { get; set; }
+
+        public DateTime? QuotedDate { get; set; }
+
+        public DateTime? ValidUntil { get; set; }
+
         public decimal? UnitPrice { get; set; }
 
         public decimal? TotalPrice { get; set; }
@@ -43,6 +55,12 @@ namespace Mahkias.Api.Helpers
                 var dsn = CellOrDefault(source, form.DsnNoColumn, form.DefaultDsnNo);
                 var part = CellOrDefault(source, form.PartNoColumn, form.DefaultPartNo);
                 var description = CellOrDefault(source, form.DescriptionColumn, form.DefaultDescription);
+                var condition = CellOrDefault(source, form.ConditionColumn, form.DefaultCondition);
+                var unitName = CellOrDefault(source, form.UnitColumn, form.DefaultUnit);
+                var leadTime = CellOrDefault(source, form.LeadTimeColumn, form.DefaultLeadTime);
+                var minimumText = Cell(source, form.MinimumQtyColumn);
+                var quotedDateText = Cell(source, form.QuotedDateColumn);
+                var validUntilText = Cell(source, form.ValidUntilColumn);
                 var quantityText = Cell(source, form.QuantityColumn);
                 var unitText = Cell(source, form.UnitPriceColumn);
                 var totalText = Cell(source, form.TotalPriceColumn);
@@ -79,6 +97,22 @@ namespace Mahkias.Api.Helpers
                     errors.Add(Issue(source.RowNumber, "Part No", "Field is missing."));
                 }
 
+                if (!string.IsNullOrWhiteSpace(condition) && condition.Trim().Length > 100)
+                {
+                    errors.Add(Issue(source.RowNumber, "Condition", "Condition must be 100 characters or fewer."));
+                }
+
+                if (!string.IsNullOrWhiteSpace(unitName) && unitName.Trim().Length > 100)
+                {
+                    errors.Add(Issue(source.RowNumber, "Unit", "Unit must be 100 characters or fewer."));
+                }
+
+                int? leadDays = null;
+                if (!LeadTimeDays.TryParse(leadTime, out leadDays))
+                {
+                    errors.Add(Issue(source.RowNumber, "Lead Time", LeadTimeDays.Message));
+                }
+
                 int quantity;
                 if (string.IsNullOrWhiteSpace(quantityText))
                 {
@@ -88,6 +122,30 @@ namespace Mahkias.Api.Helpers
                 {
                     errors.Add(Issue(source.RowNumber, "Qty", "'" + quantityText + "' is not a valid number."));
                     quantity = 0;
+                }
+
+                int? minimumQty = null;
+                var minimumSource = string.IsNullOrWhiteSpace(minimumText) ? form.DefaultMinimumQty : minimumText;
+                if (!string.IsNullOrWhiteSpace(minimumSource))
+                {
+                    if (!TryQuantity(minimumSource, out var parsedMinimum))
+                    {
+                        errors.Add(Issue(source.RowNumber, "MOQ", "'" + minimumSource + "' is not a valid number."));
+                    }
+                    else
+                    {
+                        minimumQty = parsedMinimum;
+                    }
+                }
+
+                if (!TryDate(string.IsNullOrWhiteSpace(quotedDateText) ? form.DefaultQuotedDate : quotedDateText, out var quotedDate))
+                {
+                    errors.Add(Issue(source.RowNumber, "Quoted Date", "'" + (string.IsNullOrWhiteSpace(quotedDateText) ? form.DefaultQuotedDate : quotedDateText) + "' is not a valid date."));
+                }
+
+                if (!TryDate(string.IsNullOrWhiteSpace(validUntilText) ? form.DefaultValidUntil : validUntilText, out var validUntil))
+                {
+                    errors.Add(Issue(source.RowNumber, "Valid Until", "'" + (string.IsNullOrWhiteSpace(validUntilText) ? form.DefaultValidUntil : validUntilText) + "' is not a valid date."));
                 }
 
                 decimal? unit = null;
@@ -127,17 +185,18 @@ namespace Mahkias.Api.Helpers
                 var unitExplicit = unit.HasValue;
                 var totalExplicit = total.HasValue;
                 var priceWarning = false;
-                if (!totalExplicit && unitExplicit && quantity > 0)
+                var effectiveQuantity = minimumQty is > 0 ? minimumQty.Value : (quantity > 0 ? quantity : 0);
+                if (!totalExplicit && unitExplicit && effectiveQuantity > 0)
                 {
-                    total = decimal.Round(unit.Value * quantity, 4, MidpointRounding.AwayFromZero);
+                    total = decimal.Round(unit.Value * effectiveQuantity, 4, MidpointRounding.AwayFromZero);
                 }
-                else if (!unitExplicit && totalExplicit && quantity > 0)
+                else if (!unitExplicit && totalExplicit && effectiveQuantity > 0)
                 {
-                    unit = decimal.Round(total.Value / quantity, 4, MidpointRounding.AwayFromZero);
+                    unit = decimal.Round(total.Value / effectiveQuantity, 4, MidpointRounding.AwayFromZero);
                 }
-                else if (unitExplicit && totalExplicit && quantity > 0)
+                else if (unitExplicit && totalExplicit && effectiveQuantity > 0)
                 {
-                    var computed = decimal.Round(unit.Value * quantity, 4, MidpointRounding.AwayFromZero);
+                    var computed = decimal.Round(unit.Value * effectiveQuantity, 4, MidpointRounding.AwayFromZero);
                     var imported = decimal.Round(total.Value, 4, MidpointRounding.AwayFromZero);
                     priceWarning = Math.Abs(computed - imported) > 0.01m;
                     total = imported;
@@ -149,6 +208,12 @@ namespace Mahkias.Api.Helpers
                     DsnNo = dsn,
                     PartNo = part,
                     Description = description,
+                    Condition = TrimTo(condition, 100),
+                    UnitName = TrimTo(unitName, 100),
+                    LeadTime = leadDays,
+                    MinimumQty = minimumQty,
+                    QuotedDate = quotedDate,
+                    ValidUntil = validUntil,
                     UnitPrice = unit,
                     TotalPrice = total,
                     Quantity = quantity < 0 ? 0 : quantity,
@@ -165,6 +230,17 @@ namespace Mahkias.Api.Helpers
         private static ActivityImportIssue Issue(int row, string field, string message)
         {
             return new ActivityImportIssue { Row = row, Field = field, Message = message };
+        }
+
+        private static string TrimTo(string value, int maxLength)
+        {
+            var text = value?.Trim();
+            if (string.IsNullOrEmpty(text) || text.Length > maxLength)
+            {
+                return null;
+            }
+
+            return text;
         }
 
         private static string CellOrDefault(ActivityDataRow row, string column, string fallback)
@@ -210,6 +286,33 @@ namespace Mahkias.Api.Helpers
 
             quantity = (int)parsed;
             return true;
+        }
+
+        private static bool TryDate(string value, out DateTime? date)
+        {
+            date = null;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return true;
+            }
+
+            var text = value.Trim();
+            if (double.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out var serial)
+                && serial > 20000
+                && serial < 80000)
+            {
+                date = DateTime.FromOADate(serial).Date;
+                return true;
+            }
+
+            if (DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out var parsed)
+                || DateTime.TryParse(text, CultureInfo.CurrentCulture, DateTimeStyles.AllowWhiteSpaces, out parsed))
+            {
+                date = parsed.Date;
+                return true;
+            }
+
+            return false;
         }
 
         private static readonly Regex UnitToken = new Regex(@"\b(EA|PCS|PC|QTY|UNITS|UNIT)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);

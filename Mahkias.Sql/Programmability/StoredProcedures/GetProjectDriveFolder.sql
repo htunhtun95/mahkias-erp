@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[GetProjectDriveFolder]
+CREATE PROCEDURE [dbo].[GetProjectDriveFolder]
 (
     @ProjectId INT
 )
@@ -10,7 +10,8 @@ BEGIN
         Name,
         Reference,
         GoogleDriveFolderId,
-        ProcurementFolderId
+        ProcurementFolderId,
+        DocumentsFolderId
     FROM projects.Projects
     WHERE Id = @ProjectId
       AND IsDeleted = 0;

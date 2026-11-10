@@ -29,11 +29,25 @@ namespace Mahkias.Api.Modules.Projects
         public string DSNNo { get; set; }
         public int? Quantity { get; set; }
         public int? TypeId { get; set; }
+        public string Label { get; set; }
+        public string Unit { get; set; }
+        public string Condition { get; set; }
+        public string SerialNo { get; set; }
+        public string TSN { get; set; }
+        public string TSO { get; set; }
+        public string CSN { get; set; }
+        public string CSO { get; set; }
     }
 
     public class UpdateActivityRequest : CreateActivityRequest
     {
         public int ProjectId { get; set; }
+
+        public bool ClearGroup { get; set; }
+
+        public bool ClearLabel { get; set; }
+
+        public int? LabelId { get; set; }
     }
 
     public class BatchActivityUpdate : UpdateActivityRequest
@@ -60,11 +74,21 @@ namespace Mahkias.Api.Modules.Projects
         public string TypeColumn { get; set; }
         public string QuantityColumn { get; set; }
         public string BudgetColumn { get; set; }
+        public string LabelColumn { get; set; }
+        public string UnitColumn { get; set; }
+        public string ConditionColumn { get; set; }
+        public string SerialNoColumn { get; set; }
+        public string TsnColumn { get; set; }
+        public string TsoColumn { get; set; }
+        public string CsnColumn { get; set; }
+        public string CsoColumn { get; set; }
         public string DefaultDsnNo { get; set; }
         public string DefaultPartNo { get; set; }
         public string DefaultTypeId { get; set; }
         public string DefaultQuantity { get; set; }
         public string DefaultBudget { get; set; }
+        public string DefaultUnit { get; set; }
+        public string DefaultCondition { get; set; }
     }
 
     public class ActivityResponse
@@ -79,6 +103,13 @@ namespace Mahkias.Api.Modules.Projects
         [JsonPropertyName("dsnNo")]
         public string DSNNo { get; set; }
         public decimal? Quantity { get; set; }
+        public string Unit { get; set; }
+        public string Condition { get; set; }
+        public string SerialNo { get; set; }
+        public string TSN { get; set; }
+        public string TSO { get; set; }
+        public string CSN { get; set; }
+        public string CSO { get; set; }
         public int? TypeId { get; set; }
         public string Type { get; set; }
         public DateTime? CreatedAt { get; set; }

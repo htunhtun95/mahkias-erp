@@ -1,4 +1,4 @@
-CREATE OR ALTER PROCEDURE [dbo].[UpdateActivity]
+CREATE PROCEDURE [dbo].[UpdateActivity]
 (
     @Id INT,
     @ProjectId INT = NULL,
@@ -7,7 +7,14 @@ CREATE OR ALTER PROCEDURE [dbo].[UpdateActivity]
     @TypeId INT,
     @Quantity INT = 1,
     @Budget DECIMAL(18, 2) = NULL,
-    @Description NVARCHAR(MAX) = NULL
+    @Description NVARCHAR(MAX) = NULL,
+    @Unit NVARCHAR(100) = NULL,
+    @Condition NVARCHAR(100) = NULL,
+    @SerialNo NVARCHAR(100) = NULL,
+    @TSN NVARCHAR(100) = NULL,
+    @TSO NVARCHAR(100) = NULL,
+    @CSN NVARCHAR(100) = NULL,
+    @CSO NVARCHAR(100) = NULL
 )
 AS
 BEGIN
@@ -30,6 +37,13 @@ BEGIN
         Quantity = @Quantity,
         Budget = @Budget,
         Description = NULLIF(@Description, N''),
+        Unit = NULLIF(LTRIM(RTRIM(@Unit)), N''),
+        Condition = NULLIF(LTRIM(RTRIM(@Condition)), N''),
+        SerialNo = NULLIF(LTRIM(RTRIM(@SerialNo)), N''),
+        TSN = NULLIF(LTRIM(RTRIM(@TSN)), N''),
+        TSO = NULLIF(LTRIM(RTRIM(@TSO)), N''),
+        CSN = NULLIF(LTRIM(RTRIM(@CSN)), N''),
+        CSO = NULLIF(LTRIM(RTRIM(@CSO)), N''),
         ModifiedAt = GETDATE()
     WHERE Id = @Id
       AND IsDeleted = 0

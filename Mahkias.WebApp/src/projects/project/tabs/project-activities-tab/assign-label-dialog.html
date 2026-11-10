@@ -1,0 +1,36 @@
+<div class="app-dialog-container">
+  <header class="app-dialog-header">
+    <div class="erp-modal-title">
+      <div>
+        <h2>Labels</h2>
+        <p class="erp-modal-note">A label stays with one activity type and can cover several activities or groups of that type.</p>
+      </div>
+      <button class="erp-modal-close" type="button" matTooltip="Close" aria-label="Close" (click)="cancel()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+  </header>
+  <div class="app-dialog-body">
+    @if (data.labels.length) {
+      <div class="choices">
+        @for (label of data.labels; track label.id) {
+          <label class="choice">
+            <input type="checkbox" [checked]="selected.has(label.id)" (change)="toggle(label.id, $any($event.target).checked)" />
+            <span>{{ label.name }}</span>
+          </label>
+        }
+      </div>
+    }
+    <label class="field" [class.invalid]="!data.labels.length && !name.trim() && (labelName.touched || labelName.dirty)">
+      <span>New Label@if (!data.labels.length) {<span class="req" aria-hidden="true">*</span>}</span>
+      <input #labelName="ngModel" [(ngModel)]="name" name="labelName" maxlength="200" autocomplete="off" [attr.aria-invalid]="!data.labels.length && !name.trim() && (labelName.touched || labelName.dirty)" />
+    </label>
+    @if (!selected.size && !name.trim() && (labelName.touched || labelName.dirty)) {
+      <p class="error">Choose a label or enter a new name.</p>
+    }
+  </div>
+  <div class="app-dialog-actions">
+    <button type="button" class="btn ghost" (click)="cancel()">Cancel</button>
+    <button type="button" class="btn primary" (click)="save()" [disabled]="!selected.size && !name.trim()">Save</button>
+  </div>
+</div>

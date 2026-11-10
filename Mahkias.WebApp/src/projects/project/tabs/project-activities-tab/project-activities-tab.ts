@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, inject } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -8,22 +8,49 @@ import { MaterialModule } from '../../../../app/material-module';
 import { AutoGrowDirective } from '../../../../core/auto-grow';
 import { blockEnterSubmit } from '../../../../core/block-enter-submit';
 import { whileBusy } from '../../../../core/while-busy';
-import { Activity, ActivityGroup, ActivityQuotationLink, ActivityType, Project, ProjectApiService } from '../../../../core/services/project-api.service';
+import { Activity, ActivityGroup, ActivityLabel, ActivityQuotationLink, ActivityType, LookupValue, Project, ProjectApiService, PurchaseOrderTraceLine } from '../../../../core/services/project-api.service';
 import { QuotationDataDialog, QuotationDataRow, QuotationDataState } from './quotation-data-dialog';
 import { formatMoney } from '../../../money-format';
+import { PurchaseOrderSync } from '../../../purchase-order-sync';
 import { QuotationSync } from '../../../quotation-sync';
 import { ActivityGroupDialog } from './activity-group-dialog';
 import { AssignGroupDialog } from './assign-group-dialog';
+import { AssignLabelDialog } from './assign-label-dialog';
 import { GroupDetailDialog } from './group-detail-dialog';
 import { AddActivityDialog } from '../../../add-activity-dialog/add-activity-dialog';
 import { ConfirmDialog } from '../../../confirm-dialog/confirm-dialog';
 import { EditActivityDialog } from '../../../edit-activity-dialog/edit-activity-dialog';
 import { ImportActivityDialog } from '../../../import-activity-dialog/import-activity-dialog';
+import { LookupComboboxComponent } from '../../../lookup-combobox/lookup-combobox';
+import { canonicalCondition, canonicalUnit } from '../../../quotation-lookups';
+import {
+  activityHasLabel,
+  activitySharesType,
+  applyLabelFilter as filterActivitiesByLabel,
+  directLabels as labelsOnActivity,
+  GroupBlock,
+  groupFullySelected,
+  groupPartlySelected,
+  activityLabelIds,
+  groupLabelIds,
+  labelHasMembers,
+  labelSelectionMode as selectionUsesLabels,
+  labelToolbarActions,
+  labelsForType,
+  LabelRemovalPlan,
+  planLabelRemoval as buildLabelRemoval,
+  planOpenLabelRemoval as buildOpenLabelRemoval,
+  scopedLabels,
+  selectionNote as describeSelection,
+  selectionType as sharedSelectionType,
+  syncGroupSelection,
+  TypeSection,
+} from './activity-structure';
 
 @Component({
   selector: 'app-project-activities-tab',
   standalone: true,
-  imports: [FormsModule, MaterialModule, AutoGrowDirective],
+  imports: [FormsModule, MaterialModule, AutoGrowDirective, LookupComboboxComponent],
   templateUrl: './project-activities-tab.html',
   styleUrl: './project-activities-tab.css',
 })
@@ -32,13 +59,29 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
   private quotationSync = inject(QuotationSync);
+  private purchaseOrderSync = inject(PurchaseOrderSync);
+  private host = inject(ElementRef<HTMLElement>);
   private syncSub: Subscription;
+  private poSyncSub: Subscription;
+  private unitSub: Subscription;
+  private conditionSub: Subscription;
   private linkRequest = 0;
+  private poRequest = 0;
+  private seenProjectId = 0;
+  private listVersion = 0;
+  private poLinesLoaded = false;
   private detailState: QuotationDataState | null = null;
+  private linksVersion = 0;
+  private sectionsKey = Number.NaN;
+  private sectionsCache: TypeSection[] = [];
+  private labelCounts = new Map<string, number>();
+  private lowestByActivity = new Map<number, ActivityQuotationLink>();
+  private quoteCountByActivity = new Map<number, number>();
 
   @Input({ required: true }) project!: Project;
   @Input() types: ActivityType[] = [];
   @Input() activityFilter = '';
+  @Input() quoteFilter: 'all' | 'quoted' | 'unquoted' = 'all';
   @Output() reload = new EventEmitter<void>();
   @Output() activitiesChange = new EventEmitter<void>();
   @Output() failed = new EventEmitter<string>();
@@ -49,12 +92,22 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
   isSaving = false;
   deletingId: number | null = null;
   groups: ActivityGroup[] = [];
+  labels: ActivityLabel[] = [];
+  private labelSelection = new Map<number, number | null>();
   expandedGroupIds = new Set<number>();
+  poLines: PurchaseOrderTraceLine[] = [];
+  poLinesLoading = false;
+  linksLoading = false;
   quotationLinks = new Map<number, ActivityQuotationLink[]>();
   selectedIds = new Set<number>();
+  selectedGroupIds = new Set<number>();
   selectionError = '';
   batchSubmitted = false;
   batchError = '';
+  units: LookupValue[] = [];
+  conditions: LookupValue[] = [];
+  unitOptions: string[] = [];
+  conditionOptions: string[] = [];
   readonly searchThreshold = 10;
   private editing = new Set<string>();
   private drafts = new Map<number, ActivityDraft>();
@@ -65,10 +118,28 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
         this.loadQuotationLinks();
       }
     });
+    this.poSyncSub = this.purchaseOrderSync.changes$.subscribe((projectId) => {
+      if (projectId === this.project?.id) {
+        this.loadPurchaseOrderLines();
+      }
+    });
+    this.unitSub = this.api.units().subscribe((units) => {
+      this.units = units ?? [];
+      this.unitOptions = this.units.map((unit) => unit.name).filter((name) => !!name);
+      this.normalizeOpenDrafts();
+    });
+    this.conditionSub = this.api.conditions().subscribe((conditions) => {
+      this.conditions = conditions ?? [];
+      this.conditionOptions = this.conditions.map((condition) => condition.name).filter((name) => !!name);
+      this.normalizeOpenDrafts();
+    });
   }
 
   ngOnDestroy() {
     this.syncSub.unsubscribe();
+    this.poSyncSub.unsubscribe();
+    this.unitSub.unsubscribe();
+    this.conditionSub.unsubscribe();
   }
 
   get hasActivities(): boolean {
@@ -76,11 +147,54 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges) {
-    if (changes['project']?.currentValue?.id) {
-      this.pruneSelection();
+    const project = changes['project']?.currentValue as Project | undefined;
+    if (!project?.id) {
+      return;
+    }
+    const idChanged = project.id !== this.seenProjectId;
+    this.seenProjectId = project.id;
+    this.pruneSelection();
+    if (idChanged) {
+      this.poLines = [];
+      this.poLinesLoaded = false;
+      this.poLinesLoading = false;
       this.loadGroups();
       this.loadQuotationLinks();
+      return;
     }
+    this.loadQuotationLinks();
+    this.loadLabels();
+    if (this.poLinesLoaded || this.detailState) {
+      this.loadPurchaseOrderLines();
+    }
+  }
+
+  ordersFor(activityId: number): PurchaseOrderTraceLine[] {
+    return this.poLines.filter((line) => line.activityId === activityId);
+  }
+
+  private ordersForGroup(activities: Activity[]): PurchaseOrderTraceLine[] {
+    const ids = new Set(activities.map((activity) => activity.id));
+    return this.poLines
+      .filter((line) => line.activityId != null && ids.has(line.activityId))
+      .sort((left, right) =>
+        (left.dsnNo ?? '').localeCompare(right.dsnNo ?? '', undefined, { numeric: true, sensitivity: 'base' })
+        || left.code.localeCompare(right.code, undefined, { numeric: true, sensitivity: 'base' })
+        || left.lineId - right.lineId);
+  }
+
+  revealActivity(activityId: number) {
+    const activity = this.project?.activities?.find((item) => item.id === activityId);
+    if (!activity) {
+      return;
+    }
+    if (activity.activityGroupId) {
+      this.expandedGroupIds.add(activity.activityGroupId);
+    }
+    this.openActivityDetails(activity);
+    setTimeout(() => {
+      this.host.nativeElement.querySelector(`[data-activity-id="${activityId}"]`)?.scrollIntoView({ block: 'center' });
+    });
   }
 
   toggleGroup(groupId: number) {
@@ -96,7 +210,7 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
   }
 
   lowestLink(activity: Activity): ActivityQuotationLink | null {
-    return this.quotesFor(activity.id).find((link) => link.lowest) ?? null;
+    return this.lowestByActivity.get(activity.id) ?? null;
   }
 
   groupLowestLink(activities: Activity[]): ActivityQuotationLink | null {
@@ -113,6 +227,20 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     return best;
   }
 
+  quoteCount(activity: Activity): number {
+    return this.quoteCountByActivity.get(activity.id) ?? 0;
+  }
+
+  groupQuoteCount(activities: Activity[]): number {
+    const ids = new Set<number>();
+    for (const activity of activities) {
+      for (const link of this.quotesFor(activity.id)) {
+        ids.add(link.quotationId);
+      }
+    }
+    return ids.size;
+  }
+
   priceText(link: ActivityQuotationLink): string {
     if (link.unitPrice != null) {
       return formatMoney(link.unitPrice, link.currencySymbol, link.currencyCode);
@@ -120,15 +248,26 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     return formatMoney(link.baseUnitPrice, '$', 'USD');
   }
 
-  openItemQuotations(activity: Activity) {
+  openActivityDetails(activity: Activity) {
     const state: QuotationDataState = {
       kind: 'item',
       activityId: activity.id,
-      title: 'Quotations',
+      projectId: this.project.id,
+      title: 'Activity Details',
       subtitle: this.itemSubtitle(activity),
       requiredQuantity: activity.quantity,
+      serialNo: activity.serialNo,
+      tsn: activity.tsn,
+      tso: activity.tso,
+      csn: activity.csn,
+      cso: activity.cso,
       rows: this.itemQuoteRows(activity),
+      activities: this.project.activities ?? [],
+      orders: [],
     };
+    this.ensurePurchaseOrders();
+    state.orders = this.ordersFor(activity.id);
+    state.ordersLoading = this.poLinesLoading;
     this.openQuotationView(state);
   }
 
@@ -136,10 +275,16 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     const state: QuotationDataState = {
       kind: 'group',
       groupId: group.id,
-      title: 'Quotations',
+      projectId: this.project.id,
+      title: 'Group Details',
       subtitle: group.name,
       rows: this.groupQuoteRows(activities),
+      activities: this.project.activities ?? [],
+      orders: [],
     };
+    this.ensurePurchaseOrders();
+    state.orders = this.ordersForGroup(activities);
+    state.ordersLoading = this.poLinesLoading;
     this.openQuotationView(state);
   }
 
@@ -147,10 +292,12 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     this.detailState = state;
     const ref = this.dialog.open(QuotationDataDialog, {
       disableClose: true,
-      width: '95vw',
-      maxWidth: '1200px',
-      maxHeight: '90vh',
-      panelClass: ['add-project-dialog-panel', 'app-dialog-pane'],
+      width: '100vw',
+      maxWidth: '100vw',
+      minWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       autoFocus: 'first-tabbable',
       data: state,
@@ -160,7 +307,6 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
         this.detailState = null;
       }
     });
-    this.loadQuotationLinks();
   }
 
   private itemSubtitle(activity: Activity): string {
@@ -187,7 +333,75 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
   }
 
   get activityGroups(): TypeSection[] {
-    const visible = this.visibleProjectActivities();
+    const key = this.viewKey();
+    if (key !== this.sectionsKey) {
+      this.sectionsKey = key;
+      const visible = this.visibleProjectActivities();
+      this.sectionsCache = this.composeActivityGroups(visible);
+      this.labelCounts = this.countLabels(visible);
+    }
+    return this.sectionsCache;
+  }
+
+  private viewKey(): number {
+    let hash = 2166136261;
+    const mix = (value: number) => {
+      hash ^= value | 0;
+      hash = Math.imul(hash, 16777619);
+    };
+    const fold = (value: string | null | undefined) => {
+      const text = value ?? '';
+      let sum = text.length;
+      for (let index = 0; index < text.length; index++) {
+        sum = (sum + text.charCodeAt(index)) | 0;
+      }
+      mix(sum);
+    };
+    mix(this.project?.id ?? 0);
+    mix(this.listVersion);
+    mix(this.linksVersion);
+    mix(this.types.length);
+    mix(this.groups.length);
+    mix(this.labels.length);
+    fold(this.activityFilter);
+    fold(this.quoteFilter);
+    for (const [typeId, labelId] of this.labelSelection) {
+      mix(typeId);
+      mix(labelId ?? 0);
+    }
+    const activities = this.project?.activities ?? [];
+    mix(activities.length);
+    for (const activity of activities) {
+      mix(activity.id);
+      mix(activity.activityGroupId ?? 0);
+      mix(activity.typeId ?? 0);
+      mix(activity.quantity ?? 0);
+      fold(activity.dsnNo);
+      fold(activity.partNo);
+      fold(activity.description);
+      fold(activity.serialNo);
+      fold(activity.tsn);
+      fold(activity.tso);
+      fold(activity.csn);
+      fold(activity.cso);
+      fold(activity.unit);
+      fold(activity.condition);
+    }
+    for (const group of this.groups) {
+      mix(group.id);
+      mix(group.typeId ?? 0);
+      fold(group.name);
+      fold(group.description);
+    }
+    for (const label of this.labels) {
+      mix(label.id);
+      mix(label.activityIds.length);
+      mix(label.activityGroupIds.length);
+    }
+    return hash;
+  }
+
+  private composeActivityGroups(visible: Activity[]): TypeSection[] {
     const ungrouped = visible.filter((activity) => !activity.activityGroupId);
     const order = this.types.length
       ? this.types.map((type) => type.id)
@@ -200,18 +414,24 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       if (!items.length && !blocks.length) {
         continue;
       }
+      const filtered = this.applyLabelFilter(typeId, items, blocks);
       const type = this.types.find((item) => item.id === typeId);
       sections.push({
         typeId,
         typeName: type?.name || items[0]?.type || blocks[0]?.activities[0]?.type || 'Activities',
-        activities: items,
-        groups: blocks,
+        activities: filtered.activities,
+        groups: filtered.groups.map((block) => ({
+          ...block,
+          quoteCount: this.groupQuoteCount(block.activities),
+          lowest: this.groupLowestLink(block.activities),
+        })),
+        shownCount: filtered.activities.length + filtered.groups.reduce((total, block) => total + block.activities.length, 0),
       });
     }
 
     const untyped = ungrouped.filter((activity) => !activity.typeId);
     if (untyped.length) {
-      sections.push({ typeId: null, typeName: 'Untyped', activities: untyped, groups: [] });
+      sections.push({ typeId: null, typeName: 'Untyped', activities: untyped, groups: [], shownCount: untyped.length });
     }
 
     return sections;
@@ -295,6 +515,17 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     return !this.wholeQuantity(draft.quantity);
   }
 
+  setDraftLookup(activity: Activity, field: 'unit' | 'condition', value: string) {
+    this.draft(activity)[field] = value;
+  }
+
+  normalizeDraftLookup(activity: Activity, field: 'unit' | 'condition') {
+    const draft = this.draft(activity);
+    draft[field] = field === 'unit'
+      ? canonicalUnit(draft.unit, this.units)
+      : canonicalCondition(draft.condition, this.conditions);
+  }
+
   saveBatch() {
     if (this.isSaving) {
       return;
@@ -326,6 +557,13 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
           quantity: draft.quantity,
           budget: activity.budget,
           typeId: activity.typeId,
+          serialNo: draft.serialNo.trim(),
+          tsn: draft.tsn.trim(),
+          tso: draft.tso.trim(),
+          csn: draft.csn.trim(),
+          cso: draft.cso.trim(),
+          unit: draft.unit.trim(),
+          condition: draft.condition.trim(),
         })),
       )
       .pipe(whileBusy((busy) => (this.isSaving = busy)))
@@ -346,9 +584,12 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     const projectId = this.project.id;
     const ref = this.dialog.open(ImportActivityDialog, {
       disableClose: true,
-      width: '840px',
-      maxWidth: 'calc(100vw - 32px)',
-      panelClass: 'activity-dialog-panel',
+      width: '100vw',
+      maxWidth: '100vw',
+      minWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       data: { projectId, types: this.types },
     });
@@ -364,10 +605,12 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     const projectId = this.project.id;
     const ref = this.dialog.open(AddActivityDialog, {
       disableClose: true,
-      width: '1080px',
-      maxWidth: 'calc(100vw - 32px)',
-      maxHeight: '85vh',
-      panelClass: 'activity-dialog-panel',
+      width: '100vw',
+      maxWidth: '100vw',
+      minWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       data: { projectId, types: this.types },
     });
@@ -382,11 +625,17 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
   openEditActivity(activity: Activity) {
     const ref = this.dialog.open(EditActivityDialog, {
       disableClose: true,
-      width: '520px',
-      maxWidth: 'calc(100vw - 32px)',
-      panelClass: 'add-project-dialog-panel',
+      width: '100vw',
+      maxWidth: '100vw',
+      minWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
-      data: { activity, types: this.types },
+      data: {
+        activity,
+        types: this.types,
+      },
     });
 
     ref.afterClosed().subscribe((updated: Activity | false | undefined) => {
@@ -402,6 +651,7 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
         draft.description = updated.description ?? '';
         draft.quantity = updated.quantity == null ? null : Number(updated.quantity);
       }
+      this.listVersion++;
       this.activitiesChange.emit();
     });
   }
@@ -418,7 +668,7 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       panelClass: 'add-project-dialog-panel',
       backdropClass: 'add-project-dialog-backdrop',
       data: {
-        title: 'Delete activity',
+        title: 'Delete Activity',
         message: 'Are you sure you want to delete this activity?',
         confirmLabel: 'Delete',
       },
@@ -467,9 +717,28 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
 
   ungroupActivity(activity: Activity) {
     this.confirmUngroup(
-      'Ungroup Activity',
-      'Ungroup this activity? It will return to the activity list. An empty group is deleted.',
+      'Remove from Group',
+      'Remove this activity from its group? It will return to the general list. An empty group is deleted.',
       () => this.unassignActivities([activity.id]),
+      'Remove from Group',
+    );
+  }
+
+  directLabels(activity: Activity): ActivityLabel[] {
+    return labelsOnActivity(this.labels, activity);
+  }
+
+  removeFromLabel(activity: Activity) {
+    const labels = this.labelTargets(activity);
+    if (!labels.length) {
+      return;
+    }
+    const names = labels.map((label) => label.name).join(', ');
+    this.confirmUngroup(
+      'Remove from Label',
+      `Remove this activity from ${names}? It stays on the project and returns to the full list for this type.`,
+      () => this.clearLabels(activity, labels),
+      'Remove from Label',
     );
   }
 
@@ -507,22 +776,63 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     return this.selectedActivities().some((activity) => !!activity.activityGroupId);
   }
 
+  get labelSelectionMode(): boolean {
+    return selectionUsesLabels(this.selectedGroupIds.size, this.selectedActivities());
+  }
+
+  get selectionNote(): string {
+    return describeSelection(this.selectedIds.size, this.selectedGroupIds.size);
+  }
+
   isSelectionDisabled(activity: Activity): boolean {
     if (this.isSaving || this.deletingId != null) {
       return true;
     }
-    if (this.isSelected(activity) || this.selectedIds.size === 0) {
+    const locked = this.selectionType();
+    if (locked === undefined || this.isSelected(activity)) {
       return false;
     }
-    const grouped = !!activity.activityGroupId;
-    if (this.selectingGrouped) {
-      return !grouped;
-    }
-    if (grouped) {
+    return (activity.typeId ?? null) !== locked;
+  }
+
+  isGroupSelected(group: ActivityGroup): boolean {
+    return this.selectedGroupIds.has(group.id);
+  }
+
+  isGroupChecked(group: ActivityGroup): boolean {
+    return groupFullySelected(this.members(group.id), this.selectedIds);
+  }
+
+  isGroupIndeterminate(group: ActivityGroup): boolean {
+    return groupPartlySelected(this.members(group.id), this.selectedIds);
+  }
+
+  isGroupSelectionDisabled(group: ActivityGroup): boolean {
+    if (this.isSaving || this.deletingId != null || group.typeId == null) {
       return true;
     }
-    const locked = this.selectedActivities()[0]?.typeId ?? null;
-    return (activity.typeId ?? null) !== locked;
+    const locked = this.selectionType();
+    if (locked === undefined || this.isGroupChecked(group) || this.isGroupIndeterminate(group)) {
+      return false;
+    }
+    return group.typeId !== locked;
+  }
+
+  toggleGroupSelected(group: ActivityGroup, checked: boolean) {
+    if (checked && this.isGroupSelectionDisabled(group)) {
+      return;
+    }
+    for (const activity of this.members(group.id)) {
+      if (checked) {
+        if (!this.isSelectionDisabled(activity)) {
+          this.selectedIds.add(activity.id);
+        }
+      } else {
+        this.selectedIds.delete(activity.id);
+      }
+    }
+    this.syncParentGroup(group.id);
+    this.syncSelectionError();
   }
 
   toggleSelected(activity: Activity, checked: boolean) {
@@ -534,11 +844,19 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     } else {
       this.selectedIds.delete(activity.id);
     }
+    if (activity.activityGroupId != null) {
+      this.syncParentGroup(activity.activityGroupId);
+    }
     this.syncSelectionError();
+  }
+
+  private syncParentGroup(groupId: number) {
+    syncGroupSelection(groupId, this.members(groupId), this.selectedIds, this.selectedGroupIds);
   }
 
   clearSelection() {
     this.selectedIds.clear();
+    this.selectedGroupIds.clear();
     this.syncSelectionError();
   }
 
@@ -557,7 +875,7 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       return;
     }
     const selected = this.selectedActivities();
-    if (!this.sameType(selected)) {
+    if (!activitySharesType(selected)) {
       this.selectionError = 'Activities in a group must share the same type.';
       this.failed.emit(this.selectionError);
       return;
@@ -605,11 +923,12 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     }
     const ref = this.dialog.open(GroupDetailDialog, {
       disableClose: true,
-      width: '90vw',
-      maxWidth: '960px',
-      minWidth: 'min(560px, 96vw)',
-      maxHeight: '90vh',
-      panelClass: ['add-project-dialog-panel', 'app-dialog-pane'],
+      width: '100vw',
+      maxWidth: '100vw',
+      minWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       data: {
         group,
@@ -631,7 +950,7 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
   }
 
   assignToGroup(activity: Activity) {
-    if (!this.sameType([activity])) {
+    if (!activitySharesType([activity])) {
       this.failed.emit('Activities in a group must share the same type.');
       return;
     }
@@ -673,10 +992,336 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     });
   }
 
+  labelsFor(typeId: number | null): ActivityLabel[] {
+    return labelsForType(this.labels, typeId);
+  }
+
+  isLabelSelected(typeId: number | null, labelId: number | null): boolean {
+    if (typeId == null) {
+      return labelId == null;
+    }
+    return (this.labelSelection.get(typeId) ?? null) === labelId;
+  }
+
+  selectLabel(typeId: number | null, labelId: number | null) {
+    if (typeId == null) {
+      return;
+    }
+    if (labelId == null) {
+      this.labelSelection.delete(typeId);
+      return;
+    }
+    this.labelSelection.set(typeId, labelId);
+  }
+
+  labelMatchCount(typeId: number | null, label: ActivityLabel | null): number {
+    if (typeId == null) {
+      return 0;
+    }
+    this.activityGroups;
+    return this.labelCounts.get(label ? `${typeId}:${label.id}` : `${typeId}:`) ?? 0;
+  }
+
+  private countLabels(visible: Activity[]): Map<string, number> {
+    const counts = new Map<string, number>();
+    const labelsByType = new Map<number, ActivityLabel[]>();
+    for (const label of this.labels) {
+      if (label.typeId == null) {
+        continue;
+      }
+      const list = labelsByType.get(label.typeId) ?? [];
+      list.push(label);
+      labelsByType.set(label.typeId, list);
+    }
+    for (const activity of visible) {
+      if (activity.typeId == null) {
+        continue;
+      }
+      const allKey = `${activity.typeId}:`;
+      counts.set(allKey, (counts.get(allKey) ?? 0) + 1);
+      for (const label of labelsByType.get(activity.typeId) ?? []) {
+        if (activityHasLabel(activity, label)) {
+          const key = `${activity.typeId}:${label.id}`;
+          counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+      }
+    }
+    return counts;
+  }
+
+  get labelActions(): { assign: boolean; remove: boolean } {
+    const typeId = this.selectionType();
+    const activeLabelId = typeof typeId === 'number' ? (this.labelSelection.get(typeId) ?? null) : null;
+    const memberships = [
+      ...this.selectedActivities().map((activity) => activityLabelIds(this.labels, activity)),
+      ...this.selectedGroups().map((group) => groupLabelIds(this.labels, group)),
+    ];
+    return labelToolbarActions(activeLabelId, memberships);
+  }
+
+  assignSelectedLabels() {
+    const typeId = this.selectionType();
+    if (typeId == null) {
+      this.selectionError = 'A label can only be attached within one activity type.';
+      this.failed.emit(this.selectionError);
+      return;
+    }
+    this.syncSelectionError();
+    this.openLabelDialog(typeId, [...this.selectedIds], [...this.selectedGroupIds]);
+  }
+
+  removeSelectedFromLabels() {
+    const label = this.activeFilterLabel();
+    const plan = label ? this.planLabelRemoval(label) : this.planOpenLabelRemoval();
+    if (!plan.activityIds.length && !plan.groupIds.length) {
+      return;
+    }
+    const target = label ? label.name : 'their labels';
+    this.confirmUngroup(
+      'Remove from Label',
+      `Remove the selection from ${target}? Activities stay in their group or on the type list.`,
+      () => this.applyLabelRemoval(label, plan),
+      'Remove from Label',
+    );
+  }
+
+  private activeFilterLabel(): ActivityLabel | null {
+    const typeId = this.selectionType();
+    if (typeof typeId !== 'number') {
+      return null;
+    }
+    const labelId = this.labelSelection.get(typeId) ?? null;
+    if (labelId == null) {
+      return null;
+    }
+    return this.labels.find((label) => label.id === labelId && label.typeId === typeId) ?? null;
+  }
+
+  private planOpenLabelRemoval(): LabelRemovalPlan {
+    return buildOpenLabelRemoval(
+      this.selectedActivities(),
+      this.selectedGroups(),
+      (activity) => this.directLabels(activity),
+      (group) => this.groupLabelTargets(group),
+    );
+  }
+
+  private planLabelRemoval(label: ActivityLabel): LabelRemovalPlan {
+    return buildLabelRemoval(
+      label,
+      this.selectedActivities(),
+      this.selectedGroups(),
+      this.selectedIds,
+      this.selectedGroupIds,
+      (groupId) => this.members(groupId),
+    );
+  }
+
+  private applyLabelRemoval(label: ActivityLabel | null, plan: LabelRemovalPlan) {
+    const remove = () => {
+      this.api.removeLabelMembers(this.project.id, plan.activityIds, plan.groupIds, label?.id ?? null).subscribe({
+        next: () => {
+          this.clearSelection();
+          this.loadLabels();
+        },
+        error: () => this.failed.emit('The selection could not be removed from the label.'),
+      });
+    };
+    this.keepLabelOn(label, plan.keepers, remove);
+  }
+
+  private keepLabelOn(label: ActivityLabel | null, keepers: Activity[], done: () => void) {
+    if (!label || keepers.length === 0) {
+      done();
+      return;
+    }
+    const batches = new Map<string, { ids: number[]; labelIds: number[] }>();
+    for (const activity of keepers) {
+      const labelIds = [...new Set([...this.directLabels(activity).map((item) => item.id), label.id])].sort((left, right) => left - right);
+      const key = labelIds.join(',');
+      const batch = batches.get(key) ?? { ids: [], labelIds };
+      batch.ids.push(activity.id);
+      batches.set(key, batch);
+    }
+    const queue = [...batches.values()];
+    const next = () => {
+      const batch = queue.shift();
+      if (!batch) {
+        done();
+        return;
+      }
+      this.api.setActivityLabels(this.project.id, batch.ids, batch.labelIds).subscribe({
+        next: () => next(),
+        error: () => this.failed.emit('The selection could not be removed from the label.'),
+      });
+    };
+    next();
+  }
+
+  groupLabelTargets(group: ActivityGroup): ActivityLabel[] {
+    const labels = this.labels
+      .filter((label) => label.typeId === group.typeId && (label.activityGroupIds ?? []).includes(group.id))
+      .sort((left, right) => left.name.localeCompare(right.name));
+    const activeId = group.typeId == null ? null : (this.labelSelection.get(group.typeId) ?? null);
+    return scopedLabels(labels, activeId);
+  }
+
+  removeGroupFromLabel(group: ActivityGroup) {
+    const labels = this.groupLabelTargets(group);
+    if (!labels.length) {
+      return;
+    }
+    const names = labels.map((label) => label.name).join(', ');
+    const labelId = labels.length === 1 ? labels[0].id : null;
+    this.confirmUngroup(
+      'Remove from Label',
+      `Remove ${group.name} from ${names}? The group stays under its activity type.`,
+      () => {
+        this.api.removeLabelMembers(this.project.id, [], [group.id], labels.length === 1 ? labelId : null).subscribe({
+          next: () => this.loadLabels(),
+          error: () => this.failed.emit('The group could not be removed from the label.'),
+        });
+      },
+      'Remove from Label',
+    );
+  }
+
+  private openLabelDialog(typeId: number | null | undefined, activityIds: number[], groupIds: number[]) {
+    if (typeId == null) {
+      this.failed.emit('A label can only be attached within one activity type.');
+      return;
+    }
+    const ref = this.dialog.open(AssignLabelDialog, {
+      disableClose: true,
+      width: '90vw',
+      maxWidth: '520px',
+      minWidth: 'min(440px, 96vw)',
+      maxHeight: '90vh',
+      panelClass: ['add-project-dialog-panel', 'app-dialog-pane'],
+      backdropClass: 'add-project-dialog-backdrop',
+      data: { labels: this.labelsFor(typeId), activityIds, groupIds },
+    });
+    ref.afterClosed().subscribe((result: { labelIds: number[]; name: string } | false) => {
+      if (!result) {
+        return;
+      }
+      const apply = (labelIds: number[]) => {
+        this.saveLabelMembers(activityIds, groupIds, labelIds);
+      };
+      const name = result.name?.trim();
+      if (!name) {
+        apply(result.labelIds);
+        return;
+      }
+      this.api.createActivityLabel(this.project.id, name, typeId).subscribe({
+        next: (label) => apply([...result.labelIds, label.id]),
+        error: (error: HttpErrorResponse) => this.failed.emit(error.error?.message || 'The label could not be created.'),
+      });
+    });
+  }
+
+  private saveLabelMembers(activityIds: number[], groupIds: number[], labelIds: number[]) {
+    const finish = () => {
+      this.clearSelection();
+      this.loadLabels();
+    };
+    const saveGroups = () => {
+      if (!groupIds.length) {
+        finish();
+        return;
+      }
+      this.api.setGroupLabels(this.project.id, groupIds, labelIds).subscribe({
+        next: finish,
+        error: (error: HttpErrorResponse) => this.failed.emit(error.error?.message || 'The labels could not be saved.'),
+      });
+    };
+    if (!activityIds.length) {
+      saveGroups();
+      return;
+    }
+    this.api.setActivityLabels(this.project.id, activityIds, labelIds).subscribe({
+      next: saveGroups,
+      error: (error: HttpErrorResponse) => this.failed.emit(error.error?.message || 'The labels could not be saved.'),
+    });
+  }
+
+  private selectedGroups(): ActivityGroup[] {
+    return this.groups.filter((group) => this.selectedGroupIds.has(group.id));
+  }
+
+  private selectionType(): number | null | undefined {
+    return sharedSelectionType(this.selectedActivities(), this.selectedGroups());
+  }
+
   private loadGroups() {
     this.api.activityGroups(this.project.id).subscribe({
       next: (groups) => {
         this.groups = groups;
+        const live = new Set(groups.map((group) => group.id));
+        for (const id of [...this.selectedGroupIds]) {
+          if (!live.has(id)) {
+            this.selectedGroupIds.delete(id);
+          }
+        }
+        for (const group of groups) {
+          this.syncParentGroup(group.id);
+        }
+        this.loadLabels();
+      },
+      error: () => this.loadLabels(),
+    });
+  }
+
+  private loadLabels() {
+    this.api.activityLabels(this.project.id).subscribe({
+      next: (labels) => {
+        this.labels = (labels ?? []).filter((label) => labelHasMembers(label));
+        for (const [typeId, labelId] of [...this.labelSelection]) {
+          if (labelId != null && !this.labels.some((label) => label.id === labelId && label.typeId === typeId)) {
+            this.labelSelection.delete(typeId);
+          }
+        }
+      },
+      error: () => this.failed.emit('Labels could not be loaded.'),
+    });
+  }
+
+  private applyLabelFilter(typeId: number, activities: Activity[], groups: GroupBlock[]): { activities: Activity[]; groups: GroupBlock[] } {
+    const labelId = this.labelSelection.get(typeId) ?? null;
+    const label = labelId == null ? null : this.labels.find((item) => item.id === labelId && item.typeId === typeId) ?? null;
+    return filterActivitiesByLabel(label ?? null, activities, groups);
+  }
+
+  private loadPurchaseOrderLines() {
+    if (!this.project?.id) {
+      this.poLines = [];
+      this.poLinesLoading = false;
+      return;
+    }
+    const request = ++this.poRequest;
+    const projectId = this.project.id;
+    this.poLinesLoading = true;
+    if (this.detailState) {
+      this.detailState.ordersLoading = true;
+    }
+    this.api.purchaseOrderLines(projectId).subscribe({
+      next: (lines) => {
+        if (request !== this.poRequest || projectId !== this.project?.id) {
+          return;
+        }
+        this.poLines = lines ?? [];
+        this.poLinesLoaded = true;
+        this.poLinesLoading = false;
+        this.publishDetail();
+      },
+      error: () => {
+        if (request !== this.poRequest || projectId !== this.project?.id) {
+          return;
+        }
+        this.poLines = [];
+        this.poLinesLoaded = true;
+        this.poLinesLoading = false;
+        this.publishDetail();
       },
     });
   }
@@ -687,13 +1332,21 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     }
     const request = ++this.linkRequest;
     const projectId = this.project.id;
+    this.linksLoading = true;
     this.api.quotationLinks(projectId).subscribe({
       next: (links) => {
         if (request !== this.linkRequest || projectId !== this.project?.id) {
           return;
         }
         this.quotationLinks = this.groupQuotes(links);
+        this.linksLoading = false;
         this.publishDetail();
+      },
+      error: () => {
+        if (request !== this.linkRequest || projectId !== this.project?.id) {
+          return;
+        }
+        this.linksLoading = false;
       },
     });
   }
@@ -704,6 +1357,8 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
 
   private groupQuotes(links: ActivityQuotationLink[]): Map<number, ActivityQuotationLink[]> {
     const grouped = new Map<number, ActivityQuotationLink[]>();
+    this.lowestByActivity = new Map<number, ActivityQuotationLink>();
+    this.quoteCountByActivity = new Map<number, number>();
     for (const link of links) {
       if (link.unitPrice == null && link.baseUnitPrice == null) {
         continue;
@@ -714,11 +1369,18 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     }
     for (const [activityId, rows] of grouped) {
       rows.sort((left, right) => (this.comparablePrice(left) - this.comparablePrice(right)) || (left.quotationId - right.quotationId) || ((left.itemId ?? 0) - (right.itemId ?? 0)));
+      const quotations = new Set<number>();
       rows.forEach((row, index) => {
         row.lowest = index === 0;
+        quotations.add(row.quotationId);
       });
       grouped.set(activityId, rows);
+      if (rows[0]) {
+        this.lowestByActivity.set(activityId, rows[0]);
+      }
+      this.quoteCountByActivity.set(activityId, quotations.size);
     }
+    this.linksVersion++;
     return grouped;
   }
 
@@ -739,7 +1401,14 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       }
       state.subtitle = this.itemSubtitle(activity);
       state.requiredQuantity = activity.quantity;
+      state.serialNo = activity.serialNo;
+      state.tsn = activity.tsn;
+      state.tso = activity.tso;
+      state.csn = activity.csn;
+      state.cso = activity.cso;
       state.rows = this.itemQuoteRows(activity);
+      state.orders = this.ordersFor(activity.id);
+      state.ordersLoading = this.poLinesLoading;
       return;
     }
     if (state.kind === 'group' && state.groupId) {
@@ -748,7 +1417,16 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
         state.subtitle = group.name;
       }
       const activities = (this.project.activities ?? []).filter((item) => item.activityGroupId === state.groupId);
+      state.projectId = this.project.id;
       state.rows = this.groupQuoteRows(activities);
+      state.orders = this.ordersForGroup(activities);
+      state.ordersLoading = this.poLinesLoading;
+    }
+  }
+
+  private ensurePurchaseOrders() {
+    if (!this.poLinesLoaded && !this.poLinesLoading) {
+      this.loadPurchaseOrderLines();
     }
   }
 
@@ -769,7 +1447,17 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
         ? this.api.updateActivityGroup(this.project.id, group.id, saved.name, saved.description ?? '')
         : this.api.createActivityGroup(this.project.id, saved.name, saved.description ?? '');
       request.subscribe({
-        next: () => this.loadGroups(),
+        next: (savedGroup) => {
+          if (savedGroup) {
+            const known = this.groups.some((item) => item.id === savedGroup.id);
+            this.groups = known
+              ? this.groups.map((item) => (item.id === savedGroup.id ? savedGroup : item))
+              : [...this.groups, savedGroup];
+          }
+          this.listVersion++;
+          this.loadGroups();
+          this.activitiesChange.emit();
+        },
         error: () => this.failed.emit('The group could not be saved.'),
       });
     });
@@ -784,6 +1472,9 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
         removed = true;
       }
     }
+    for (const group of this.groups) {
+      this.syncParentGroup(group.id);
+    }
     if (removed) {
       this.syncSelectionError();
     }
@@ -794,7 +1485,22 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     this.failed.emit('');
   }
 
-  private confirmUngroup(title: string, message: string, onConfirm: () => void) {
+  labelTargets(activity: Activity): ActivityLabel[] {
+    const activeId = activity.typeId == null ? null : (this.labelSelection.get(activity.typeId) ?? null);
+    return scopedLabels(this.directLabels(activity), activeId);
+  }
+
+  private clearLabels(activity: Activity, labels: ActivityLabel[]) {
+    const request = labels.length === 1
+      ? this.api.removeActivityLabel(this.project.id, activity.id, labels[0].id)
+      : this.api.removeActivityLabels(this.project.id, activity.id);
+    request.subscribe({
+      next: () => this.loadLabels(),
+      error: () => this.failed.emit('The activity could not be removed from the label.'),
+    });
+  }
+
+  private confirmUngroup(title: string, message: string, onConfirm: () => void, confirmLabel = 'Ungroup') {
     const ref = this.dialog.open(ConfirmDialog, {
       disableClose: true,
       width: '440px',
@@ -804,7 +1510,7 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       data: {
         title,
         message,
-        confirmLabel: 'Ungroup',
+        confirmLabel,
       },
     });
     ref.afterClosed().subscribe((confirmed) => {
@@ -829,11 +1535,6 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     return (this.project.activities ?? []).filter((activity) => this.selectedIds.has(activity.id));
   }
 
-  private sameType(activities: Activity[]): boolean {
-    const typeIds = new Set(activities.map((activity) => activity.typeId));
-    return activities.length > 0 && typeIds.size === 1 && activities.every((activity) => !!activity.typeId);
-  }
-
   private compatibleGroups(typeId: number | null | undefined): ActivityGroup[] {
     return this.groups.filter((group) => group.typeId == null || group.typeId === typeId);
   }
@@ -842,18 +1543,48 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     const query = this.activeFilter;
     return [...(this.project?.activities ?? [])]
       .filter((activity) => !query || this.matchesFilter(activity, query))
+      .filter((activity) => this.matchesQuote(activity))
       .sort((left, right) => compareDsnNo(left.dsnNo, right.dsnNo));
   }
 
+  private memberIndexSource: Activity[] | null = null;
+  private membersByGroup = new Map<number, Activity[]>();
+
   private members(groupId: number): Activity[] {
-    return (this.project.activities ?? []).filter((activity) => activity.activityGroupId === groupId);
+    const activities = this.project?.activities ?? [];
+    if (this.memberIndexSource !== activities) {
+      const grouped = new Map<number, Activity[]>();
+      for (const activity of activities) {
+        if (!activity.activityGroupId) {
+          continue;
+        }
+        const list = grouped.get(activity.activityGroupId) ?? [];
+        list.push(activity);
+        grouped.set(activity.activityGroupId, list);
+      }
+      this.memberIndexSource = activities;
+      this.membersByGroup = grouped;
+    }
+    return this.membersByGroup.get(groupId) ?? [];
   }
 
   private visibleMembers(groupId: number): Activity[] {
     const query = this.activeFilter;
     return this.members(groupId)
       .filter((activity) => !query || this.matchesFilter(activity, query))
+      .filter((activity) => this.matchesQuote(activity))
       .sort((left, right) => compareDsnNo(left.dsnNo, right.dsnNo));
+  }
+
+  private matchesQuote(activity: Activity): boolean {
+    const quoted = this.quotesFor(activity.id).length > 0;
+    if (this.quoteFilter === 'quoted') {
+      return quoted;
+    }
+    if (this.quoteFilter === 'unquoted') {
+      return !quoted;
+    }
+    return true;
   }
 
   private groupBlocks(typeId: number): GroupBlock[] {
@@ -867,6 +1598,20 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       .map((group) => ({ group, activities: this.visibleMembers(group.id) }))
       .filter((block) => block.activities.length > 0)
       .sort((left, right) => left.group.name.localeCompare(right.group.name));
+  }
+
+  private normalizeOpenDrafts() {
+    for (const draft of this.drafts.values()) {
+      draft.unit = canonicalUnit(draft.unit, this.units);
+      draft.condition = canonicalCondition(draft.condition, this.conditions);
+    }
+  }
+
+  private displayLookup(value: string | null | undefined, field: 'unit' | 'condition'): string {
+    const canonical = field === 'unit'
+      ? canonicalUnit(value ?? '', this.units)
+      : canonicalCondition(value ?? '', this.conditions);
+    return canonical || (field === 'unit' ? 'EA' : 'NE');
   }
 
   private typeKey(typeId: number | null): string {
@@ -883,6 +1628,13 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       partNo: activity.partNo ?? '',
       description: activity.description ?? '',
       quantity: activity.quantity == null ? null : Number(activity.quantity),
+      serialNo: activity.serialNo ?? '',
+      tsn: activity.tsn ?? '',
+      tso: activity.tso ?? '',
+      csn: activity.csn ?? '',
+      cso: activity.cso ?? '',
+      unit: this.displayLookup(activity.unit, 'unit'),
+      condition: this.displayLookup(activity.condition, 'condition'),
     };
     this.drafts.set(activity.id, draft);
     return draft;
@@ -918,7 +1670,39 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     return (activity.dsnNo ?? '') !== draft.dsnNo.trim()
       || (activity.partNo ?? '') !== draft.partNo
       || (activity.description ?? '') !== draft.description.trim()
-      || quantity !== draft.quantity;
+      || quantity !== draft.quantity
+      || (activity.serialNo ?? '') !== draft.serialNo.trim()
+      || (activity.tsn ?? '') !== draft.tsn.trim()
+      || (activity.tso ?? '') !== draft.tso.trim()
+      || (activity.csn ?? '') !== draft.csn.trim()
+      || (activity.cso ?? '') !== draft.cso.trim()
+      || this.displayLookup(activity.unit, 'unit') !== draft.unit.trim()
+      || this.displayLookup(activity.condition, 'condition') !== draft.condition.trim();
+  }
+
+  quantityLabel(activity: Activity): string {
+    const quantity = activity.quantity == null ? '' : this.compactQuantity(Number(activity.quantity));
+    const unit = (activity.unit ?? '').trim();
+    return `${quantity}${unit}` || '—';
+  }
+
+  usageDetails(activity: Activity): { label: string; value: string }[] {
+    return [
+      { label: 'SerialNo', value: activity.serialNo },
+      { label: 'TSN', value: activity.tsn },
+      { label: 'TSO', value: activity.tso },
+      { label: 'CSN', value: activity.csn },
+      { label: 'CSO', value: activity.cso },
+    ]
+      .map((field) => ({ label: field.label, value: (field.value ?? '').trim() }))
+      .filter((field) => field.value.length > 0);
+  }
+
+  private compactQuantity(value: number): string {
+    if (!Number.isFinite(value)) {
+      return '';
+    }
+    return Number.isInteger(value) ? String(value) : String(value);
   }
 
   private wholeQuantity(value: number | null): boolean {
@@ -945,23 +1729,18 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
 
 }
 
-export interface GroupBlock {
-  group: ActivityGroup;
-  activities: Activity[];
-}
-
-export interface TypeSection {
-  typeId: number | null;
-  typeName: string;
-  activities: Activity[];
-  groups: GroupBlock[];
-}
-
 interface ActivityDraft {
   dsnNo: string;
   partNo: string;
   description: string;
   quantity: number | null;
+  serialNo: string;
+  tsn: string;
+  tso: string;
+  csn: string;
+  cso: string;
+  unit: string;
+  condition: string;
 }
 
 export function compareDsnNo(left: string | null | undefined, right: string | null | undefined) {

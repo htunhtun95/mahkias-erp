@@ -68,7 +68,7 @@ namespace Mahkias.Api.Controllers
         {
             try
             {
-                var folderId = await _folders.EnsureProjectFolderAsync(projectId, cancellationToken);
+                var folderId = await _folders.EnsureManagedFoldersAsync(projectId, cancellationToken);
                 if (string.IsNullOrWhiteSpace(folderId))
                 {
                     return NotFound(new { message = "Project was not found." });
@@ -129,7 +129,7 @@ namespace Mahkias.Api.Controllers
 
             try
             {
-                var folderId = await _folders.EnsureProjectFolderAsync(projectId, cancellationToken);
+                var folderId = await _folders.EnsureDocumentsFolderAsync(projectId, cancellationToken);
 
                 if (string.IsNullOrWhiteSpace(folderId))
                 {
@@ -145,6 +145,9 @@ namespace Mahkias.Api.Controllers
                     FileType = FileTypes[extension],
                     GoogleDriveFileId = uploaded.FileId,
                     WebViewLink = uploaded.WebViewLink,
+                    FileSize = file.Length,
+                    IsOriginal = string.Equals(Request.Form["isOriginal"], "true", StringComparison.OrdinalIgnoreCase),
+                    SortOrder = int.TryParse(Request.Form["sortOrder"], out var sortOrder) ? sortOrder : null,
                 });
 
                 if (document == null)
@@ -158,6 +161,42 @@ namespace Mahkias.Api.Controllers
             {
                 return BadRequest(new { message = ex.Message });
             }
+        }
+
+        [HttpPut("documents/order")]
+        public async Task<IActionResult> Order(int projectId, [FromBody] DocumentOrderRequest request)
+        {
+            if (request?.Documents == null)
+            {
+                return BadRequest(new { message = "Choose the document order." });
+            }
+
+            var project = await _uow.ProjectDocuments.GetDriveFolderAsync(projectId);
+            if (!project.Exists)
+            {
+                return NotFound(new { message = "Project was not found." });
+            }
+
+            await _uow.ProjectDocuments.OrderAsync(projectId, request.Documents, request.OriginalDocumentId);
+            return Ok(await _uow.ProjectDocuments.ListByProjectAsync(projectId));
+        }
+
+        [HttpDelete("documents/{documentId:int}")]
+        public async Task<IActionResult> Remove(int projectId, int documentId)
+        {
+            var project = await _uow.ProjectDocuments.GetDriveFolderAsync(projectId);
+            if (!project.Exists)
+            {
+                return NotFound(new { message = "Project was not found." });
+            }
+
+            var removed = await _uow.ProjectDocuments.RemoveAsync(projectId, documentId);
+            if (!removed)
+            {
+                return NotFound(new { message = "Document was not found on this project." });
+            }
+
+            return NoContent();
         }
     }
 }

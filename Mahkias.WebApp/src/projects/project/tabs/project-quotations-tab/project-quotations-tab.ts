@@ -1,38 +1,49 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, inject } from '@angular/core';
+import { RouterModule } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Subscription } from 'rxjs';
 import { MaterialModule } from '../../../../app/material-module';
-import { Project, ProjectApiService, QuotationDocument, QuotationLine, QuotationListItem } from '../../../../core/services/project-api.service';
+import { Project, ProjectApiService, PurchaseOrderListItem, QuotationLine, QuotationListItem } from '../../../../core/services/project-api.service';
 import { CreateQuotationDialogComponent } from '../../../add-quotation-dialog/add-quotation-dialog';
 import { ConfirmDialog } from '../../../confirm-dialog/confirm-dialog';
+import { PurchaseOrderDialogComponent, PurchaseOrderPresetLine } from '../../../purchase-order-dialog/purchase-order-dialog';
+import { PurchaseOrderSync } from '../../../purchase-order-sync';
+import { documentAccept, openDocumentLibrary } from '../../../document-library-dialog/document-library-dialog';
+import { QuotationDetailDialog } from './quotation-detail-dialog';
 import { QuotationSync } from '../../../quotation-sync';
 import { formatMoney } from '../../../money-format';
+import { leadTimeLabel, leadTimeText } from '../../../lead-time';
+import { quotationQuantity, quotationValidity } from '../../../quotation-terms';
 
 @Component({
   selector: 'app-project-quotations-tab',
   standalone: true,
-  imports: [MaterialModule],
+  imports: [MaterialModule, RouterModule],
   templateUrl: './project-quotations-tab.html',
   styleUrl: './project-quotations-tab.css',
 })
 export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
+  readonly leadTimeLabel = leadTimeLabel;
   private api = inject(ProjectApiService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
   private sync = inject(QuotationSync);
+  private purchaseSync = inject(PurchaseOrderSync);
   private syncSub: Subscription;
 
   @Input() project: Project | null = null;
   @Output() countChange = new EventEmitter<number>();
 
   quotations: QuotationListItem[] = [];
+  private orderChoices: PurchaseOrderListItem[] = [];
   loading = false;
   error = '';
+  selectionError = '';
   expanded = new Set<number>();
   lines = new Map<number, QuotationLine[]>();
-  documents = new Map<number, QuotationDocument[]>();
+  selectedLineIds = new Set<number>();
   loadingLine = new Set<number>();
   deletingId: number | null = null;
 
@@ -42,6 +53,11 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
         this.load();
       }
     });
+    this.syncSub.add(this.purchaseSync.changes$.subscribe((projectId) => {
+      if (projectId === this.project?.id) {
+        this.loadOrders();
+      }
+    }));
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -50,7 +66,8 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
     if (nextId !== previousId) {
       this.expanded.clear();
       this.lines.clear();
-      this.documents.clear();
+      this.selectedLineIds.clear();
+      this.selectionError = '';
       this.load();
     }
   }
@@ -62,9 +79,11 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
   load() {
     if (!this.project) {
       this.quotations = [];
+      this.orderChoices = [];
       this.countChange.emit(0);
       return;
     }
+    this.loadOrders();
     this.loading = true;
     this.error = '';
     this.api.quotations(this.project.id).subscribe({
@@ -77,10 +96,8 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
           if (!ids.has(id)) {
             this.expanded.delete(id);
             this.lines.delete(id);
-            this.documents.delete(id);
           } else {
             this.fetchLines(id);
-            this.fetchDocuments(id);
           }
         }
       },
@@ -101,9 +118,46 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
     if (!this.lines.has(quotation.id)) {
       this.fetchLines(quotation.id);
     }
-    if (!this.documents.has(quotation.id)) {
-      this.fetchDocuments(quotation.id);
+  }
+
+  manageDocuments(quotation: QuotationListItem) {
+    if (!this.project || this.deletingId != null) {
+      return;
     }
+    this.api.quotationDocuments(this.project.id, quotation.id).subscribe({
+      next: (documents) => {
+        openDocumentLibrary(this.dialog, {
+          title: 'Manage Documents',
+          note: `Files for ${quotation.code}. Choose the original, then set the order.`,
+          kind: 'quotation',
+          projectId: this.project!.id,
+          ownerId: quotation.id,
+          documents: documents ?? [],
+          accept: documentAccept,
+        });
+      },
+    });
+  }
+
+  openDetails(quotation: QuotationListItem) {
+    if (!this.project || this.deletingId != null) {
+      return;
+    }
+    this.dialog.open(QuotationDetailDialog, {
+      disableClose: true,
+      width: '100vw',
+      maxWidth: '100vw',
+      minWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
+      backdropClass: 'add-project-dialog-backdrop',
+      autoFocus: 'first-tabbable',
+      data: {
+        projectId: this.project.id,
+        quotation,
+      },
+    });
   }
 
   isExpanded(id: number): boolean {
@@ -114,8 +168,203 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
     return this.lines.get(id) ?? [];
   }
 
-  quotationDocuments(id: number): QuotationDocument[] {
-    return this.documents.get(id) ?? [];
+  lineSelected(id: number): boolean {
+    return this.selectedLineIds.has(id);
+  }
+
+  allLinesSelected(quotationId: number): boolean {
+    const lines = this.lineItems(quotationId);
+    return lines.length > 0 && lines.every((line) => this.selectedLineIds.has(line.id));
+  }
+
+  someLinesSelected(quotationId: number): boolean {
+    const lines = this.lineItems(quotationId);
+    const selected = lines.filter((line) => this.selectedLineIds.has(line.id)).length;
+    return selected > 0 && selected < lines.length;
+  }
+
+  toggleLine(id: number, checked: boolean) {
+    if (checked) {
+      this.selectedLineIds.add(id);
+    } else {
+      this.selectedLineIds.delete(id);
+    }
+    this.selectionError = '';
+  }
+
+  toggleAllLines(quotationId: number, checked: boolean) {
+    for (const line of this.lineItems(quotationId)) {
+      this.toggleLine(line.id, checked);
+    }
+  }
+
+  get selectedCount(): number {
+    return this.selectedLineIds.size;
+  }
+
+  get selectionNote(): string {
+    const count = this.selectedCount;
+    return `${count} ${count === 1 ? 'item' : 'items'} selected`;
+  }
+
+  get supplierConflict(): boolean {
+    return this.selectedSupplierIds().size > 1;
+  }
+
+  get activeOrders(): PurchaseOrderListItem[] {
+    const supplierId = this.selectedSupplierId;
+    if (supplierId == null) {
+      return [];
+    }
+    return this.orderChoices.filter((order) => order.supplierId === supplierId && (order.statusCode ?? '').trim().toLowerCase() !== 'cancelled');
+  }
+
+  private get selectedSupplierId(): number | null {
+    const supplierIds = [...this.selectedSupplierIds()];
+    return supplierIds.length === 1 ? supplierIds[0] : null;
+  }
+
+  get selectionMessage(): string {
+    if (this.supplierConflict) {
+      return 'Select lines from one supplier only.';
+    }
+    return this.selectionError;
+  }
+
+  clearSelection() {
+    this.selectedLineIds.clear();
+    this.selectionError = '';
+  }
+
+  private selectedSupplierIds(): Set<number> {
+    const supplierIds = new Set<number>();
+    for (const quotation of this.quotations) {
+      for (const line of this.lineItems(quotation.id)) {
+        if (this.selectedLineIds.has(line.id)) {
+          supplierIds.add(quotation.supplierId);
+        }
+      }
+    }
+    return supplierIds;
+  }
+
+  choosePurchaseOrder(select: HTMLSelectElement) {
+    const value = select.value;
+    select.value = '';
+    if (value === 'new') {
+      this.createPurchaseOrder();
+      return;
+    }
+    const orderId = Number(value);
+    if (Number.isInteger(orderId) && orderId > 0) {
+      this.addToExistingPurchaseOrder(orderId);
+    }
+  }
+
+  createPurchaseOrder() {
+    const request = this.selectedPoRequest();
+    if (!request) {
+      return;
+    }
+    this.openPurchaseOrder({ supplierId: request.supplierId, lines: request.lines });
+  }
+
+  addToExistingPurchaseOrder(orderId: number) {
+    const request = this.selectedPoRequest();
+    if (!request || !this.activeOrders.some((order) => order.id === orderId)) {
+      return;
+    }
+    this.openPurchaseOrder({ purchaseOrderId: orderId, lines: request.lines });
+  }
+
+  private loadOrders() {
+    const projectId = this.project?.id;
+    if (!projectId) {
+      this.orderChoices = [];
+      return;
+    }
+    this.api.purchaseOrders(projectId).subscribe({
+      next: (orders) => {
+        if (this.project?.id === projectId) {
+          this.orderChoices = orders ?? [];
+        }
+      },
+    });
+  }
+
+  private selectedPoRequest() {
+    if (!this.project || this.deletingId != null) {
+      return null;
+    }
+    const lines = [];
+    const supplierIds = new Set<number>();
+    for (const quotation of this.quotations) {
+      for (const line of this.lineItems(quotation.id)) {
+        if (!this.selectedLineIds.has(line.id)) {
+          continue;
+        }
+        if (!line.activityId) {
+          this.selectionError = 'Every selected line needs an activity before it can go on a purchase order.';
+          return null;
+        }
+        supplierIds.add(quotation.supplierId);
+        lines.push({
+          activityId: line.activityId,
+          quotationId: quotation.id,
+          quotationCode: quotation.code,
+          dsnNo: line.dsnNo,
+          partNo: line.partNo,
+          isAlternativePart: !!line.isAlternativePart,
+          description: line.description,
+          condition: line.condition,
+          unit: line.unit,
+          leadTime: leadTimeText(line.leadTime),
+          quantity: quotedQuantity(line),
+          unitPrice: line.unitPrice,
+          totalPrice: line.totalPrice,
+        });
+      }
+    }
+    if (!lines.length) {
+      this.selectionError = 'Select one or more quotation lines first.';
+      return null;
+    }
+    if (supplierIds.size !== 1) {
+      return null;
+    }
+    this.selectionError = '';
+    return { supplierId: [...supplierIds][0], lines };
+  }
+
+  private openPurchaseOrder(data: { supplierId?: number | null; purchaseOrderId?: number; lines: PurchaseOrderPresetLine[] }) {
+    if (!this.project) {
+      return;
+    }
+    const ref = this.dialog.open(PurchaseOrderDialogComponent, {
+      disableClose: true,
+      width: '100vw',
+      maxWidth: '100vw',
+      minWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
+      backdropClass: 'add-project-dialog-backdrop',
+      autoFocus: 'first-tabbable',
+      data: {
+        projectId: this.project.id,
+        activities: this.project.activities ?? [],
+        supplierId: data.supplierId,
+        purchaseOrderId: data.purchaseOrderId,
+        lines: data.lines,
+      },
+    });
+    ref.afterClosed().subscribe((saved) => {
+      if (saved && this.project) {
+        this.selectedLineIds.clear();
+        this.snackBar.open('Purchase order saved.', undefined, { duration: 3000 });
+        this.purchaseSync.notify(this.project.id);
+      }
+    });
   }
 
   edit(quotation: QuotationListItem) {
@@ -126,11 +375,12 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
       next: (detail) => {
         const ref = this.dialog.open(CreateQuotationDialogComponent, {
           disableClose: true,
-          width: '90vw',
-          maxWidth: '1200px',
-          minWidth: 'min(850px, 96vw)',
-          maxHeight: '90vh',
-          panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'app-dialog-pane'],
+          width: '100vw',
+          maxWidth: '100vw',
+          minWidth: '100vw',
+          height: '100vh',
+          maxHeight: '100vh',
+          panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
           backdropClass: 'add-project-dialog-backdrop',
           autoFocus: 'first-tabbable',
           data: {
@@ -162,7 +412,7 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
       panelClass: 'add-project-dialog-panel',
       backdropClass: 'add-project-dialog-backdrop',
       data: {
-        title: 'Delete quotation',
+        title: 'Delete Quotation',
         message: 'Are you sure you want to delete this quotation? Its line items will be permanently removed.',
         confirmLabel: 'Delete',
         cancelLabel: 'Cancel',
@@ -200,6 +450,17 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
     return formatMoney(value, symbol, code);
   }
 
+  validity(quotedDate?: string | null, validUntil?: string | null) {
+    if (!quotedDate || !validUntil) {
+      return null;
+    }
+    return quotationValidity(validUntil);
+  }
+
+  quantityDisplay(quantity?: number | null, minimumQty?: number | null) {
+    return quotationQuantity(quantity, minimumQty);
+  }
+
   when(value?: string | null): string {
     if (!value) {
       return '';
@@ -224,18 +485,13 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
       },
     });
   }
+}
 
-  private fetchDocuments(id: number) {
-    if (!this.project) {
-      return;
-    }
-    this.api.quotationDocuments(this.project.id, id).subscribe({
-      next: (documents) => {
-        this.documents.set(id, documents ?? []);
-      },
-      error: () => {
-        this.documents.set(id, []);
-      },
-    });
+function quotedQuantity(line: QuotationLine): number {
+  const minimum = Number(line.minimumQty);
+  if (Number.isFinite(minimum) && minimum > 0) {
+    return minimum;
   }
+  const quantity = Number(line.quantity);
+  return Number.isFinite(quantity) && quantity > 0 ? quantity : 0;
 }

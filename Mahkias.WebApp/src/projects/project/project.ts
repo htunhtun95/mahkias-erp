@@ -8,16 +8,23 @@ import { whileBusy } from '../../core/while-busy';
 import { ActivityType, Project, ProjectApiService } from '../../core/services/project-api.service';
 import { AddProjectDialog } from '../add-project-dialog/add-project-dialog';
 import { CreateQuotationDialogComponent } from '../add-quotation-dialog/add-quotation-dialog';
+import { ImportPurchaseOrderDialogComponent } from '../import-purchase-order-dialog/import-purchase-order-dialog';
 import { ImportQuotationDialogComponent } from '../import-quotation-dialog/import-quotation-dialog';
+import { PurchaseOrderDialogComponent } from '../purchase-order-dialog/purchase-order-dialog';
 import { ConfirmDialog } from '../confirm-dialog/confirm-dialog';
 import { ProjectActivitiesTabComponent } from './tabs/project-activities-tab/project-activities-tab';
+import { ProjectDocumentsTabComponent } from './tabs/project-documents-tab/project-documents-tab';
 import { ProjectPurchasesTabComponent } from './tabs/project-purchases-tab/project-purchases-tab';
 import { ProjectQuotationsTabComponent } from './tabs/project-quotations-tab/project-quotations-tab';
+import { ProcurementTrace } from '../procurement-trace';
+import { PurchaseOrderSync } from '../purchase-order-sync';
 import { QuotationSync } from '../quotation-sync';
 
-export type ProjectTab = 'activities' | 'quotations' | 'purchases';
+export type ProjectTab = 'activities' | 'procurement' | 'documents';
+export type ProcurementSection = 'quotations' | 'purchases';
 
-const PROJECT_TABS: ProjectTab[] = ['activities', 'quotations', 'purchases'];
+const PROJECT_TABS: ProjectTab[] = ['activities', 'procurement', 'documents'];
+const PROCUREMENT_SECTIONS: ProcurementSection[] = ['quotations', 'purchases'];
 
 @Component({
   selector: 'app-project',
@@ -26,6 +33,7 @@ const PROJECT_TABS: ProjectTab[] = ['activities', 'quotations', 'purchases'];
     RouterModule,
     MaterialModule,
     ProjectActivitiesTabComponent,
+    ProjectDocumentsTabComponent,
     ProjectQuotationsTabComponent,
     ProjectPurchasesTabComponent,
   ],
@@ -39,17 +47,27 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
   private quotationSync = inject(QuotationSync);
+  private purchaseSync = inject(PurchaseOrderSync);
+  private trace = inject(ProcurementTrace);
   private syncSub?: Subscription;
+  private traceSub?: Subscription;
   private activitiesTab = viewChild(ProjectActivitiesTabComponent);
+  private documentsTab = viewChild(ProjectDocumentsTabComponent);
+  private purchasesTab = viewChild(ProjectPurchasesTabComponent);
   private quotationsTab = viewChild(ProjectQuotationsTabComponent);
 
   project: Project | null = null;
   types: ActivityType[] = [];
   tab: ProjectTab = 'activities';
+  section: ProcurementSection = 'quotations';
   loading = true;
   isDeleting = false;
+  openingQuotation = false;
   activityFilter = '';
+  quoteFilter: 'all' | 'quoted' | 'unquoted' = 'all';
   quotationCount = 0;
+  purchaseCount = 0;
+  procurementMounted = false;
   error = '';
 
   get activityCount(): number {
@@ -64,7 +82,60 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
     });
 
     this.route.queryParamMap.subscribe((params) => {
-      this.tab = this.readTab(params.get('tab'));
+      const rawTab = params.get('tab');
+      if (rawTab === 'quotations' || rawTab === 'purchases') {
+        this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: { tab: 'procurement', section: rawTab },
+          replaceUrl: true,
+        });
+        return;
+      }
+
+      const tab = this.readTab(rawTab);
+      if (tab === 'procurement') {
+        this.procurementMounted = true;
+        const rawSection = params.get('section');
+        const section = PROCUREMENT_SECTIONS.includes(rawSection as ProcurementSection)
+          ? (rawSection as ProcurementSection)
+          : null;
+        if (!section) {
+          this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { tab: 'procurement', section: 'quotations' },
+            queryParamsHandling: 'merge',
+            replaceUrl: true,
+          });
+          return;
+        }
+
+        this.tab = 'procurement';
+        this.section = section;
+        return;
+      }
+
+      if (tab === 'documents') {
+        this.tab = 'documents';
+        if (params.get('section')) {
+          this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { section: null },
+            queryParamsHandling: 'merge',
+            replaceUrl: true,
+          });
+        }
+        return;
+      }
+
+      this.tab = 'activities';
+      if (params.get('section')) {
+        this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: { section: null },
+          queryParamsHandling: 'merge',
+          replaceUrl: true,
+        });
+      }
     });
 
     this.syncSub = this.quotationSync.changes$.subscribe((projectId) => {
@@ -72,6 +143,22 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
         this.load(projectId, true);
       }
     });
+
+    this.traceSub = new Subscription();
+    this.traceSub.add(this.trace.activities$.subscribe(({ projectId, activityId }) => {
+      if (this.project?.id !== projectId) {
+        return;
+      }
+      this.selectTab('activities');
+      setTimeout(() => this.activitiesTab()?.revealActivity(activityId));
+    }));
+    this.traceSub.add(this.trace.orders$.subscribe(({ projectId, purchaseOrderId }) => {
+      if (this.project?.id !== projectId) {
+        return;
+      }
+      this.selectSection('purchases');
+      setTimeout(() => this.purchasesTab()?.reveal(purchaseOrderId));
+    }));
 
     this.route.paramMap.subscribe((params) => {
       const id = Number(params.get('id'));
@@ -89,6 +176,7 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.syncSub?.unsubscribe();
+    this.traceSub?.unsubscribe();
   }
 
   selectTab(tab: ProjectTab) {
@@ -98,12 +186,31 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
 
     this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: { tab },
+      queryParams: tab === 'procurement'
+        ? { tab, section: this.section }
+        : { tab, section: null },
+      queryParamsHandling: 'merge',
+    });
+  }
+
+  manageDocuments() {
+    this.documentsTab()?.manage();
+  }
+
+  selectSection(section: ProcurementSection) {
+    if (this.tab === 'procurement' && section === this.section) {
+      return;
+    }
+
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab: 'procurement', section },
       queryParamsHandling: 'merge',
     });
   }
 
   load(id: number, silent = false) {
+    this.api.forgetProject(id);
     if (!silent) {
       this.loading = true;
     }
@@ -112,10 +219,28 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
       next: (project) => {
         this.project = project;
         this.loading = false;
+        this.warmProcurement(project.id);
       },
       error: () => {
         this.error = 'This project could not be loaded.';
         this.loading = false;
+      },
+    });
+  }
+
+  private warmProcurement(projectId: number) {
+    this.api.quotations(projectId).subscribe({
+      next: (items) => {
+        if (this.project?.id === projectId) {
+          this.quotationCount = items.length;
+        }
+      },
+    });
+    this.api.purchaseOrders(projectId).subscribe({
+      next: (items) => {
+        if (this.project?.id === projectId) {
+          this.purchaseCount = items.length;
+        }
       },
     });
   }
@@ -200,17 +325,52 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
   }
 
   openQuotation() {
+    if (!this.project || this.isDeleting || this.openingQuotation) {
+      return;
+    }
+
+    this.openingQuotation = true;
+    try {
+      const ref = this.dialog.open(CreateQuotationDialogComponent, {
+        disableClose: true,
+        width: '100vw',
+        maxWidth: '100vw',
+        minWidth: '100vw',
+        height: '100vh',
+        maxHeight: '100vh',
+        panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
+        backdropClass: 'quotation-create-backdrop',
+        autoFocus: 'first-tabbable',
+        data: {
+          projectId: this.project.id,
+          activities: this.project.activities ?? [],
+          groups: this.activitiesTab()?.groups ?? [],
+        },
+      });
+      const finishOpening = () => {
+        this.openingQuotation = false;
+      };
+      ref.afterOpened().subscribe(finishOpening);
+      ref.afterClosed().subscribe(finishOpening);
+      this.afterQuotationSaved(ref);
+    } catch {
+      this.openingQuotation = false;
+    }
+  }
+
+  openImportQuotation() {
     if (!this.project || this.isDeleting) {
       return;
     }
 
-    const ref = this.dialog.open(CreateQuotationDialogComponent, {
+    const ref = this.dialog.open(ImportQuotationDialogComponent, {
       disableClose: true,
-      width: '90vw',
-      maxWidth: '1200px',
-      minWidth: 'min(850px, 96vw)',
-      maxHeight: '90vh',
-      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'app-dialog-pane'],
+      width: '100vw',
+      maxWidth: '100vw',
+      minWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       autoFocus: 'first-tabbable',
       data: {
@@ -222,27 +382,59 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
     this.afterQuotationSaved(ref);
   }
 
-  openImportQuotation() {
+  openPurchaseOrder() {
     if (!this.project || this.isDeleting) {
       return;
     }
 
-    const ref = this.dialog.open(ImportQuotationDialogComponent, {
+    const ref = this.dialog.open(PurchaseOrderDialogComponent, {
       disableClose: true,
-      width: '90vw',
-      maxWidth: '1200px',
-      minWidth: 'min(850px, 96vw)',
-      maxHeight: '90vh',
-      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'app-dialog-pane'],
+      width: '100vw',
+      maxWidth: '100vw',
+      minWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       autoFocus: 'first-tabbable',
       data: {
         projectId: this.project.id,
         activities: this.project.activities ?? [],
-        groups: this.activitiesTab()?.groups ?? [],
       },
     });
-    this.afterQuotationSaved(ref);
+    this.afterPurchaseSaved(ref);
+  }
+
+  openImportPurchaseOrder() {
+    if (!this.project || this.isDeleting) {
+      return;
+    }
+
+    const ref = this.dialog.open(ImportPurchaseOrderDialogComponent, {
+      disableClose: true,
+      width: '100vw',
+      maxWidth: '100vw',
+      minWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
+      backdropClass: 'add-project-dialog-backdrop',
+      autoFocus: 'first-tabbable',
+      data: {
+        projectId: this.project.id,
+        activities: this.project.activities ?? [],
+      },
+    });
+    this.afterPurchaseSaved(ref);
+  }
+
+  private afterPurchaseSaved(ref: { afterClosed: () => { subscribe: (next: (saved: boolean) => void) => void } }) {
+    ref.afterClosed().subscribe((saved) => {
+      if (saved && this.project) {
+        this.snackBar.open('Purchase order saved.', undefined, { duration: 3000 });
+        this.purchaseSync.notify(this.project.id);
+      }
+    });
   }
 
   private afterQuotationSaved(ref: { afterClosed: () => { subscribe: (next: (saved: boolean) => void) => void } }) {

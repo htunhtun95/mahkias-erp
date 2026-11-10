@@ -80,7 +80,7 @@ namespace Mahkias.Api.Controllers
 
             try
             {
-                await _folders.EnsureProjectFolderAsync(id);
+                await _folders.EnsureManagedFoldersAsync(id);
             }
             catch (InvalidOperationException ex)
             {
@@ -98,10 +98,17 @@ namespace Mahkias.Api.Controllers
                 return BadRequest("Name is required.");
             }
 
+            var current = await _uow.ProjectDocuments.GetDriveFolderAsync(id);
+            var name = request.Name.Trim();
+            var reference = request.Reference?.Trim();
+            var folderNameChanged = current.Exists && (
+                !string.Equals(current.Name?.Trim(), name, StringComparison.Ordinal)
+                || !string.Equals(current.Reference?.Trim() ?? string.Empty, reference ?? string.Empty, StringComparison.Ordinal));
+
             var status = await _uow.Projects.UpdateAsync(id, new UpsertProjectArgs
             {
-                Name = request.Name.Trim(),
-                Reference = request.Reference?.Trim(),
+                Name = name,
+                Reference = reference,
                 Description = request.Description?.Trim()
             });
 
@@ -113,6 +120,27 @@ namespace Mahkias.Api.Controllers
             if (status == 0)
             {
                 return NotFound();
+            }
+
+            if (folderNameChanged)
+            {
+                try
+                {
+                    await _folders.RenameProjectFolderAsync(id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Google Drive folder was not renamed for project {ProjectId}.", id);
+                }
+            }
+
+            try
+            {
+                await _folders.EnsureManagedFoldersAsync(id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Google Drive folders were not linked for project {ProjectId}.", id);
             }
 
             return Ok(await ProjectResponseAsync(id));
@@ -170,10 +198,25 @@ namespace Mahkias.Api.Controllers
                 return BadRequest("Part no is required.");
             }
 
+            if (request.TypeId == null || request.TypeId <= 0)
+            {
+                return BadRequest(new { message = "Type is required." });
+            }
+
             var createdId = await _uow.Activities.CreateAsync(ToArgs(id, request));
             if (createdId <= 0)
             {
                 return BadRequest("Part no is required.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Label))
+            {
+                var assigned = await _uow.ActivityLabels.AssignActivityAsync(id, createdId, request.TypeId.Value, request.Label);
+                if (!string.IsNullOrEmpty(assigned.Error) || assigned.Missing || assigned.Updated <= 0)
+                {
+                    await _uow.Activities.DeleteAsync(createdId);
+                    return BadRequest(new { message = string.IsNullOrEmpty(assigned.Error) ? "The label could not be assigned." : assigned.Error });
+                }
             }
 
             var created = (await _uow.Activities.GetByProjectAsync(id)).FirstOrDefault(activity => activity.Id == createdId);
@@ -218,7 +261,15 @@ namespace Mahkias.Api.Controllers
                     description = Suggest(sheet.Columns, "description", "desc"),
                     type = Suggest(sheet.Columns, "type", "activitytype"),
                     quantity = Suggest(sheet.Columns, "quantity", "qty"),
-                    budget = Suggest(sheet.Columns, "budget", "price", "cost")
+                    budget = Suggest(sheet.Columns, "budget", "price", "cost"),
+                    label = Suggest(sheet.Columns, "label", "labels", "activitylabel"),
+                    unit = Suggest(sheet.Columns, "unit", "uom", "unitofmeasure"),
+                    condition = Suggest(sheet.Columns, "condition", "cond"),
+                    serialNo = Suggest(sheet.Columns, "serialno", "serialnumber", "serial"),
+                    tsn = Suggest(sheet.Columns, "tsn"),
+                    tso = Suggest(sheet.Columns, "tso"),
+                    csn = Suggest(sheet.Columns, "csn"),
+                    cso = Suggest(sheet.Columns, "cso")
                 }
             });
         }
@@ -284,7 +335,9 @@ namespace Mahkias.Api.Controllers
             }
 
             var types = await _context.ActivityTypes.AsNoTracking().ToListAsync();
-            var plan = ActivityImportValidator.Plan(sheet, form, types);
+            var units = await _uow.Lookups.ListUnitsAsync();
+            var conditions = await _uow.Lookups.ListConditionsAsync();
+            var plan = ActivityImportValidator.Plan(sheet, form, types, units, conditions);
             if (plan.Errors.Count == 0)
             {
                 plan.Errors.AddRange(await _uow.Activities.ValidateImportAsync(id, plan.Rows));
@@ -324,7 +377,15 @@ namespace Mahkias.Api.Controllers
                 Description = row.Description,
                 DSNNo = row.DSNNo,
                 Quantity = row.Quantity,
-                TypeId = row.TypeId
+                TypeId = row.TypeId,
+                Label = row.Label,
+                Unit = row.Unit,
+                Condition = row.Condition,
+                SerialNo = row.SerialNo,
+                TSN = row.TSN,
+                TSO = row.TSO,
+                CSN = row.CSN,
+                CSO = row.CSO
             }));
             return Ok(new { inserted });
         }
@@ -344,7 +405,15 @@ namespace Mahkias.Api.Controllers
                 Description = request?.Description,
                 DSNNo = request?.DSNNo,
                 Quantity = request?.Quantity,
-                TypeId = request?.TypeId > 0 ? request.TypeId : null
+                TypeId = request?.TypeId > 0 ? request.TypeId : null,
+                Label = string.IsNullOrWhiteSpace(request?.Label) ? null : request.Label.Trim(),
+                Unit = string.IsNullOrWhiteSpace(request?.Unit) ? null : request.Unit.Trim(),
+                Condition = string.IsNullOrWhiteSpace(request?.Condition) ? null : request.Condition.Trim(),
+                SerialNo = string.IsNullOrWhiteSpace(request?.SerialNo) ? null : request.SerialNo.Trim(),
+                TSN = string.IsNullOrWhiteSpace(request?.TSN) ? null : request.TSN.Trim(),
+                TSO = string.IsNullOrWhiteSpace(request?.TSO) ? null : request.TSO.Trim(),
+                CSN = string.IsNullOrWhiteSpace(request?.CSN) ? null : request.CSN.Trim(),
+                CSO = string.IsNullOrWhiteSpace(request?.CSO) ? null : request.CSO.Trim()
             };
         }
 
@@ -361,6 +430,13 @@ namespace Mahkias.Api.Controllers
                 Description = activity.Description,
                 DSNNo = activity.DSNNo,
                 Quantity = activity.Quantity,
+                Unit = activity.Unit,
+                Condition = activity.Condition,
+                SerialNo = activity.SerialNo,
+                TSN = activity.TSN,
+                TSO = activity.TSO,
+                CSN = activity.CSN,
+                CSO = activity.CSO,
                 TypeId = activity.TypeId,
                 Type = string.IsNullOrWhiteSpace(activity.Type) ? null : activity.Type,
                 CreatedAt = activity.CreatedAt,

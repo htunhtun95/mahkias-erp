@@ -152,13 +152,14 @@ h1 {
 
 .tabs {
   display: flex;
+  flex: 0 0 auto;
   align-items: flex-end;
   gap: 4px;
-  min-width: 0;
 }
 
 .tab {
   position: relative;
+  flex-shrink: 0;
   height: 48px;
   padding: 0 16px;
   border: 0;
@@ -183,23 +184,100 @@ h1 {
   border-bottom-color: #1a73e8;
 }
 
+.procurement-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 16px;
+  padding: 4px;
+  border-radius: 999px;
+  background: #f1f3f4;
+}
+
+.segment-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #5f6368;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.segment-btn:hover {
+  color: #202124;
+}
+
+.segment-btn.active {
+  background: #fff;
+  color: #1a73e8;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.16);
+}
+
+.segment-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.segment-count {
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #e8eaed;
+  color: #5f6368;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.segment-btn.active .segment-count {
+  background: #e8f0fe;
+  color: #1a73e8;
+}
+
 .header-actions {
   display: flex;
+  flex: 1 1 auto;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
-  flex-shrink: 0;
+  min-width: 0;
   padding-bottom: 8px;
+}
+
+.activity-filters {
+  display: flex;
+  align-items: center;
+  flex: 1 1 280px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+}
+
+.quote-status-filter {
+  width: 168px;
+  flex: 0 0 168px;
+  margin: 0;
 }
 
 .activity-search {
   display: flex;
   align-items: center;
+  box-sizing: border-box;
   gap: 6px;
-  flex: 0 1 340px;
-  width: 340px;
-  max-width: 100%;
+  flex: 1 1 160px;
+  width: auto;
+  min-width: 160px;
+  max-width: 220px;
   height: 40px;
   padding: 0 14px;
   border: 1px solid #dadce0;
@@ -207,6 +285,16 @@ h1 {
   background: #fff;
   color: #5f6368;
   box-shadow: 0 1px 2px rgba(60, 64, 67, 0.08);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.activity-search:hover:not(:focus-within) {
+  border-color: var(--field-border-hover);
+}
+
+.activity-search:focus-within {
+  border-color: var(--field-focus);
+  box-shadow: var(--field-focus-ring);
 }
 
 .activity-search mat-icon {
@@ -216,28 +304,128 @@ h1 {
   flex-shrink: 0;
 }
 
-.activity-search input {
+.activity-search input,
+.activity-search input:hover,
+.activity-search input:focus,
+.activity-search input:focus-visible {
   flex: 1;
   min-width: 0;
+  margin: 0;
+  padding: 0;
   border: 0;
+  border-radius: 0;
   outline: none;
   background: transparent;
+  box-shadow: none;
+  appearance: none;
+  -webkit-appearance: none;
   color: #202124;
   font: inherit;
   font-size: 13px;
+}
+
+.activity-search input::-webkit-search-decoration,
+.activity-search input::-webkit-search-cancel-button,
+.activity-search input::-webkit-search-results-button,
+.activity-search input::-webkit-search-results-decoration {
+  display: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.activity-search .search-clear {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #5f6368;
+  cursor: pointer;
+}
+
+.activity-search .search-clear mat-icon {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
 }
 
 .activity-search input::placeholder {
   color: #80868b;
 }
 
+:host ::ng-deep .quote-status-filter .mat-mdc-text-field-wrapper {
+  box-sizing: border-box;
+  width: 100%;
+  height: 42px;
+  margin: 0;
+  padding: 0 8px 0 14px;
+  border: 1px solid #dadce0;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.08);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+:host ::ng-deep .quote-status-filter:not(.mat-focused):hover .mat-mdc-text-field-wrapper {
+  border-color: var(--field-border-hover);
+}
+
+:host ::ng-deep .quote-status-filter.mat-focused .mat-mdc-text-field-wrapper {
+  border-color: var(--field-focus);
+  box-shadow: var(--field-focus-ring);
+}
+
+:host ::ng-deep .quote-status-filter .mdc-notched-outline,
+:host ::ng-deep .quote-status-filter .mat-mdc-form-field-subscript-wrapper {
+  display: none;
+}
+
+:host ::ng-deep .quote-status-filter .mat-mdc-form-field-flex {
+  height: 40px;
+  align-items: center;
+}
+
+:host ::ng-deep .quote-status-filter .mat-mdc-form-field-infix {
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+}
+
+:host ::ng-deep .quote-status-filter .mat-mdc-select-trigger {
+  height: 40px;
+}
+
+:host ::ng-deep .quote-status-filter .mat-mdc-form-field-focus-overlay {
+  background: transparent;
+}
+
+:host ::ng-deep .quote-status-filter .mat-mdc-select-value-text,
+:host ::ng-deep .quote-status-filter .mat-mdc-select-min-line {
+  font-size: 13px;
+  color: #202124;
+  white-space: nowrap;
+}
+
+:host ::ng-deep .quote-status-filter .mat-mdc-select-arrow {
+  color: #5f6368;
+}
+
 .action-outline,
 .action-primary {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   gap: 8px;
   height: 40px;
+  white-space: nowrap;
   padding: 0 16px;
   border-radius: 24px;
   font: inherit;
@@ -300,6 +488,12 @@ h1 {
 }
 
 .loading {
+  display: flex;
+  flex-direction: column;
+  min-height: 240px;
+}
+
+.loading-body {
   display: flex;
   justify-content: center;
   padding: 48px;
@@ -464,10 +658,19 @@ h1 {
     flex-direction: column;
   }
 
+  .activity-filters {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .quote-status-filter,
   .activity-search,
   .action-outline,
   .action-primary {
     width: 100%;
+    max-width: none;
+    flex-basis: auto;
   }
 
   h1 {

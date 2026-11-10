@@ -28,7 +28,9 @@ namespace Mahkias.Api.Controllers
                 return NotFound();
             }
 
-            return Ok(await _uow.ActivityGroups.ListAsync(projectId));
+            var groups = await _uow.ActivityGroups.ListAsync(projectId);
+            await _uow.ActivityLabels.DeleteEmptyAsync(projectId);
+            return Ok(groups);
         }
 
         [HttpPost("/api/projects/{projectId}/activity-groups")]
@@ -71,7 +73,13 @@ namespace Mahkias.Api.Controllers
         public async Task<IActionResult> Delete(int projectId, int id)
         {
             var deleted = await _uow.ActivityGroups.DeleteAsync(id, projectId);
-            return deleted ? NoContent() : NotFound();
+            if (!deleted)
+            {
+                return NotFound();
+            }
+
+            await _uow.ActivityLabels.DeleteEmptyAsync(projectId);
+            return NoContent();
         }
 
         [HttpPut("/api/projects/{projectId}/activity-groups/assign")]
@@ -84,6 +92,11 @@ namespace Mahkias.Api.Controllers
             }
 
             var result = await _uow.ActivityGroups.AssignManyAsync(projectId, ids, request.ActivityGroupId);
+            if (string.IsNullOrEmpty(result?.Error) && result?.Missing != true)
+            {
+                await _uow.ActivityLabels.DeleteEmptyAsync(projectId);
+            }
+
             return Assignment(result);
         }
 
@@ -91,7 +104,13 @@ namespace Mahkias.Api.Controllers
         public async Task<IActionResult> Assign(int projectId, int activityId, [FromBody] AssignActivityGroupRequest request)
         {
             var result = await _uow.ActivityGroups.AssignAsync(projectId, activityId, request?.ActivityGroupId);
-            return result.Updated > 0 && string.IsNullOrEmpty(result.Error) ? NoContent() : Assignment(result);
+            if (result.Updated > 0 && string.IsNullOrEmpty(result.Error))
+            {
+                await _uow.ActivityLabels.DeleteEmptyAsync(projectId);
+                return NoContent();
+            }
+
+            return Assignment(result);
         }
 
         private IActionResult Assignment(ActivityGroupAssignResult result)

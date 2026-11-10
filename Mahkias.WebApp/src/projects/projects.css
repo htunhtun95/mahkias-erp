@@ -1,4 +1,17 @@
+:host {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .projects-page {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
   color: #202124;
   min-width: 0;
   max-width: 100%;
@@ -7,8 +20,13 @@
 .page-bar {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
   gap: 16px;
   margin-bottom: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 11;
+  background: #fff;
 }
 
 .search {
@@ -66,10 +84,21 @@ h1 {
 }
 
 .drive-table {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
   width: 100%;
   max-width: 100%;
+  min-height: 0;
   border-top: 1px solid #e0e0e0;
+  overflow: hidden;
+}
+
+.table-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .row {
@@ -90,6 +119,10 @@ h1 {
 }
 
 .heading {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #fff;
   color: #5f6368;
   font-size: 13px;
   font-weight: 500;

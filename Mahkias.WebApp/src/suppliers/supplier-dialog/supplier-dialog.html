@@ -1,11 +1,23 @@
 @if (isSaving) {
-  <div class="busy-overlay cover-pad" role="status" aria-live="polite" aria-busy="true">
-    <mat-spinner diameter="40"></mat-spinner>
-    <p>Saving data...</p>
+  <div class="import-overlay" role="status" aria-live="polite" aria-busy="true">
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    <div class="import-overlay-body">
+      <mat-spinner diameter="40"></mat-spinner>
+      <p>Saving...</p>
+    </div>
   </div>
 }
-<h2>{{ isEdit ? 'Edit Supplier' : 'Add Supplier' }}</h2>
-<p>{{ isEdit ? 'Update the supplier name and reference.' : 'Add a supplier name and an optional reference.' }}</p>
+<header class="erp-modal-header">
+  <div class="erp-modal-title">
+    <div>
+      <h2>{{ isEdit ? 'Edit Supplier' : 'Add Supplier' }}</h2>
+      <p class="erp-modal-note">{{ isEdit ? 'Update the supplier name and reference.' : 'Add a supplier name. Leave the reference blank to create one from the name.' }}</p>
+    </div>
+    <button class="erp-modal-close" type="button" matTooltip="Close" aria-label="Close" [disabled]="isSaving" (click)="cancel()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+</header>
 
 <form [formGroup]="form" (ngSubmit)="save()" (keydown.enter)="onFieldEnter($event)">
   <div class="field" [class.invalid]="nameInvalid">
@@ -16,20 +28,24 @@
     <p class="error">@if (nameInvalid) { Supplier name is required }</p>
   </div>
 
-  <div class="field">
+  <div class="field" [class.invalid]="!!referenceError">
     <label class="control">
       <span class="label">Reference</span>
-      <input formControlName="reference" autocomplete="off" />
+      <input formControlName="reference" autocomplete="off" (input)="referenceError = ''" />
     </label>
+    <p class="error">@if (referenceError) { {{ referenceError }} }</p>
   </div>
 
   @if (error) {
     <p class="error">{{ error }}</p>
   }
 
-  <div class="actions">
+  <div class="actions erp-modal-footer">
     <button type="button" class="btn ghost" (click)="cancel()" [disabled]="isSaving">Cancel</button>
-    <button type="submit" class="btn primary" [disabled]="isSaving">
+    <button type="submit" class="btn primary" [disabled]="isSaving || form.invalid">
+      @if (isSaving) {
+        <mat-spinner diameter="18"></mat-spinner>
+      }
       {{ isSaving ? 'Saving...' : 'Save' }}
     </button>
   </div>

@@ -63,7 +63,7 @@ FROM projects.Suppliers S
 WHERE S.Id = @Id
   AND S.IsDeleted = 0;
 
-SELECT Q.Id, Q.Code, Q.CreatedAt,
+SELECT Q.Id, Q.Code, Q.SupplierReference, Q.CreatedAt, Q.QuotedDate, Q.ValidUntil,
        (SELECT COUNT(*) FROM projects.QuotationItems I WHERE I.QuotationId = Q.Id) AS ItemCount,
        (SELECT STRING_AGG(P.Name, N', ') WITHIN GROUP (ORDER BY P.Name)
         FROM projects.QuotationProjects QP
@@ -73,7 +73,13 @@ SELECT Q.Id, Q.Code, Q.CreatedAt,
 FROM projects.Quotations Q
 WHERE Q.SupplierId = @Id
   AND Q.IsDeleted = 0
-ORDER BY Q.CreatedAt DESC, Q.Id DESC");
+ORDER BY Q.CreatedAt DESC, Q.Id DESC;
+
+SELECT QP.QuotationId, P.Id AS ProjectId, P.Reference, P.Name
+FROM projects.QuotationProjects QP
+INNER JOIN projects.Quotations Q ON Q.Id = QP.QuotationId AND Q.SupplierId = @Id AND Q.IsDeleted = 0
+INNER JOIN projects.Projects P ON P.Id = QP.ProjectId AND P.IsDeleted = 0
+ORDER BY P.Name, P.Id");
             command.Parameters.AddInt("Id", id);
             command.Connection = _connection;
             _connection.Open();
@@ -103,10 +109,33 @@ ORDER BY Q.CreatedAt DESC, Q.Id DESC");
                         {
                             Id = reader.ReadIntValue("Id"),
                             Code = reader.ReadStringValue("Code"),
+                            SupplierReference = reader.ReadStringValue("SupplierReference"),
                             CreatedAt = reader.ReadDateTimeValue("CreatedAt"),
+                            QuotedDate = reader.ReadNullableDateTimeValue("QuotedDate"),
+                            ValidUntil = reader.ReadNullableDateTimeValue("ValidUntil"),
                             ItemCount = reader.ReadIntValue("ItemCount"),
                             ProjectNames = reader.ReadStringValue("ProjectNames"),
                             ProjectId = reader.IsDBNull(projectOrdinal) ? null : reader.GetInt32(projectOrdinal),
+                        });
+                    }
+                }
+
+                if (supplier != null && await reader.NextResultAsync())
+                {
+                    var quotations = supplier.Quotations.ToDictionary(quotation => quotation.Id);
+                    while (await reader.ReadAsync())
+                    {
+                        var quotationId = reader.ReadIntValue("QuotationId");
+                        if (!quotations.TryGetValue(quotationId, out var quotation))
+                        {
+                            continue;
+                        }
+
+                        quotation.Projects.Add(new SupplierQuotationProjectResult
+                        {
+                            Id = reader.ReadIntValue("ProjectId"),
+                            Reference = reader.ReadStringValue("Reference"),
+                            Name = reader.ReadStringValue("Name"),
                         });
                     }
                 }
@@ -121,21 +150,26 @@ ORDER BY Q.CreatedAt DESC, Q.Id DESC");
 
         public async Task<int> CreateAsync(CreateSupplierArgs args)
         {
-            using var command = new SqlCommand(@"
-INSERT INTO projects.Suppliers (Name, Reference)
-OUTPUT INSERTED.Id
-VALUES (@Name, @Reference)");
-            command.Parameters.AddNVarChar("Name", args.Name?.Trim(), 250);
-            command.Parameters.Add(new SqlParameter("@Reference", SqlDbType.NVarChar, 100)
-            {
-                Value = string.IsNullOrWhiteSpace(args.Reference) ? DBNull.Value : args.Reference.Trim(),
-            });
-            command.Connection = _connection;
+            var name = args.Name?.Trim();
             _connection.Open();
             try
             {
-                var id = await command.ExecuteScalarAsync();
-                return Convert.ToInt32(id);
+                var reference = await ResolveReferenceAsync(_connection, args.Reference, name, null);
+                using var command = new SqlCommand(@"
+INSERT INTO projects.Suppliers (Name, Reference)
+OUTPUT INSERTED.Id
+VALUES (@Name, @Reference)", _connection);
+                command.Parameters.AddNVarChar("Name", name, 250);
+                command.Parameters.AddNVarChar("Reference", reference, SupplierReferenceRules.MaxLength);
+                try
+                {
+                    var id = await command.ExecuteScalarAsync();
+                    return Convert.ToInt32(id);
+                }
+                catch (SqlException exception) when (IsDuplicateKey(exception))
+                {
+                    throw new DuplicateSupplierReferenceException(reference);
+                }
             }
             finally
             {
@@ -145,23 +179,28 @@ VALUES (@Name, @Reference)");
 
         public async Task<bool> UpdateAsync(int id, CreateSupplierArgs args)
         {
-            using var command = new SqlCommand(@"
+            var name = args.Name?.Trim();
+            _connection.Open();
+            try
+            {
+                var reference = await ResolveReferenceAsync(_connection, args.Reference, name, id);
+                using var command = new SqlCommand(@"
 UPDATE projects.Suppliers
 SET Name = @Name,
     Reference = @Reference,
     ModifiedAt = GETDATE()
-WHERE Id = @Id AND IsDeleted = 0");
-            command.Parameters.AddInt("Id", id);
-            command.Parameters.AddNVarChar("Name", args.Name?.Trim(), 250);
-            command.Parameters.Add(new SqlParameter("@Reference", SqlDbType.NVarChar, 100)
-            {
-                Value = string.IsNullOrWhiteSpace(args.Reference) ? DBNull.Value : args.Reference.Trim(),
-            });
-            command.Connection = _connection;
-            _connection.Open();
-            try
-            {
-                return await command.ExecuteNonQueryAsync() > 0;
+WHERE Id = @Id AND IsDeleted = 0", _connection);
+                command.Parameters.AddInt("Id", id);
+                command.Parameters.AddNVarChar("Name", name, 250);
+                command.Parameters.AddNVarChar("Reference", reference, SupplierReferenceRules.MaxLength);
+                try
+                {
+                    return await command.ExecuteNonQueryAsync() > 0;
+                }
+                catch (SqlException exception) when (IsDuplicateKey(exception))
+                {
+                    throw new DuplicateSupplierReferenceException(reference);
+                }
             }
             finally
             {
@@ -222,6 +261,70 @@ WHERE Id = @Id AND IsDeleted = 0", _connection, transaction);
         public override Supplier PopulateRecord(SqlDataReader reader)
         {
             throw new NotImplementedException();
+        }
+
+        private static async Task<string> ResolveReferenceAsync(SqlConnection connection, string requested, string name, int? exceptId)
+        {
+            if (!string.IsNullOrWhiteSpace(requested))
+            {
+                var reference = requested.Trim();
+                if (reference.Length > SupplierReferenceRules.MaxLength)
+                {
+                    reference = reference.Substring(0, SupplierReferenceRules.MaxLength);
+                }
+                if (await ReferenceInUseAsync(connection, reference, exceptId))
+                {
+                    throw new DuplicateSupplierReferenceException(reference);
+                }
+                return reference;
+            }
+
+            var slug = SupplierReferenceRules.Slug(name);
+            var taken = await MatchingReferencesAsync(connection, slug, exceptId);
+            return SupplierReferenceRules.NextAvailable(slug, taken);
+        }
+
+        private static async Task<bool> ReferenceInUseAsync(SqlConnection connection, string reference, int? exceptId)
+        {
+            using var command = new SqlCommand(@"
+SELECT 1
+FROM projects.Suppliers
+WHERE IsDeleted = 0
+  AND Reference IS NOT NULL
+  AND LOWER(LTRIM(RTRIM(Reference))) = LOWER(@Reference)
+  AND (@ExceptId IS NULL OR Id <> @ExceptId)", connection);
+            command.Parameters.AddNVarChar("Reference", reference, SupplierReferenceRules.MaxLength);
+            command.Parameters.Add(new SqlParameter("@ExceptId", SqlDbType.Int) { Value = (object)exceptId ?? DBNull.Value });
+            return await command.ExecuteScalarAsync() != null;
+        }
+
+        private static async Task<List<string>> MatchingReferencesAsync(SqlConnection connection, string slug, int? exceptId)
+        {
+            var references = new List<string>();
+            using var command = new SqlCommand(@"
+SELECT Reference
+FROM projects.Suppliers
+WHERE IsDeleted = 0
+  AND Reference IS NOT NULL
+  AND (@ExceptId IS NULL OR Id <> @ExceptId)
+  AND (
+    LOWER(LTRIM(RTRIM(Reference))) = LOWER(@Slug)
+    OR LOWER(LTRIM(RTRIM(Reference))) LIKE LOWER(@Prefix)
+  )", connection);
+            command.Parameters.AddNVarChar("Slug", slug, SupplierReferenceRules.MaxLength);
+            command.Parameters.AddNVarChar("Prefix", slug + "-%", SupplierReferenceRules.MaxLength + 2);
+            command.Parameters.Add(new SqlParameter("@ExceptId", SqlDbType.Int) { Value = (object)exceptId ?? DBNull.Value });
+            using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                references.Add(reader.ReadStringValue("Reference"));
+            }
+            return references;
+        }
+
+        private static bool IsDuplicateKey(SqlException exception)
+        {
+            return exception.Number is 2601 or 2627;
         }
 
         private static SupplierResult ReadSupplier(SqlDataReader reader)
