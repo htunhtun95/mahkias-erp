@@ -10,6 +10,7 @@ CREATE PROCEDURE [dbo].[CreateQuotation]
     -- NumericValue1 = ActivityId, NumericValue2 = ActivityGroupId, NumericValue3 = AlternativePartId, NumericValue4 = Quantity, NumericValue5 = CurrencyId, NumericValue6 = MinimumQty
     -- BitValue1 = IsAlternativePart
     -- TextValue1 = DsnNo, TextValue2 = PartNo, TextValue3 = PartDescription, TextValue4 = Condition, TextValue5 = LeadTime (days), TextValue6 = Unit
+    -- TextValue7 = JSON {"SerialNo","TSN","TSO","CSN","CSO"}
     -- DecimalValue1 = UnitPrice, DecimalValue2 = TotalPrice
     @Items [dbo].[DefaultGenericTableType] READONLY
 )
@@ -172,6 +173,11 @@ BEGIN
             BaseTotalPrice,
             AwardedQuantity,
             Condition,
+            SerialNo,
+            TSN,
+            TSO,
+            CSN,
+            CSO,
             LeadTime,
             MinimumQty,
             UnitId,
@@ -195,6 +201,11 @@ BEGIN
             CAST(ROUND(I.DecimalValue2 * Resolved.Rate, 2) AS DECIMAL(18, 2)),
             0,
             LEFT(COALESCE(ConditionMatch.Name, NULLIF(LTRIM(RTRIM(I.TextValue4)), N'')), 100),
+            LEFT(NULLIF(LTRIM(RTRIM(JSON_VALUE(I.TextValue7, '$.SerialNo'))), N''), 100),
+            LEFT(NULLIF(LTRIM(RTRIM(JSON_VALUE(I.TextValue7, '$.TSN'))), N''), 100),
+            LEFT(NULLIF(LTRIM(RTRIM(JSON_VALUE(I.TextValue7, '$.TSO'))), N''), 100),
+            LEFT(NULLIF(LTRIM(RTRIM(JSON_VALUE(I.TextValue7, '$.CSN'))), N''), 100),
+            LEFT(NULLIF(LTRIM(RTRIM(JSON_VALUE(I.TextValue7, '$.CSO'))), N''), 100),
             TRY_CONVERT(INT, NULLIF(LTRIM(RTRIM(I.TextValue5)), N'')),
             CASE WHEN I.NumericValue6 > 0 THEN I.NumericValue6 ELSE NULL END,
             UnitMatch.Id,

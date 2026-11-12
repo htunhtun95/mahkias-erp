@@ -224,6 +224,18 @@ export interface QuotationListItem {
   baseTotalAmount?: number | null;
 }
 
+export interface ProjectHistoryEntry {
+  id: number;
+  source: 'Project' | 'PurchaseOrder' | string;
+  action: string;
+  summary: string;
+  actorName?: string | null;
+  actorEmail?: string | null;
+  createdAt: string;
+  purchaseOrderId?: number | null;
+  purchaseOrderCode?: string | null;
+}
+
 export interface QuotationLine {
   id: number;
   dsnNo?: string | null;
@@ -231,6 +243,11 @@ export interface QuotationLine {
   isAlternativePart?: boolean;
   description?: string | null;
   condition?: string | null;
+  serialNo?: string | null;
+  tsn?: string | null;
+  tso?: string | null;
+  csn?: string | null;
+  cso?: string | null;
   unit?: string | null;
   leadTime?: number | null;
   minimumQty?: number | null;
@@ -300,6 +317,11 @@ export interface QuotationItemInput {
   partNo: string;
   description: string;
   condition?: string | null;
+  serialNo?: string | null;
+  tsn?: string | null;
+  tso?: string | null;
+  csn?: string | null;
+  cso?: string | null;
   unit?: string | null;
   leadTime?: number | null;
   minimumQty?: number | null;
@@ -344,6 +366,11 @@ export interface QuotationExcelMapping {
     unit?: string;
     leadTime?: string;
     minimumQty?: string;
+    serialNo?: string;
+    tsn?: string;
+    tso?: string;
+    csn?: string;
+    cso?: string;
     quotedDate?: string;
     validUntil?: string;
     unitPrice?: string;
@@ -462,6 +489,7 @@ export interface PurchaseOrderItemInput {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  currencyId?: number | null;
 }
 
 export interface PurchaseOrderWrite {
@@ -496,6 +524,7 @@ export interface PurchaseOrderExcelMappingInput {
   conditionColumn?: string;
   unitColumn?: string;
   leadTimeColumn?: string;
+  currencyColumn?: string;
   quantityColumn?: string;
   unitPriceColumn?: string;
   totalPriceColumn?: string;
@@ -591,6 +620,12 @@ export class ProjectApiService {
   get(id: number, sortBy = 'createdAt', sortDirection: 'asc' | 'desc' = 'desc') {
     return this.http.get<Project>(`${this.baseUrl}/projects/${id}`, {
       params: { sortBy, sortDirection },
+    });
+  }
+
+  projectHistory(projectId: number, includePurchaseOrders = false) {
+    return this.http.get<ProjectHistoryEntry[]>(`${this.baseUrl}/projects/${projectId}/history`, {
+      params: { includePurchaseOrders: String(includePurchaseOrders) },
     });
   }
 
@@ -1023,6 +1058,11 @@ export class ProjectApiService {
       unitColumn?: string;
       leadTimeColumn?: string;
       minimumQtyColumn?: string;
+      serialNoColumn?: string;
+      tsnColumn?: string;
+      tsoColumn?: string;
+      csnColumn?: string;
+      csoColumn?: string;
       quotedDateColumn?: string;
       validUntilColumn?: string;
       unitPriceColumn: string;
@@ -1054,6 +1094,11 @@ export class ProjectApiService {
     body.append('unitColumn', mapping.unitColumn ?? '');
     body.append('leadTimeColumn', mapping.leadTimeColumn ?? '');
     body.append('minimumQtyColumn', mapping.minimumQtyColumn ?? '');
+    body.append('serialNoColumn', mapping.serialNoColumn ?? '');
+    body.append('tsnColumn', mapping.tsnColumn ?? '');
+    body.append('tsoColumn', mapping.tsoColumn ?? '');
+    body.append('csnColumn', mapping.csnColumn ?? '');
+    body.append('csoColumn', mapping.csoColumn ?? '');
     body.append('quotedDateColumn', mapping.quotedDateColumn ?? '');
     body.append('validUntilColumn', mapping.validUntilColumn ?? '');
     body.append('unitPriceColumn', mapping.unitPriceColumn ?? '');
@@ -1141,6 +1186,7 @@ export class ProjectApiService {
     body.append('conditionColumn', mapping.conditionColumn ?? '');
     body.append('unitColumn', mapping.unitColumn ?? '');
     body.append('leadTimeColumn', mapping.leadTimeColumn ?? '');
+    body.append('currencyColumn', mapping.currencyColumn ?? '');
     body.append('quantityColumn', mapping.quantityColumn ?? '');
     body.append('unitPriceColumn', mapping.unitPriceColumn ?? '');
     body.append('totalPriceColumn', mapping.totalPriceColumn ?? '');

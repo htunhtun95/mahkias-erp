@@ -1,3 +1,5 @@
+using Mahkias.Api.Helpers;
+using Mahkias.Api.Modules.Projects;
 using Mahkias.Api.Security;
 using Mahkias.Api.Services;
 using Mahkias.Core.Data;
@@ -64,6 +66,7 @@ namespace Mahkias.Api.Controllers
                 }
 
                 var saved = new List<object>();
+                var uploadedNames = new List<string>();
                 foreach (var file in files.Where(item => item != null && item.Length > 0))
                 {
                     if (file.Length > MaxFileBytes)
@@ -96,8 +99,10 @@ namespace Mahkias.Api.Controllers
                     }
 
                     saved.Add(document);
+                    uploadedNames.Add(document.FileName);
                 }
 
+                await this.Write(_uow, projectId, "DocumentUploaded", ProjectHistoryText.DocumentsUploaded(uploadedNames, await QuotationCodeAsync(quotationId)));
                 return Ok(saved);
             }
             catch (InvalidOperationException ex)
@@ -133,7 +138,8 @@ namespace Mahkias.Api.Controllers
             }
 
             var existing = await _uow.ProjectDocuments.ListByQuotationAsync(projectId, quotationId);
-            if (!existing.Any(item => item.DocumentId == documentId))
+            var previous = existing.FirstOrDefault(item => item.DocumentId == documentId);
+            if (previous == null)
             {
                 return NotFound(new { message = "Quotation file was not found on this project." });
             }
@@ -166,6 +172,7 @@ namespace Mahkias.Api.Controllers
                     return NotFound(new { message = "Quotation file was not found on this project." });
                 }
 
+                await this.Write(_uow, projectId, "DocumentUpdated", ProjectHistoryText.DocumentReplaced(previous.FileName, document.FileName, await QuotationCodeAsync(quotationId)));
                 return Ok(document);
             }
             catch (InvalidOperationException ex)
@@ -182,8 +189,14 @@ namespace Mahkias.Api.Controllers
                 return BadRequest(new { message = "Document order is required." });
             }
 
+            var before = await _uow.ProjectDocuments.ListByQuotationAsync(projectId, quotationId);
             await _uow.ProjectDocuments.OrderQuotationDocumentsAsync(projectId, quotationId, request.Documents, request.OriginalDocumentId);
-            return Ok(await _uow.ProjectDocuments.ListByQuotationAsync(projectId, quotationId));
+            var after = await _uow.ProjectDocuments.ListByQuotationAsync(projectId, quotationId);
+            if (ProjectHistoryText.KeptOrderChanged(before, after, item => item.DocumentId, item => item.SortOrder, item => item.IsOriginal))
+            {
+                await this.Write(_uow, projectId, "DocumentReordered", ProjectHistoryText.DocumentsReordered(await QuotationCodeAsync(quotationId)));
+            }
+            return Ok(after);
         }
 
         [HttpDelete("{documentId:int}")]
@@ -195,13 +208,21 @@ namespace Mahkias.Api.Controllers
                 return NotFound(new { message = "Project was not found." });
             }
 
+            var existing = await _uow.ProjectDocuments.ListByQuotationAsync(projectId, quotationId);
+            var fileName = existing.FirstOrDefault(item => item.DocumentId == documentId)?.FileName;
             var removed = await _uow.ProjectDocuments.RemoveQuotationDocumentAsync(projectId, quotationId, documentId);
             if (!removed)
             {
                 return NotFound(new { message = "Quotation file was not found on this project." });
             }
 
+            await this.Write(_uow, projectId, "DocumentRemoved", ProjectHistoryText.DocumentRemoved(fileName, await QuotationCodeAsync(quotationId)));
             return NoContent();
+        }
+
+        private async Task<string> QuotationCodeAsync(int quotationId)
+        {
+            return (await _uow.Quotations.GetDetailAsync(quotationId))?.Code;
         }
 
         private bool IsOriginalRequested()

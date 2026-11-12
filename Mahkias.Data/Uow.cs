@@ -19,6 +19,7 @@ namespace Mahkias.Data
         }
 
         public IProjectRepository Projects { get { return GetAdoRepo<IProjectRepository>(); } }
+        public IProjectHistoryRepository ProjectHistory { get { return GetAdoRepo<IProjectHistoryRepository>(); } }
         public IActivityRepository Activities { get { return GetAdoRepo<IActivityRepository>(); } }
         public ISupplierRepository Suppliers { get { return GetAdoRepo<ISupplierRepository>(); } }
         public IQuotationRepository Quotations { get { return GetAdoRepo<IQuotationRepository>(); } }

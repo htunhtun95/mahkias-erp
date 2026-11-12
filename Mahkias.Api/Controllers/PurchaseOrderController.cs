@@ -277,6 +277,7 @@ namespace Mahkias.Api.Controllers
                     condition = row.Condition,
                     unit = row.UnitName,
                     leadTime = row.LeadTime,
+                    currencyCode = row.CurrencyCode,
                     quantity = row.Quantity,
                     unitPrice = row.UnitPrice,
                     totalPrice = row.TotalPrice,

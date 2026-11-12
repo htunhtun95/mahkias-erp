@@ -23,6 +23,16 @@ namespace Mahkias.Api.Helpers
 
         public int? MinimumQty { get; set; }
 
+        public string SerialNo { get; set; }
+
+        public string Tsn { get; set; }
+
+        public string Tso { get; set; }
+
+        public string Csn { get; set; }
+
+        public string Cso { get; set; }
+
         public DateTime? QuotedDate { get; set; }
 
         public DateTime? ValidUntil { get; set; }
@@ -138,6 +148,12 @@ namespace Mahkias.Api.Helpers
                     }
                 }
 
+                var serialNo = OptionalText(source, form.SerialNoColumn, "SerialNo", errors);
+                var tsn = OptionalText(source, form.TsnColumn, "TSN", errors);
+                var tso = OptionalText(source, form.TsoColumn, "TSO", errors);
+                var csn = OptionalText(source, form.CsnColumn, "CSN", errors);
+                var cso = OptionalText(source, form.CsoColumn, "CSO", errors);
+
                 if (!TryDate(string.IsNullOrWhiteSpace(quotedDateText) ? form.DefaultQuotedDate : quotedDateText, out var quotedDate))
                 {
                     errors.Add(Issue(source.RowNumber, "Quoted Date", "'" + (string.IsNullOrWhiteSpace(quotedDateText) ? form.DefaultQuotedDate : quotedDateText) + "' is not a valid date."));
@@ -185,7 +201,7 @@ namespace Mahkias.Api.Helpers
                 var unitExplicit = unit.HasValue;
                 var totalExplicit = total.HasValue;
                 var priceWarning = false;
-                var effectiveQuantity = minimumQty is > 0 ? minimumQty.Value : (quantity > 0 ? quantity : 0);
+                var effectiveQuantity = QuotationPricing.EffectiveQuantity(minimumQty, quantity, 0);
                 if (!totalExplicit && unitExplicit && effectiveQuantity > 0)
                 {
                     total = decimal.Round(unit.Value * effectiveQuantity, 4, MidpointRounding.AwayFromZero);
@@ -212,6 +228,11 @@ namespace Mahkias.Api.Helpers
                     UnitName = TrimTo(unitName, 100),
                     LeadTime = leadDays,
                     MinimumQty = minimumQty,
+                    SerialNo = serialNo,
+                    Tsn = tsn,
+                    Tso = tso,
+                    Csn = csn,
+                    Cso = cso,
                     QuotedDate = quotedDate,
                     ValidUntil = validUntil,
                     UnitPrice = unit,
@@ -237,6 +258,24 @@ namespace Mahkias.Api.Helpers
             var text = value?.Trim();
             if (string.IsNullOrEmpty(text) || text.Length > maxLength)
             {
+                return null;
+            }
+
+            return text;
+        }
+
+        private static string OptionalText(ActivityDataRow row, string column, string field, List<ActivityImportIssue> errors)
+        {
+            var text = Cell(row, column);
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return null;
+            }
+
+            text = text.Trim();
+            if (text.Length > 100)
+            {
+                errors.Add(Issue(row.RowNumber, field, field + " must be 100 characters or fewer."));
                 return null;
             }
 

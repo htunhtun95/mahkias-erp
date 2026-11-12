@@ -2,7 +2,7 @@ import { AfterViewInit, Component, ElementRef, OnDestroy, QueryList, ViewChild, 
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { FormsModule, NgModel } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { Observable, of, switchMap, tap } from 'rxjs';
 import { MaterialModule } from '../../app/material-module';
 import { DocumentManagerComponent, syncDocumentDrafts } from '../document-manager/document-manager';
@@ -10,6 +10,7 @@ import { documentAccept as acceptedDocuments } from '../document-library-dialog/
 import { blockEnterSubmit } from '../../core/block-enter-submit';
 import { closeOnEscape } from '../../core/close-on-escape';
 import { leadTimeDays, leadTimeInvalid, leadTimeText, LeadTimeDaysDirective } from '../lead-time';
+import { WholeQuantityDirective } from '../whole-quantity';
 import { SheetCellFocusDirective } from '../sheet-cell-focus';
 import { whileBusy } from '../../core/while-busy';
 import {
@@ -24,22 +25,38 @@ import {
   QuotationLine,
   Supplier,
 } from '../../core/services/project-api.service';
-import { directActivityId } from '../quotation-map';
+import { ActivitySuggestion, directActivityId } from '../quotation-map';
 import { duplicateSupplierReferenceMessage, hasDuplicateSupplierReference } from '../../suppliers/supplier-reference';
 import { activityHasLabel } from '../project/tabs/project-activities-tab/activity-structure';
 import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-date-field';
-import { dateInputValue } from '../quotation-terms';
+import { dateInputValue, pricedQuantity, quotationQuantity } from '../quotation-terms';
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
 import { LookupValue, canonicalCondition, canonicalUnit } from '../quotation-lookups';
 import { QuotationChargeRow, QuotationChargesComponent, readQuotationCharges } from '../quotation-charges/quotation-charges';
+import { ActivitySuggestComponent } from '../activity-suggest/activity-suggest';
+import { QuotationItemDetails, QuotationItemDetailsDialog } from './quotation-item-details-dialog';
 
 interface QuoteRow {
   key: string;
+  manual: boolean;
   activityId: number | null;
   dsnNo: string;
   partNo: string;
   description: string;
   condition: string;
+  serialNo: string;
+  tsn: string;
+  tso: string;
+  csn: string;
+  cso: string;
+  usageOwned: boolean;
+  usageEdited: {
+    serialNo: boolean;
+    tsn: boolean;
+    tso: boolean;
+    csn: boolean;
+    cso: boolean;
+  };
   unitCode: string;
   leadTime: string;
   minimumQty: string;
@@ -57,7 +74,7 @@ interface QuoteRow {
 @Component({
   selector: 'app-create-quotation-dialog',
   standalone: true,
-  imports: [FormsModule, MaterialModule, TextFieldModule, QuotationDateFieldComponent, LookupComboboxComponent, QuotationChargesComponent, SheetCellFocusDirective, DocumentManagerComponent, LeadTimeDaysDirective],
+  imports: [FormsModule, MaterialModule, TextFieldModule, QuotationDateFieldComponent, LookupComboboxComponent, QuotationChargesComponent, SheetCellFocusDirective, DocumentManagerComponent, LeadTimeDaysDirective, WholeQuantityDirective, ActivitySuggestComponent],
   templateUrl: './add-quotation-dialog.html',
   styleUrl: './add-quotation-dialog.css',
 })
@@ -67,8 +84,10 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
   @ViewChild('newSupplierField') private newSupplierField?: NgModel;
   @ViewChildren(QuotationDateFieldComponent) private dateFields?: QueryList<QuotationDateFieldComponent>;
   @ViewChild('library') private library?: DocumentManagerComponent;
+  @ViewChild('quoteSheet') private quoteSheet?: ElementRef<HTMLTableElement>;
 
   private api = inject(ProjectApiService);
+  private dialog = inject(MatDialog);
   private dialogRef = inject(MatDialogRef<CreateQuotationDialogComponent>);
   data = inject<{ projectId: number; activities: Activity[]; quotation?: QuotationDetail }>(MAT_DIALOG_DATA);
   quotationId = this.data.quotation?.id ?? null;
@@ -107,6 +126,10 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
   isSaving = false;
   error = '';
   private prepareTimer?: ReturnType<typeof setTimeout>;
+  private readonly minColumnWidth = 48;
+  columnsResized = false;
+  resizedWidths: number[] = [];
+  private resizeDrag: { index: number; startX: number; startWidth: number } | null = null;
 
   ngAfterViewInit() {
     if (!this.preparing) {
@@ -122,7 +145,63 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
 
   ngOnDestroy() {
     clearTimeout(this.prepareTimer);
+    this.endColumnResize();
   }
+
+  resizedTableWidth(): number | null {
+    if (!this.columnsResized) {
+      return null;
+    }
+    return this.resizedWidths.reduce((sum, width) => sum + width, 0);
+  }
+
+  createColumnWidth(index: number): number | null {
+    return this.columnsResized ? this.resizedWidths[index] : null;
+  }
+
+  startColumnResize(event: MouseEvent, index: number) {
+    if (event.button !== 0) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const headers = this.quoteSheet?.nativeElement.querySelectorAll('thead th');
+    if (!headers?.length) {
+      return;
+    }
+    if (!this.columnsResized) {
+      this.resizedWidths = [...headers].map((header) => Math.round(header.getBoundingClientRect().width));
+      this.columnsResized = true;
+    }
+    this.resizeDrag = {
+      index,
+      startX: event.clientX,
+      startWidth: this.resizedWidths[index] ?? this.minColumnWidth,
+    };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', this.onColumnResizeMove);
+    document.addEventListener('mouseup', this.endColumnResize);
+  }
+
+  private onColumnResizeMove = (event: MouseEvent) => {
+    if (!this.resizeDrag) {
+      return;
+    }
+    const next = Math.max(this.minColumnWidth, Math.round(this.resizeDrag.startWidth + event.clientX - this.resizeDrag.startX));
+    this.resizedWidths[this.resizeDrag.index] = next;
+  };
+
+  private endColumnResize = () => {
+    if (!this.resizeDrag) {
+      return;
+    }
+    this.resizeDrag = null;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    document.removeEventListener('mousemove', this.onColumnResizeMove);
+    document.removeEventListener('mouseup', this.endColumnResize);
+  };
 
   constructor() {
     closeOnEscape(this.dialogRef, () => this.cancel());
@@ -277,6 +356,95 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
 
   onDsn(row: QuoteRow) {
     this.linkRow(row);
+  }
+
+  addItems() {
+    if (this.isSaving || this.creating) {
+      return;
+    }
+    this.rowFilter = '';
+    this.typeFilter = null;
+    this.labelId = null;
+    this.rows = [...this.rows, ...Array.from({ length: 5 }, () => this.blankRow())];
+  }
+
+  setDsn(row: QuoteRow, value: string) {
+    row.dsnNo = value;
+    this.onDsn(row);
+  }
+
+  setPart(row: QuoteRow, value: string) {
+    row.partNo = value;
+    this.onPart(row);
+  }
+
+  chooseActivity(row: QuoteRow, suggestion: ActivitySuggestion) {
+    const activity = this.activityFor(suggestion.activityId);
+    row.activityId = suggestion.activityId;
+    row.dsnNo = suggestion.dsnNo;
+    row.partNo = suggestion.partNo;
+    row.typeId = activity?.typeId ?? null;
+    row.typeName = row.typeId == null ? '' : (activity?.type?.trim() || 'Type');
+    if (!activity) {
+      return;
+    }
+    row.description = (activity.description ?? '').trim();
+    row.condition = this.lookupOrDefault(activity.condition, 'condition');
+    row.unitCode = this.lookupOrDefault(activity.unit, 'unit');
+    row.quantity = this.activityQuantity(activity);
+    row.usageOwned = false;
+    if (!row.usageEdited.serialNo) {
+      row.serialNo = (activity.serialNo ?? '').trim();
+    }
+    if (!row.usageEdited.tsn) {
+      row.tsn = (activity.tsn ?? '').trim();
+    }
+    if (!row.usageEdited.tso) {
+      row.tso = (activity.tso ?? '').trim();
+    }
+    if (!row.usageEdited.csn) {
+      row.csn = (activity.csn ?? '').trim();
+    }
+    if (!row.usageEdited.cso) {
+      row.cso = (activity.cso ?? '').trim();
+    }
+    this.recalculate(row);
+  }
+
+  openDetails(row: QuoteRow) {
+    if (this.isSaving) {
+      return;
+    }
+    this.dialog.open(QuotationItemDetailsDialog, {
+      disableClose: false,
+      width: '680px',
+      maxWidth: '92vw',
+      autoFocus: 'first-tabbable',
+      panelClass: ['quote-item-details-panel', 'quotation-item-details'],
+      backdropClass: 'add-project-dialog-backdrop',
+      data: {
+        dsnNo: row.dsnNo,
+        partNo: row.partNo,
+        minimumQty: row.minimumQty,
+        serialNo: row.serialNo,
+        tsn: row.tsn,
+        tso: row.tso,
+        csn: row.csn,
+        cso: row.cso,
+      } satisfies QuotationItemDetails,
+    }).afterClosed().subscribe((result) => {
+      if (!result) {
+        return;
+      }
+      row.minimumQty = result.minimumQty;
+      row.serialNo = result.serialNo;
+      row.tsn = result.tsn;
+      row.tso = result.tso;
+      row.csn = result.csn;
+      row.cso = result.cso;
+      row.usageEdited = { serialNo: true, tsn: true, tso: true, csn: true, cso: true };
+      this.onMinimum(row);
+    });
   }
 
   onPart(row: QuoteRow) {
@@ -567,6 +735,11 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
       partNo: row.partNo.trim(),
       description: row.description.trim(),
       condition: row.condition.trim(),
+      serialNo: row.serialNo.trim(),
+      tsn: row.tsn.trim(),
+      tso: row.tso.trim(),
+      csn: row.csn.trim(),
+      cso: row.cso.trim(),
       unit: row.unitCode.trim(),
       leadTime: leadTimeDays(row.leadTime),
       minimumQty: this.optionalQuantity(row.minimumQty),
@@ -754,7 +927,7 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
         quoted.push(this.rowFromItem(item, index));
       }
     });
-    return this.creating ? [...available, ...quoted] : [...quoted, ...available];
+    return this.creating ? [...available, ...quoted] : quoted;
   }
 
   private sortedActivities(): Activity[] {
@@ -788,11 +961,19 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
   private rowFromActivity(activity: Activity, item: QuotationLine | null): QuoteRow {
     const row = this.priceRow({
       key: `activity-${activity.id}`,
+      manual: false,
       activityId: activity.id,
       dsnNo: item?.dsnNo?.trim() || (activity.dsnNo ?? '').trim(),
       partNo: item?.partNo?.trim() || (activity.mainPartNo || activity.partNo || '').trim(),
       description: item?.description?.trim() || (activity.description ?? '').trim(),
       condition: item ? (item.condition?.trim() || '') : this.lookupOrDefault(activity.condition, 'condition'),
+      serialNo: item ? (item.serialNo ?? '').trim() : (activity.serialNo ?? '').trim(),
+      tsn: item ? (item.tsn ?? '').trim() : (activity.tsn ?? '').trim(),
+      tso: item ? (item.tso ?? '').trim() : (activity.tso ?? '').trim(),
+      csn: item ? (item.csn ?? '').trim() : (activity.csn ?? '').trim(),
+      cso: item ? (item.cso ?? '').trim() : (activity.cso ?? '').trim(),
+      usageOwned: item != null,
+      usageEdited: { serialNo: false, tsn: false, tso: false, csn: false, cso: false },
       unitCode: item ? (item.unit?.trim() || '') : this.lookupOrDefault(activity.unit, 'unit'),
       leadTime: leadTimeText(item?.leadTime),
       minimumQty: item?.minimumQty ? String(item.minimumQty) : '',
@@ -819,11 +1000,19 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
     const activity = this.activityFor(activityId);
     return this.priceRow({
       key: `item-${item.id ?? index}`,
+      manual: false,
       activityId,
       dsnNo: item.dsnNo ?? '',
       partNo: item.partNo ?? '',
       description: item.description ?? '',
       condition: item.condition ?? '',
+      serialNo: (item.serialNo ?? '').trim(),
+      tsn: (item.tsn ?? '').trim(),
+      tso: (item.tso ?? '').trim(),
+      csn: (item.csn ?? '').trim(),
+      cso: (item.cso ?? '').trim(),
+      usageOwned: true,
+      usageEdited: { serialNo: false, tsn: false, tso: false, csn: false, cso: false },
       unitCode: item.unit?.trim() || '',
       leadTime: leadTimeText(item.leadTime),
       minimumQty: item.minimumQty ? String(item.minimumQty) : '',
@@ -834,6 +1023,35 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
       currencyExplicit: item.currencyId != null,
       typeId: activity?.typeId ?? null,
       typeName: activity?.typeId == null ? '' : (activity.type?.trim() || 'Type'),
+    });
+  }
+
+  private blankRow(): QuoteRow {
+    return this.priceRow({
+      key: `manual-${crypto.randomUUID()}`,
+      manual: true,
+      activityId: null,
+      dsnNo: '',
+      partNo: '',
+      description: '',
+      condition: this.lookupOrDefault('', 'condition'),
+      serialNo: '',
+      tsn: '',
+      tso: '',
+      csn: '',
+      cso: '',
+      usageOwned: false,
+      usageEdited: { serialNo: false, tsn: false, tso: false, csn: false, cso: false },
+      unitCode: this.lookupOrDefault('', 'unit'),
+      leadTime: '',
+      minimumQty: '',
+      quantity: '1',
+      unitPrice: '',
+      totalPrice: '',
+      currencyId: this.currencyId,
+      currencyExplicit: false,
+      typeId: null,
+      typeName: '',
     });
   }
 
@@ -880,6 +1098,23 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
     const activity = this.activityFor(row.activityId);
     row.typeId = activity?.typeId ?? null;
     row.typeName = row.typeId == null ? '' : (activity?.type?.trim() || 'Type');
+    if (!row.usageOwned) {
+      if (!row.usageEdited.serialNo) {
+        row.serialNo = (activity?.serialNo ?? '').trim();
+      }
+      if (!row.usageEdited.tsn) {
+        row.tsn = (activity?.tsn ?? '').trim();
+      }
+      if (!row.usageEdited.tso) {
+        row.tso = (activity?.tso ?? '').trim();
+      }
+      if (!row.usageEdited.csn) {
+        row.csn = (activity?.csn ?? '').trim();
+      }
+      if (!row.usageEdited.cso) {
+        row.cso = (activity?.cso ?? '').trim();
+      }
+    }
   }
 
   get activityTypeOptions(): { id: number; name: string }[] {
@@ -945,13 +1180,24 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
     return this.validQuantity(row.quantity) ? Number(row.quantity) : 1;
   }
 
+  moqNote(row: QuoteRow): { text: string; short: boolean } | null {
+    const requested = Number(row.quantity);
+    const minimum = Number(row.minimumQty);
+    const shown = quotationQuantity(
+      Number.isInteger(requested) ? requested : null,
+      row.minimumQty.trim() && Number.isInteger(minimum) && minimum > 0 ? minimum : null,
+    );
+    return shown.note ? { text: `MOQ ${shown.value}`, short: shown.short } : null;
+  }
+
   private effectiveQuantity(row: QuoteRow): number {
     const minimum = Number(row.minimumQty);
-    if (row.minimumQty.trim() && Number.isInteger(minimum) && minimum > 0) {
-      return minimum;
-    }
     const requested = Number(row.quantity);
-    return Number.isInteger(requested) && requested > 0 ? requested : 1;
+    return pricedQuantity(
+      Number.isInteger(requested) && requested > 0 ? requested : null,
+      row.minimumQty.trim() && Number.isInteger(minimum) && minimum > 0 ? minimum : null,
+      1,
+    );
   }
 
   private validQuantity(value: string): boolean {

@@ -1,7 +1,7 @@
 import { Component, ElementRef, QueryList, ViewChild, ViewChildren, inject } from '@angular/core';
 import { FormsModule, NgModel } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { Observable, of, switchMap, tap } from 'rxjs';
 import { MaterialModule } from '../../app/material-module';
 import { DocumentManagerComponent, syncDocumentDrafts } from '../document-manager/document-manager';
@@ -14,6 +14,9 @@ import { Activity, ActivityImportIssue, Currency, ProjectApiService, QuotationIt
 import { directActivityId } from '../quotation-map';
 import { duplicateSupplierReferenceMessage, hasDuplicateSupplierReference } from '../../suppliers/supplier-reference';
 import { leadTimeDays, leadTimeInvalid, leadTimeText, LeadTimeDaysDirective } from '../lead-time';
+import { WholeQuantityDirective } from '../whole-quantity';
+import { quotationQuantity, pricedQuantity } from '../quotation-terms';
+import { QuotationItemDetailsDialog } from '../add-quotation-dialog/quotation-item-details-dialog';
 import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-date-field';
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
 import { LookupValue, canonicalCondition, canonicalUnit } from '../quotation-lookups';
@@ -28,6 +31,12 @@ interface ImportLine {
   unit: string;
   leadTime: string;
   minimumQty: string;
+  serialNo: string;
+  tsn: string;
+  tso: string;
+  csn: string;
+  cso: string;
+  usageEdited: boolean;
   unitPrice: string;
   quantity: string;
   totalPrice: string;
@@ -48,6 +57,11 @@ interface QuoteMapping {
   unitColumn: string;
   leadTimeColumn: string;
   minimumQtyColumn: string;
+  serialNoColumn: string;
+  tsnColumn: string;
+  tsoColumn: string;
+  csnColumn: string;
+  csoColumn: string;
   quotedDateColumn: string;
   validUntilColumn: string;
   unitPriceColumn: string;
@@ -73,7 +87,7 @@ type CheckState = 'idle' | 'checking' | 'passed' | 'failed';
 @Component({
   selector: 'app-import-quotation-dialog',
   standalone: true,
-  imports: [FormsModule, MaterialModule, DriveUploadCardComponent, QuotationDateFieldComponent, LookupComboboxComponent, QuotationChargesComponent, SheetCellFocusDirective, DocumentManagerComponent, LeadTimeDaysDirective],
+  imports: [FormsModule, MaterialModule, DriveUploadCardComponent, QuotationDateFieldComponent, LookupComboboxComponent, QuotationChargesComponent, SheetCellFocusDirective, DocumentManagerComponent, LeadTimeDaysDirective, WholeQuantityDirective],
   templateUrl: './import-quotation-dialog.html',
   styleUrl: './import-quotation-dialog.css',
 })
@@ -84,6 +98,7 @@ export class ImportQuotationDialogComponent {
   @ViewChildren(QuotationDateFieldComponent) private dateFields?: QueryList<QuotationDateFieldComponent>;
 
   private api = inject(ProjectApiService);
+  private dialog = inject(MatDialog);
   private dialogRef = inject(MatDialogRef<ImportQuotationDialogComponent, boolean>);
   private data = inject<{ projectId: number; activities?: Activity[] }>(MAT_DIALOG_DATA);
 
@@ -127,14 +142,19 @@ export class ImportQuotationDialogComponent {
     { key: 'dsnNoColumn', def: 'defaultDsnNo', label: 'DSN No', required: true },
     { key: 'partNoColumn', def: 'defaultPartNo', label: 'Part No', required: true },
     { key: 'descriptionColumn', def: 'defaultDescription', label: 'Description', required: false },
-    { key: 'conditionColumn', def: 'defaultCondition', label: 'Condition', required: false },
-    { key: 'unitColumn', def: 'defaultUnit', label: 'Unit', required: false },
     { key: 'leadTimeColumn', def: 'defaultLeadTime', label: 'Lead Time (days)', required: false },
-    { key: 'minimumQtyColumn', def: 'defaultMinimumQty', label: 'MOQ', required: false },
-    { key: 'unitPriceColumn', def: 'defaultUnitPrice', label: 'Unit Price', required: false },
-    { key: 'quantityColumn', def: 'defaultQuantity', label: 'Quantity', required: false },
-    { key: 'totalPriceColumn', def: 'defaultTotalPrice', label: 'Total Price', required: false },
     { key: 'currencyColumn', def: '', label: 'Currency', required: false },
+    { key: 'quantityColumn', def: 'defaultQuantity', label: 'Quantity', required: false },
+    { key: 'minimumQtyColumn', def: 'defaultMinimumQty', label: 'MOQ', required: false },
+    { key: 'unitColumn', def: 'defaultUnit', label: 'Unit', required: false },
+    { key: 'conditionColumn', def: 'defaultCondition', label: 'Condition', required: false },
+    { key: 'unitPriceColumn', def: 'defaultUnitPrice', label: 'Unit Price', required: false },
+    { key: 'totalPriceColumn', def: 'defaultTotalPrice', label: 'Total Price', required: false },
+    { key: 'serialNoColumn', def: '', label: 'SerialNo', required: false },
+    { key: 'tsnColumn', def: '', label: 'TSN', required: false },
+    { key: 'tsoColumn', def: '', label: 'TSO', required: false },
+    { key: 'csnColumn', def: '', label: 'CSN', required: false },
+    { key: 'csoColumn', def: '', label: 'CSO', required: false },
   ];
 
   constructor() {
@@ -306,6 +326,52 @@ export class ImportQuotationDialogComponent {
     this.recalculate(line);
   }
 
+  moqNote(line: ImportLine): { text: string; short: boolean } | null {
+    const requested = Number(line.quantity);
+    const minimum = Number(line.minimumQty);
+    const shown = quotationQuantity(
+      Number.isInteger(requested) ? requested : null,
+      line.minimumQty.trim() && Number.isInteger(minimum) && minimum > 0 ? minimum : null,
+    );
+    return shown.note ? { text: `MOQ ${shown.value}`, short: shown.short } : null;
+  }
+
+  openDetails(line: ImportLine) {
+    if (this.busy) {
+      return;
+    }
+    this.dialog.open(QuotationItemDetailsDialog, {
+      disableClose: false,
+      width: '680px',
+      maxWidth: '92vw',
+      autoFocus: 'first-tabbable',
+      panelClass: ['quote-item-details-panel', 'quotation-item-details'],
+      backdropClass: 'add-project-dialog-backdrop',
+      data: {
+        dsnNo: line.dsnNo,
+        partNo: line.partNo,
+        minimumQty: line.minimumQty,
+        serialNo: line.serialNo,
+        tsn: line.tsn,
+        tso: line.tso,
+        csn: line.csn,
+        cso: line.cso,
+      },
+    }).afterClosed().subscribe((result) => {
+      if (!result) {
+        return;
+      }
+      line.minimumQty = result.minimumQty;
+      line.serialNo = result.serialNo;
+      line.tsn = result.tsn;
+      line.tso = result.tso;
+      line.csn = result.csn;
+      line.cso = result.cso;
+      line.usageEdited = true;
+      this.onMinimum(line);
+    });
+  }
+
   onQuantityBlur(line: ImportLine) {
     if (!line.quantity.trim()) {
       line.quantity = '1';
@@ -442,6 +508,11 @@ export class ImportQuotationDialogComponent {
           unitColumn: mapping.suggested.unit ?? '',
           leadTimeColumn: mapping.suggested.leadTime ?? '',
           minimumQtyColumn: mapping.suggested.minimumQty ?? '',
+          serialNoColumn: mapping.suggested.serialNo ?? '',
+          tsnColumn: mapping.suggested.tsn ?? '',
+          tsoColumn: mapping.suggested.tso ?? '',
+          csnColumn: mapping.suggested.csn ?? '',
+          csoColumn: mapping.suggested.cso ?? '',
           unitPriceColumn: mapping.suggested.unitPrice ?? '',
           quantityColumn: mapping.suggested.quantity ?? '',
           totalPriceColumn: mapping.suggested.totalPrice ?? '',
@@ -774,6 +845,11 @@ export class ImportQuotationDialogComponent {
     unit?: string | null;
     leadTime?: number | null;
     minimumQty?: number | null;
+    serialNo?: string | null;
+    tsn?: string | null;
+    tso?: string | null;
+    csn?: string | null;
+    cso?: string | null;
     unitPrice?: number | null;
     quantity?: number | null;
     totalPrice?: number | null;
@@ -795,6 +871,12 @@ export class ImportQuotationDialogComponent {
       unit: source.unit?.trim() || '',
       leadTime: leadTimeText(source.leadTime),
       minimumQty: source.minimumQty ? String(source.minimumQty) : '',
+      serialNo: source.serialNo ?? '',
+      tsn: source.tsn ?? '',
+      tso: source.tso ?? '',
+      csn: source.csn ?? '',
+      cso: source.cso ?? '',
+      usageEdited: false,
       unitPrice: unitText,
       quantity: String(source.quantity ?? 1),
       totalPrice: totalText,
@@ -840,6 +922,11 @@ export class ImportQuotationDialogComponent {
         partNo: line.partNo.trim(),
         description: line.description.trim(),
         condition: line.condition.trim(),
+        serialNo: this.optionalText(line.serialNo),
+        tsn: this.optionalText(line.tsn),
+        tso: this.optionalText(line.tso),
+        csn: this.optionalText(line.csn),
+        cso: this.optionalText(line.cso),
         unit: line.unit.trim(),
         leadTime: leadTimeDays(line.leadTime),
         minimumQty: this.optionalQuantity(line.minimumQty),
@@ -864,11 +951,12 @@ export class ImportQuotationDialogComponent {
 
   private effectiveQuantity(line: ImportLine): number {
     const minimum = Number(line.minimumQty);
-    if (line.minimumQty.trim() && Number.isInteger(minimum) && minimum > 0) {
-      return minimum;
-    }
     const requested = Number(line.quantity);
-    return Number.isInteger(requested) && requested > 0 ? requested : 1;
+    return pricedQuantity(
+      Number.isInteger(requested) && requested > 0 ? requested : null,
+      line.minimumQty.trim() && Number.isInteger(minimum) && minimum > 0 ? minimum : null,
+      1,
+    );
   }
 
   private revealInvalidDates(): boolean {
@@ -894,6 +982,11 @@ export class ImportQuotationDialogComponent {
     }
     const parsed = Number(value);
     return Number.isInteger(parsed) && parsed >= 1;
+  }
+
+  private optionalText(value: string): string | null {
+    const text = value.trim();
+    return text || null;
   }
 
   private optionalQuantity(value: string): number | null {
@@ -922,6 +1015,11 @@ export class ImportQuotationDialogComponent {
       unitColumn: '',
       leadTimeColumn: '',
       minimumQtyColumn: '',
+      serialNoColumn: '',
+      tsnColumn: '',
+      tsoColumn: '',
+      csnColumn: '',
+      csoColumn: '',
       quotedDateColumn: '',
       validUntilColumn: '',
       unitPriceColumn: '',

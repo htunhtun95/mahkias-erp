@@ -93,24 +93,26 @@
             }
           </div>
 
-          <div class="map-row" [class.flagged]="fieldFlagged('Condition')">
-            <span>Condition</span>
-            <select formControlName="condition">
+          <div class="map-row">
+            <span>Description</span>
+            <select formControlName="description">
               <option value="">No column</option>
               @for (column of columns; track column.letter) {
                 <option [value]="column.letter">{{ columnLabel(column) }}</option>
               }
             </select>
-            <div class="map-lookup">
-              <app-lookup-combobox
-                ariaLabel="Condition"
-                [value]="form.controls.defaultCondition.value || ''"
-                [options]="conditionOptions"
-                [disabled]="reading || validating || isImporting"
-                (valueChange)="setDefaultLookup('defaultCondition', $event)"
-                (committed)="normalizeDefaultCondition()"
-              />
-            </div>
+            <span class="default-note">Optional</span>
+          </div>
+
+          <div class="map-row" [class.flagged]="fieldFlagged('Qty')">
+            <span>Quantity</span>
+            <select formControlName="quantity">
+              <option value="">No column</option>
+              @for (column of columns; track column.letter) {
+                <option [value]="column.letter">{{ columnLabel(column) }}</option>
+              }
+            </select>
+            <input formControlName="defaultQuantity" type="number" min="0" step="1" placeholder="Default 1" />
           </div>
 
           <div class="map-row" [class.flagged]="fieldFlagged('Unit')">
@@ -131,6 +133,48 @@
                 (committed)="normalizeDefaultUnit()"
               />
             </div>
+          </div>
+
+          <div class="map-row" [class.flagged]="fieldFlagged('Condition')">
+            <span>Condition</span>
+            <select formControlName="condition">
+              <option value="">No column</option>
+              @for (column of columns; track column.letter) {
+                <option [value]="column.letter">{{ columnLabel(column) }}</option>
+              }
+            </select>
+            <div class="map-lookup">
+              <app-lookup-combobox
+                ariaLabel="Condition"
+                [value]="form.controls.defaultCondition.value || ''"
+                [options]="conditionOptions"
+                [disabled]="reading || validating || isImporting"
+                (valueChange)="setDefaultLookup('defaultCondition', $event)"
+                (committed)="normalizeDefaultCondition()"
+              />
+            </div>
+          </div>
+
+          <div class="map-row" [class.flagged]="fieldFlagged('Budget')">
+            <span>Budget</span>
+            <select formControlName="budget">
+              <option value="">No column</option>
+              @for (column of columns; track column.letter) {
+                <option [value]="column.letter">{{ columnLabel(column) }}</option>
+              }
+            </select>
+            <input formControlName="defaultBudget" type="number" min="0" step="0.01" placeholder="No default" />
+          </div>
+
+          <div class="map-row" [class.flagged]="fieldFlagged('Label')">
+            <span>Label</span>
+            <select formControlName="label">
+              <option value="">No column</option>
+              @for (column of columns; track column.letter) {
+                <option [value]="column.letter">{{ columnLabel(column) }}</option>
+              }
+            </select>
+            <span class="default-note">Blank stays unlabeled</span>
           </div>
 
           <div class="map-row" [class.flagged]="fieldFlagged('SerialNo')">
@@ -186,50 +230,6 @@
               }
             </select>
             <span class="default-note">Blank stays empty</span>
-          </div>
-
-          <div class="map-row" [class.flagged]="fieldFlagged('Budget')">
-            <span>Budget</span>
-            <select formControlName="budget">
-              <option value="">No column</option>
-              @for (column of columns; track column.letter) {
-                <option [value]="column.letter">{{ columnLabel(column) }}</option>
-              }
-            </select>
-            <input formControlName="defaultBudget" type="number" min="0" step="0.01" placeholder="No default" />
-          </div>
-
-          <div class="map-row" [class.flagged]="fieldFlagged('Qty')">
-            <span>Quantity</span>
-            <select formControlName="quantity">
-              <option value="">No column</option>
-              @for (column of columns; track column.letter) {
-                <option [value]="column.letter">{{ columnLabel(column) }}</option>
-              }
-            </select>
-            <input formControlName="defaultQuantity" type="number" min="0" step="1" placeholder="Default 1" />
-          </div>
-
-          <div class="map-row">
-            <span>Description</span>
-            <select formControlName="description">
-              <option value="">No column</option>
-              @for (column of columns; track column.letter) {
-                <option [value]="column.letter">{{ columnLabel(column) }}</option>
-              }
-            </select>
-            <span class="default-note">Optional</span>
-          </div>
-
-          <div class="map-row" [class.flagged]="fieldFlagged('Label')">
-            <span>Label</span>
-            <select formControlName="label">
-              <option value="">No column</option>
-              @for (column of columns; track column.letter) {
-                <option [value]="column.letter">{{ columnLabel(column) }}</option>
-              }
-            </select>
-            <span class="default-note">Blank stays unlabeled</span>
           </div>
         </div>
         <p class="hint">Quantity becomes 1 when both the cell and the default are empty. A blank unit becomes EA and a blank condition becomes NE. Description, budget, and label can be left unmapped. OH, Oh, and oh use the same label.</p>

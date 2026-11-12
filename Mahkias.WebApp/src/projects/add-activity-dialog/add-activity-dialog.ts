@@ -1,6 +1,6 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, inject } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Subscription } from 'rxjs';
 import { MaterialModule } from '../../app/material-module';
@@ -11,6 +11,7 @@ import { whileBusy } from '../../core/while-busy';
 import { ActivityType, LookupValue, ProjectApiService } from '../../core/services/project-api.service';
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
 import { canonicalCondition, canonicalUnit } from '../quotation-lookups';
+import { ActivityItemDetailsDialog } from './activity-item-details-dialog';
 
 interface ActivityRowValue {
   dsnNo: string | null;
@@ -39,6 +40,7 @@ interface ActivityRowValue {
 export class AddActivityDialog implements AfterViewInit, OnDestroy {
   private fb = inject(FormBuilder);
   private api = inject(ProjectApiService);
+  private dialog = inject(MatDialog);
   private dialogRef = inject(MatDialogRef<AddActivityDialog>);
   private host = inject(ElementRef<HTMLElement>);
   private data = inject<{ projectId: number; types: ActivityType[] }>(MAT_DIALOG_DATA);
@@ -115,28 +117,6 @@ export class AddActivityDialog implements AfterViewInit, OnDestroy {
     this.watchLastRow();
   }
 
-  removeRow(index: number) {
-    if (this.rows.length === 1) {
-      this.suppressLastRowWatch = true;
-      this.rows.at(0).reset({
-        dsnNo: '',
-        partNo: '',
-        typeId: null,
-        quantity: 1,
-        budget: null,
-        description: '',
-        label: '',
-        unit: 'EA',
-        condition: 'NE',
-      });
-      this.suppressLastRowWatch = false;
-      return;
-    }
-
-    this.rows.removeAt(index);
-    this.watchLastRow();
-  }
-
   get validationMessage(): string {
     const filled = this.rows.controls
       .map((row) => row.getRawValue() as ActivityRowValue)
@@ -185,6 +165,45 @@ export class AddActivityDialog implements AfterViewInit, OnDestroy {
     }
 
     return 'Type is required';
+  }
+
+  openDetails(index: number) {
+    if (this.isSaving) {
+      return;
+    }
+    const row = this.rows.at(index);
+    const value = row.getRawValue() as ActivityRowValue;
+    this.dialog.open(ActivityItemDetailsDialog, {
+      disableClose: false,
+      width: '680px',
+      maxWidth: '92vw',
+      autoFocus: 'first-tabbable',
+      panelClass: ['quote-item-details-panel', 'activity-item-details'],
+      backdropClass: 'add-project-dialog-backdrop',
+      data: {
+        dsnNo: String(value.dsnNo ?? ''),
+        partNo: String(value.partNo ?? ''),
+        label: String(value.label ?? ''),
+        serialNo: String(value.serialNo ?? ''),
+        tsn: String(value.tsn ?? ''),
+        tso: String(value.tso ?? ''),
+        csn: String(value.csn ?? ''),
+        cso: String(value.cso ?? ''),
+      },
+    }).afterClosed().subscribe((result) => {
+      if (!result) {
+        return;
+      }
+      row.patchValue({
+        label: result.label,
+        serialNo: result.serialNo,
+        tsn: result.tsn,
+        tso: result.tso,
+        csn: result.csn,
+        cso: result.cso,
+      });
+      row.markAsDirty();
+    });
   }
 
   labelInvalid(index: number): boolean {

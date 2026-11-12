@@ -353,16 +353,16 @@
   --col-dsn: 80px;
   --child-indent: 36px;
   width: 100%;
-  max-height: calc(100vh - 360px);
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
   background: #fff;
-  scrollbar-width: auto;
-  scrollbar-color: #80868b #f1f3f4;
+  scrollbar-width: thin;
+  scrollbar-color: #80868b transparent;
 }
 
 .activity-table::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+  width: 0;
+  height: 10px;
 }
 
 .activity-table::-webkit-scrollbar-track,
@@ -532,8 +532,23 @@
 }
 
 .activity-group.is-editing .row {
-  grid-template-columns: 440px minmax(240px, 1fr) 168px 104px 128px 104px 104px 104px 104px 110px 48px;
-  min-width: 1780px;
+  grid-template-columns: 440px minmax(240px, 1fr) 168px 104px 96px;
+  min-width: 1120px;
+}
+
+.more-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  text-align: center;
+}
+
+.more-cell .icon-btn mat-icon {
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+  line-height: 20px;
 }
 
 .activity-group.is-editing .identity {

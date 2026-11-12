@@ -113,14 +113,11 @@
             <span>Quantity</span>
             <span>Condition</span>
             @if (isBatchEditing(group.typeId)) {
-              <span class="as-written">SerialNo</span>
-              <span class="as-written">TSN</span>
-              <span class="as-written">TSO</span>
-              <span class="as-written">CSN</span>
-              <span class="as-written">CSO</span>
+              <span class="more-cell as-written">More</span>
+            } @else {
+              <span>Quotes</span>
+              <span></span>
             }
-            <span>Quotes</span>
-            <span></span>
           </div>
           @for (block of group.groups; track block.group.id) {
             <div class="activity-block">
@@ -149,12 +146,8 @@
                 <span>{{ block.activities.length }}</span>
                 <span></span>
                 @if (isBatchEditing(group.typeId)) {
-                  <span></span>
-                  <span></span>
-                  <span></span>
-                  <span></span>
-                  <span></span>
-                }
+                  <span class="more-cell"></span>
+                } @else {
                 <span class="lowest-price">
                   @if (block.lowest; as link) {
                     <button class="price-link" type="button" matTooltip="View quotes" (click)="openGroupQuotations(block.group, block.activities)" [disabled]="isSaving || deletingId != null" [attr.aria-label]="'View quotes for ' + block.group.name">{{ priceText(link) }}</button>
@@ -186,6 +179,7 @@
                     </button>
                   </mat-menu>
                 </span>
+                }
               </div>
               @if (isGroupOpen(block.group.id) || isBatchEditing(group.typeId)) {
                 @for (activity of block.activities; track activity.id) {
@@ -238,21 +232,6 @@
                       <div class="lookup-cell">
                         <app-lookup-combobox ariaLabel="Condition" [value]="draft(activity).condition" [options]="conditionOptions" [disabled]="isSaving" (valueChange)="setDraftLookup(activity, 'condition', $event)" (committed)="normalizeDraftLookup(activity, 'condition')" />
                       </div>
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
-                        <input matInput maxlength="100" [(ngModel)]="draft(activity).serialNo" [ngModelOptions]="{ standalone: true }" aria-label="SerialNo" [disabled]="isSaving" />
-                      </mat-form-field>
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
-                        <input matInput maxlength="100" [(ngModel)]="draft(activity).tsn" [ngModelOptions]="{ standalone: true }" aria-label="TSN" [disabled]="isSaving" />
-                      </mat-form-field>
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
-                        <input matInput maxlength="100" [(ngModel)]="draft(activity).tso" [ngModelOptions]="{ standalone: true }" aria-label="TSO" [disabled]="isSaving" />
-                      </mat-form-field>
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
-                        <input matInput maxlength="100" [(ngModel)]="draft(activity).csn" [ngModelOptions]="{ standalone: true }" aria-label="CSN" [disabled]="isSaving" />
-                      </mat-form-field>
-                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
-                        <input matInput maxlength="100" [(ngModel)]="draft(activity).cso" [ngModelOptions]="{ standalone: true }" aria-label="CSO" [disabled]="isSaving" />
-                      </mat-form-field>
                     } @else {
                       <span class="description">
                         <span class="description-main">{{ activity.description || '—' }}</span>
@@ -263,6 +242,13 @@
                       <span class="qty-label">{{ quantityLabel(activity) }}</span>
                       <span>{{ activity.condition || '—' }}</span>
                     }
+                    @if (isRowEditable(group, activity)) {
+                      <span class="more-cell">
+                        <button class="icon-btn" type="button" matTooltip="More Details" aria-label="More Details" [disabled]="isSaving" (click)="openItemDetails(activity)">
+                          <mat-icon>more_horiz</mat-icon>
+                        </button>
+                      </span>
+                    } @else {
                     <span class="lowest-price">
                       @if (lowestLink(activity); as link) {
                         <button class="price-link" type="button" matTooltip="View details" (click)="openActivityDetails(activity)" [disabled]="isSaving || deletingId != null" [attr.aria-label]="'View details for ' + (activity.dsnNo || activity.partNo)">{{ priceText(link) }}</button>
@@ -302,6 +288,7 @@
                         </button>
                       </mat-menu>
                     </span>
+                    }
                   </div>
                 }
               }
@@ -358,21 +345,6 @@
                 <div class="lookup-cell">
                   <app-lookup-combobox ariaLabel="Condition" [value]="draft(activity).condition" [options]="conditionOptions" [disabled]="isSaving" (valueChange)="setDraftLookup(activity, 'condition', $event)" (committed)="normalizeDraftLookup(activity, 'condition')" />
                 </div>
-                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
-                  <input matInput maxlength="100" [(ngModel)]="draft(activity).serialNo" [ngModelOptions]="{ standalone: true }" aria-label="SerialNo" [disabled]="isSaving" />
-                </mat-form-field>
-                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
-                  <input matInput maxlength="100" [(ngModel)]="draft(activity).tsn" [ngModelOptions]="{ standalone: true }" aria-label="TSN" [disabled]="isSaving" />
-                </mat-form-field>
-                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
-                  <input matInput maxlength="100" [(ngModel)]="draft(activity).tso" [ngModelOptions]="{ standalone: true }" aria-label="TSO" [disabled]="isSaving" />
-                </mat-form-field>
-                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
-                  <input matInput maxlength="100" [(ngModel)]="draft(activity).csn" [ngModelOptions]="{ standalone: true }" aria-label="CSN" [disabled]="isSaving" />
-                </mat-form-field>
-                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field">
-                  <input matInput maxlength="100" [(ngModel)]="draft(activity).cso" [ngModelOptions]="{ standalone: true }" aria-label="CSO" [disabled]="isSaving" />
-                </mat-form-field>
               } @else {
                 <span class="description">
                   <span class="description-main">{{ activity.description || '—' }}</span>
@@ -383,6 +355,13 @@
                 <span class="qty-label">{{ quantityLabel(activity) }}</span>
                 <span>{{ activity.condition || '—' }}</span>
               }
+              @if (isRowEditable(group, activity)) {
+                <span class="more-cell">
+                  <button class="icon-btn" type="button" matTooltip="More Details" aria-label="More Details" [disabled]="isSaving" (click)="openItemDetails(activity)">
+                    <mat-icon>more_horiz</mat-icon>
+                  </button>
+                </span>
+              } @else {
               <span class="lowest-price">
                 @if (lowestLink(activity); as link) {
                   <button class="price-link" type="button" matTooltip="View details" (click)="openActivityDetails(activity)" [disabled]="isSaving || deletingId != null" [attr.aria-label]="'View details for ' + (activity.dsnNo || activity.partNo)">{{ priceText(link) }}</button>
@@ -428,6 +407,7 @@
                   </button>
                 </mat-menu>
               </span>
+              }
             </div>
             </div>
           }

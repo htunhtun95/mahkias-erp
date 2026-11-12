@@ -453,12 +453,12 @@ textarea {
 }
 
 div.sheet {
-  min-width: 1280px;
+  min-width: 1400px;
 }
 
 table.sheet {
   width: 100%;
-  min-width: 1280px;
+  min-width: 1400px;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
@@ -468,10 +468,10 @@ table.sheet {
 .col-part { width: 160px; }
 .col-description { width: auto; }
 .col-condition { width: 110px; }
-.col-unit { width: 100px; }
 .col-lead { width: 120px; }
+.col-currency { width: 118px; }
 .col-price { width: 148px; }
-.col-qty { width: 90px; }
+.col-qty { width: 176px; }
 .col-quote { width: 110px; }
 .col-action { width: 44px; }
 
@@ -987,7 +987,7 @@ label.original-toggle input {
 
 .po-import .import-sheet {
   width: 100%;
-  min-width: 1180px;
+  min-width: 1400px;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
@@ -996,9 +996,9 @@ label.original-toggle input {
 .po-import .col-dsn { width: 90px; }
 .po-import .col-part { width: 180px; }
 .po-import .col-condition { width: 110px; }
-.po-import .col-unit { width: 100px; }
 .po-import .col-lead { width: 120px; }
-.po-import .col-qty { width: 90px; }
+.po-import .col-currency { width: 118px; }
+.po-import .col-qty { width: 176px; }
 .po-import .col-price { width: 148px; }
 
 .po-import .import-sheet th,

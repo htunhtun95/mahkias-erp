@@ -12,7 +12,7 @@
     <div class="erp-modal-title">
       <div>
         <h2>Add Activities</h2>
-        <p class="erp-modal-note">Empty rows are ignored. If you fill any field, DSN no, part number, and type are required. Unit starts as EA and condition starts as NE. Label is optional and matched by name, ignoring case. Tip: Use 'or' or '/' for alternative parts (e.g., P001/P002/P003).</p>
+        <p class="erp-modal-note">Empty rows are ignored. If you fill any field, DSN no, part number, and type are required. Unit starts as EA and condition starts as NE. Label, SerialNo, TSN, TSO, CSN, and CSO are in More. Label is optional and matched by name, ignoring case. Tip: Use 'or' or '/' for alternative parts (e.g., P001/P002/P003).</p>
       </div>
       <button class="erp-modal-close" type="button" matTooltip="Close" aria-label="Close" [disabled]="isSaving" (click)="cancel()">
         <mat-icon>close</mat-icon>
@@ -35,14 +35,8 @@
           <col class="col-description" />
           <col class="col-qty" />
           <col class="col-condition" />
-          <col class="col-usage" />
-          <col class="col-usage" />
-          <col class="col-usage" />
-          <col class="col-usage" />
-          <col class="col-usage" />
           <col class="col-budget" />
-          <col class="col-label" />
-          <col class="col-action" />
+          <col class="col-more" />
         </colgroup>
         <thead>
           <tr>
@@ -53,16 +47,8 @@
             <th scope="col">Description</th>
             <th class="col-text" scope="col">Quantity</th>
             <th scope="col">Condition</th>
-            <th scope="col">SerialNo</th>
-            <th scope="col">TSN</th>
-            <th scope="col">TSO</th>
-            <th scope="col">CSN</th>
-            <th scope="col">CSO</th>
             <th class="col-text" scope="col">Budget</th>
-            <th class="col-text" scope="col">Label</th>
-            <th class="action-head" scope="col" aria-label="Action">
-              <mat-icon>delete</mat-icon>
-            </th>
+            <th class="more-head" scope="col">More</th>
           </tr>
         </thead>
         <tbody>
@@ -123,29 +109,11 @@
                 />
               </td>
               <td class="cell col-text">
-                <input formControlName="serialNo" maxlength="100" aria-label="SerialNo" />
-              </td>
-              <td class="cell col-text">
-                <input formControlName="tsn" maxlength="100" aria-label="TSN" />
-              </td>
-              <td class="cell col-text">
-                <input formControlName="tso" maxlength="100" aria-label="TSO" />
-              </td>
-              <td class="cell col-text">
-                <input formControlName="csn" maxlength="100" aria-label="CSN" />
-              </td>
-              <td class="cell col-text">
-                <input formControlName="cso" maxlength="100" aria-label="CSO" />
-              </td>
-              <td class="cell col-text">
                 <input formControlName="budget" type="number" min="0" step="0.01" />
               </td>
-              <td class="cell col-text" [class.cell-invalid]="labelInvalid($index)">
-                <input formControlName="label" title="Matched by name, ignoring case. Leave blank for no label." [attr.aria-invalid]="labelInvalid($index)" />
-              </td>
-              <td class="action-cell">
-                <button type="button" class="icon" matTooltip="Remove row" (click)="removeRow($index)" aria-label="Remove row">
-                  <mat-icon>delete</mat-icon>
+              <td class="more-cell">
+                <button class="row-menu" type="button" matTooltip="More Details" aria-label="More Details" [disabled]="isSaving" (click)="openDetails($index)">
+                  <mat-icon>more_horiz</mat-icon>
                 </button>
               </td>
             </tr>

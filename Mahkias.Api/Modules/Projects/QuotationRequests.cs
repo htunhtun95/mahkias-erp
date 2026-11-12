@@ -20,6 +20,16 @@ namespace Mahkias.Api.Modules.Projects
 
         public string Condition { get; set; }
 
+        public string SerialNo { get; set; }
+
+        public string TSN { get; set; }
+
+        public string TSO { get; set; }
+
+        public string CSN { get; set; }
+
+        public string CSO { get; set; }
+
         public string Unit { get; set; }
 
         public int? LeadTime { get; set; }
@@ -109,6 +119,16 @@ namespace Mahkias.Api.Modules.Projects
         public string LeadTimeColumn { get; set; }
 
         public string MinimumQtyColumn { get; set; }
+
+        public string SerialNoColumn { get; set; }
+
+        public string TsnColumn { get; set; }
+
+        public string TsoColumn { get; set; }
+
+        public string CsnColumn { get; set; }
+
+        public string CsoColumn { get; set; }
 
         public string QuotedDateColumn { get; set; }
 

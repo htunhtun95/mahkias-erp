@@ -14,16 +14,17 @@ import { PurchaseOrderDialogComponent } from '../purchase-order-dialog/purchase-
 import { ConfirmDialog } from '../confirm-dialog/confirm-dialog';
 import { ProjectActivitiesTabComponent } from './tabs/project-activities-tab/project-activities-tab';
 import { ProjectDocumentsTabComponent } from './tabs/project-documents-tab/project-documents-tab';
+import { ProjectHistoryTabComponent } from './tabs/project-history-tab/project-history-tab';
 import { ProjectPurchasesTabComponent } from './tabs/project-purchases-tab/project-purchases-tab';
 import { ProjectQuotationsTabComponent } from './tabs/project-quotations-tab/project-quotations-tab';
 import { ProcurementTrace } from '../procurement-trace';
 import { PurchaseOrderSync } from '../purchase-order-sync';
 import { QuotationSync } from '../quotation-sync';
 
-export type ProjectTab = 'activities' | 'procurement' | 'documents';
+export type ProjectTab = 'activities' | 'procurement' | 'documents' | 'history';
 export type ProcurementSection = 'quotations' | 'purchases';
 
-const PROJECT_TABS: ProjectTab[] = ['activities', 'procurement', 'documents'];
+const PROJECT_TABS: ProjectTab[] = ['activities', 'procurement', 'documents', 'history'];
 const PROCUREMENT_SECTIONS: ProcurementSection[] = ['quotations', 'purchases'];
 
 @Component({
@@ -34,6 +35,7 @@ const PROCUREMENT_SECTIONS: ProcurementSection[] = ['quotations', 'purchases'];
     MaterialModule,
     ProjectActivitiesTabComponent,
     ProjectDocumentsTabComponent,
+    ProjectHistoryTabComponent,
     ProjectQuotationsTabComponent,
     ProjectPurchasesTabComponent,
   ],
@@ -114,8 +116,8 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
         return;
       }
 
-      if (tab === 'documents') {
-        this.tab = 'documents';
+      if (tab === 'documents' || tab === 'history') {
+        this.tab = tab;
         if (params.get('section')) {
           this.router.navigate([], {
             relativeTo: this.route,

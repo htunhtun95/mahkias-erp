@@ -3,7 +3,8 @@ import { Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Outpu
 import { FormsModule } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Subscription } from 'rxjs';
+import { forkJoin, of, Subscription } from 'rxjs';
+import { switchMap } from 'rxjs/operators';
 import { MaterialModule } from '../../../../app/material-module';
 import { AutoGrowDirective } from '../../../../core/auto-grow';
 import { blockEnterSubmit } from '../../../../core/block-enter-submit';
@@ -18,6 +19,7 @@ import { AssignGroupDialog } from './assign-group-dialog';
 import { AssignLabelDialog } from './assign-label-dialog';
 import { GroupDetailDialog } from './group-detail-dialog';
 import { AddActivityDialog } from '../../../add-activity-dialog/add-activity-dialog';
+import { ActivityItemDetailsDialog } from '../../../add-activity-dialog/activity-item-details-dialog';
 import { ConfirmDialog } from '../../../confirm-dialog/confirm-dialog';
 import { EditActivityDialog } from '../../../edit-activity-dialog/edit-activity-dialog';
 import { ImportActivityDialog } from '../../../import-activity-dialog/import-activity-dialog';
@@ -566,7 +568,10 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
           condition: draft.condition.trim(),
         })),
       )
-      .pipe(whileBusy((busy) => (this.isSaving = busy)))
+      .pipe(
+        switchMap(() => this.labelSaves(changed)),
+        whileBusy((busy) => (this.isSaving = busy)),
+      )
       .subscribe({
         next: () => {
           this.cancelBatch();
@@ -578,6 +583,67 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
           this.batchError = message || 'The activities could not be updated.';
         },
       });
+  }
+
+  openItemDetails(activity: Activity) {
+    if (this.isSaving) {
+      return;
+    }
+    const draft = this.draft(activity);
+    this.dialog.open(ActivityItemDetailsDialog, {
+      disableClose: false,
+      width: '680px',
+      maxWidth: '92vw',
+      autoFocus: 'first-tabbable',
+      panelClass: ['quote-item-details-panel', 'activity-item-details'],
+      backdropClass: 'add-project-dialog-backdrop',
+      data: {
+        dsnNo: draft.dsnNo,
+        partNo: draft.partNo,
+        label: draft.label,
+        serialNo: draft.serialNo,
+        tsn: draft.tsn,
+        tso: draft.tso,
+        csn: draft.csn,
+        cso: draft.cso,
+      },
+    }).afterClosed().subscribe((result) => {
+      if (!result) {
+        return;
+      }
+      draft.label = result.label;
+      draft.labelTouched = true;
+      draft.serialNo = result.serialNo;
+      draft.tsn = result.tsn;
+      draft.tso = result.tso;
+      draft.csn = result.csn;
+      draft.cso = result.cso;
+    });
+  }
+
+  private labelSaves(changed: Array<{ activity: Activity; draft: ActivityDraft }>) {
+    const updates = changed.filter((item) => item.draft.label.trim() !== this.labelText(item.activity));
+    if (!updates.length) {
+      return of(null);
+    }
+    return forkJoin(updates.map((item) => this.saveItemLabel(item.activity, item.draft.label)));
+  }
+
+  private saveItemLabel(activity: Activity, label: string) {
+    const name = label.trim();
+    if (!name) {
+      return this.api.removeActivityLabels(this.project.id, activity.id);
+    }
+    if (!activity.typeId) {
+      return of(null);
+    }
+    return this.api.createActivityLabel(this.project.id, name, activity.typeId).pipe(
+      switchMap((created) => this.api.setActivityLabels(this.project.id, [activity.id], [created.id])),
+    );
+  }
+
+  private labelText(activity: Activity): string {
+    return this.directLabels(activity).map((label) => label.name).join(', ');
   }
 
   openImport() {
@@ -650,6 +716,11 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
         draft.partNo = updated.partNo ?? '';
         draft.description = updated.description ?? '';
         draft.quantity = updated.quantity == null ? null : Number(updated.quantity);
+        draft.serialNo = updated.serialNo ?? '';
+        draft.tsn = updated.tsn ?? '';
+        draft.tso = updated.tso ?? '';
+        draft.csn = updated.csn ?? '';
+        draft.cso = updated.cso ?? '';
       }
       this.listVersion++;
       this.activitiesChange.emit();
@@ -1281,6 +1352,12 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
             this.labelSelection.delete(typeId);
           }
         }
+        for (const activity of this.project?.activities ?? []) {
+          const draft = this.drafts.get(activity.id);
+          if (draft && !draft.labelTouched) {
+            draft.label = this.labelText(activity);
+          }
+        }
       },
       error: () => this.failed.emit('Labels could not be loaded.'),
     });
@@ -1633,6 +1710,8 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       tso: activity.tso ?? '',
       csn: activity.csn ?? '',
       cso: activity.cso ?? '',
+      label: this.labelText(activity),
+      labelTouched: false,
       unit: this.displayLookup(activity.unit, 'unit'),
       condition: this.displayLookup(activity.condition, 'condition'),
     };
@@ -1676,6 +1755,7 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       || (activity.tso ?? '') !== draft.tso.trim()
       || (activity.csn ?? '') !== draft.csn.trim()
       || (activity.cso ?? '') !== draft.cso.trim()
+      || this.labelText(activity) !== draft.label.trim()
       || this.displayLookup(activity.unit, 'unit') !== draft.unit.trim()
       || this.displayLookup(activity.condition, 'condition') !== draft.condition.trim();
   }
@@ -1739,6 +1819,8 @@ interface ActivityDraft {
   tso: string;
   csn: string;
   cso: string;
+  label: string;
+  labelTouched: boolean;
   unit: string;
   condition: string;
 }

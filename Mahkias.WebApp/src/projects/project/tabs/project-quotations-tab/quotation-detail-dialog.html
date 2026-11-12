@@ -61,32 +61,37 @@
             <span>DSN No</span>
             <span>Part No</span>
             <span>Description</span>
-            <span>Condition</span>
-            <span>Unit</span>
             <span>Lead Time</span>
             <span>Currency</span>
-            <span>Unit Price</span>
             <span>Quantity</span>
+            <span>Unit</span>
+            <span>Condition</span>
+            <span>Unit Price</span>
             <span>Total Price</span>
           </div>
           @for (line of lines; track line.id) {
             <div class="line-row">
               <span>{{ line.dsnNo || '—' }}</span>
               <span>{{ line.partNo || '—' }}</span>
-              <span>{{ line.description || '—' }}</span>
-              <span>{{ line.condition || '—' }}</span>
-              <span>{{ line.unit || '—' }}</span>
+              <span class="description">
+                <span class="description-main">{{ line.description || '—' }}</span>
+                @for (detail of usageDetails(line); track detail.label) {
+                  <span class="usage-line"><span class="usage-key">{{ detail.label }}:</span>{{ detail.value }}</span>
+                }
+              </span>
               <span>{{ leadTimeLabel(line.leadTime) }}</span>
               <span>{{ line.currencyCode || 'USD' }}</span>
-              <span>{{ money(line.unitPrice, line.currencySymbol, line.currencyCode) }}</span>
               <span class="qty-stack">
                 @if (quantity(line); as shown) {
-                  <span>{{ shown.value }}</span>
+                  <span [class.moq-value]="!!shown.note">{{ shown.value }}</span>
                   @if (shown.note) {
                     <span class="moq-note" [class.short]="shown.short">{{ shown.note }}</span>
                   }
                 }
               </span>
+              <span>{{ line.unit || '—' }}</span>
+              <span>{{ line.condition || '—' }}</span>
+              <span>{{ money(line.unitPrice, line.currencySymbol, line.currencyCode) }}</span>
               <span>{{ money(line.totalPrice, line.currencySymbol, line.currencyCode) }}</span>
             </div>
           }

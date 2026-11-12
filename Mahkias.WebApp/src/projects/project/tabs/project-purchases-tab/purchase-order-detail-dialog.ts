@@ -5,6 +5,7 @@ import { MaterialModule } from '../../../../app/material-module';
 import { ProjectApiService, PurchaseOrderDetail, PurchaseOrderDocument, PurchaseOrderHistoryEntry, PurchaseOrderLine, PurchaseOrderListItem, QuotationCharge } from '../../../../core/services/project-api.service';
 import { formatFileSize } from '../../../document-manager/document-manager';
 import { documentAccept, openDocumentLibrary } from '../../../document-library-dialog/document-library-dialog';
+import { closeOnEscape } from '../../../../core/close-on-escape';
 import { formatMoney } from '../../../money-format';
 import { leadTimeLabel } from '../../../lead-time';
 
@@ -33,6 +34,7 @@ export class PurchaseOrderDetailDialog implements OnInit {
   documents: PurchaseOrderDocument[] = [];
 
   ngOnInit() {
+    closeOnEscape(this.dialogRef, () => this.close());
     forkJoin({
       detail: this.api.purchaseOrder(this.data.order.id),
       documents: this.api.purchaseOrderDocuments(this.data.projectId, this.data.order.id),

@@ -161,6 +161,16 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
 
         public string Condition { get; set; }
 
+        public string SerialNo { get; set; }
+
+        public string TSN { get; set; }
+
+        public string TSO { get; set; }
+
+        public string CSN { get; set; }
+
+        public string CSO { get; set; }
+
         public string Unit { get; set; }
 
         public int? LeadTime { get; set; }

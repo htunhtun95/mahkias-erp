@@ -5,6 +5,7 @@ using Mahkias.Core.Modules.Projects.Data.Args;
 using Mahkias.Core.Modules.Projects.Data.Result;
 using Microsoft.Data.SqlClient;
 using System.Data;
+using System.Text.Json;
 
 namespace Mahkias.Data.Modules.Projects.Repositories
 {
@@ -295,7 +296,7 @@ SELECT I.Id, COALESCE(NULLIF(LTRIM(RTRIM(I.DsnNo)), N''), A.DSNNo) AS DsnNo,
            ELSE I.PartNo
        END AS PartNo,
        I.IsAlternativePart, I.PartDescription,
-       I.Condition, U.Name AS Unit, I.LeadTime, I.MinimumQty,
+       I.Condition, I.SerialNo, I.TSN, I.TSO, I.CSN, I.CSO, U.Name AS Unit, I.LeadTime, I.MinimumQty,
        I.UnitPrice, I.Quantity, I.TotalPrice, I.CurrencyId, C.Code AS CurrencyCode, C.Symbol AS CurrencySymbol,
        I.ExchangeRate, I.BaseUnitPrice, I.BaseTotalPrice, I.ActivityId, A.DSNNo AS ActivityDsn, A.PartNo AS ActivityPart
 FROM projects.QuotationItems I
@@ -351,6 +352,11 @@ ORDER BY SortOrder, Id;", _connection);
                             IsAlternativePart = reader.ReadBooleanValue("IsAlternativePart"),
                             Description = reader.ReadStringValue("PartDescription"),
                             Condition = reader.ReadStringValue("Condition"),
+                            SerialNo = reader.ReadStringValue("SerialNo"),
+                            TSN = reader.ReadStringValue("TSN"),
+                            TSO = reader.ReadStringValue("TSO"),
+                            CSN = reader.ReadStringValue("CSN"),
+                            CSO = reader.ReadStringValue("CSO"),
                             Unit = reader.ReadStringValue("Unit"),
                             LeadTime = reader.ReadNullableIntValue("LeadTime"),
                             MinimumQty = reader.ReadNullableIntValue("MinimumQty"),
@@ -828,6 +834,7 @@ WHERE Id = @QuotationId;", _connection, transaction);
                     TextValue4 = item.Condition,
                     TextValue5 = item.LeadTime?.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     TextValue6 = item.Unit,
+                    TextValue7 = UsageJson(item),
                     NumericValue5 = item.CurrencyId,
                     NumericValue6 = item.MinimumQty,
                     DecimalValue1 = item.UnitPrice,
@@ -835,6 +842,28 @@ WHERE Id = @QuotationId;", _connection, transaction);
                 })
                 .ToList();
             return rows.ToGenericDatatableNullableArgs();
+        }
+
+        private static string UsageJson(QuotationItemWrite item)
+        {
+            var serialNo = NullIfBlank(item?.SerialNo);
+            var tsn = NullIfBlank(item?.TSN);
+            var tso = NullIfBlank(item?.TSO);
+            var csn = NullIfBlank(item?.CSN);
+            var cso = NullIfBlank(item?.CSO);
+            if (serialNo == null && tsn == null && tso == null && csn == null && cso == null)
+            {
+                return null;
+            }
+
+            return JsonSerializer.Serialize(new
+            {
+                SerialNo = serialNo,
+                TSN = tsn,
+                TSO = tso,
+                CSN = csn,
+                CSO = cso,
+            });
         }
 
         private static SqlParameter OptionalText(string name, string value, int size)

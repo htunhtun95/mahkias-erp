@@ -1135,12 +1135,20 @@ WHERE Code = @Code;", _connection, transaction);
         {
             using var command = new SqlCommand(@"
 INSERT INTO projects.PurchaseOrderHistory
-    (PurchaseOrderId, Action, Summary, StatusId, ActorName, ActorEmail, UserId)
-VALUES
-    (@PurchaseOrderId, @Action, @Summary, @StatusId,
-     NULLIF(LTRIM(RTRIM(@ActorName)), N''),
-     NULLIF(LTRIM(RTRIM(@ActorEmail)), N''),
-     @UserId);", _connection, transaction);
+    (PurchaseOrderId, ProjectId, Action, Summary, StatusId, ActorName, ActorEmail, UserId)
+SELECT
+    @PurchaseOrderId,
+    CASE
+        WHEN (SELECT COUNT(*) FROM projects.PurchaseOrderProjects WHERE PurchaseOrderId = @PurchaseOrderId) = 1
+        THEN (SELECT MIN(ProjectId) FROM projects.PurchaseOrderProjects WHERE PurchaseOrderId = @PurchaseOrderId)
+        ELSE NULL
+    END,
+    @Action,
+    @Summary,
+    @StatusId,
+    NULLIF(LTRIM(RTRIM(@ActorName)), N''),
+    NULLIF(LTRIM(RTRIM(@ActorEmail)), N''),
+    @UserId;", _connection, transaction);
             command.Parameters.AddInt("PurchaseOrderId", purchaseOrderId);
             command.Parameters.AddNVarChar("Action", status.Action ?? string.Empty, 40);
             command.Parameters.AddNVarChar("Summary", status.Summary ?? string.Empty, 400);

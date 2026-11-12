@@ -1,3 +1,12 @@
+@if (saving) {
+  <div class="import-overlay" role="status" aria-live="polite" aria-busy="true">
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    <div class="import-overlay-body">
+      <mat-spinner diameter="40"></mat-spinner>
+      <p>Saving...</p>
+    </div>
+  </div>
+}
 <header class="erp-modal-header">
   <div class="erp-modal-title">
     <div>

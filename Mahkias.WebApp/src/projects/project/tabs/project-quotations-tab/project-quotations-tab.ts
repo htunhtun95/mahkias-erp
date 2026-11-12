@@ -15,7 +15,8 @@ import { QuotationDetailDialog } from './quotation-detail-dialog';
 import { QuotationSync } from '../../../quotation-sync';
 import { formatMoney } from '../../../money-format';
 import { leadTimeLabel, leadTimeText } from '../../../lead-time';
-import { quotationQuantity, quotationValidity } from '../../../quotation-terms';
+import { pricedQuantity, quotationQuantity, quotationValidity } from '../../../quotation-terms';
+import { usageDetails } from '../../../usage-fields';
 
 @Component({
   selector: 'app-project-quotations-tab',
@@ -26,6 +27,7 @@ import { quotationQuantity, quotationValidity } from '../../../quotation-terms';
 })
 export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
   readonly leadTimeLabel = leadTimeLabel;
+  readonly usageDetails = usageDetails;
   private api = inject(ProjectApiService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
@@ -488,10 +490,5 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
 }
 
 function quotedQuantity(line: QuotationLine): number {
-  const minimum = Number(line.minimumQty);
-  if (Number.isFinite(minimum) && minimum > 0) {
-    return minimum;
-  }
-  const quantity = Number(line.quantity);
-  return Number.isFinite(quantity) && quantity > 0 ? quantity : 0;
+  return pricedQuantity(line.quantity, line.minimumQty);
 }

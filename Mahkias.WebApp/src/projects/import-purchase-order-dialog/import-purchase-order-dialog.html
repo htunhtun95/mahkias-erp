@@ -69,7 +69,7 @@
       <app-quotation-date-field label="PO date" [(ngModel)]="poDate" [disabled]="saving" />
       <label>
         <span>Currency</span>
-        <select [(ngModel)]="currencyId" [disabled]="saving">
+        <select [ngModel]="currencyId" (ngModelChange)="onHeaderCurrency($event)" [disabled]="saving">
           @for (currency of currencies; track currency.id) {
             <option [ngValue]="currency.id">{{ currency.code }}</option>
           }
@@ -138,14 +138,22 @@
         <div class="map-panel">
           <div class="map-grid">
             @for (field of fields; track field.key) {
-              <span class="map-label" [class.invalid]="fieldInvalid(field.key) && (columnModel.touched || columnModel.dirty || fallback.touched || fallback.dirty)">{{ field.label }}@if (field.required) {<span class="req" aria-hidden="true">*</span>}</span>
-              <select #columnModel="ngModel" [class.invalid]="fieldInvalid(field.key) && (columnModel.touched || columnModel.dirty || fallback.touched || fallback.dirty)" [name]="field.key" [(ngModel)]="mapping[field.key]" (ngModelChange)="dirtyMapping(); noteMap(field.key)" (blur)="noteMap(field.key)">
+              <span class="map-label" [class.invalid]="fieldInvalid(field.key) && (columnModel.touched || columnModel.dirty)">{{ field.label }}@if (field.required) {<span class="req" aria-hidden="true">*</span>}</span>
+              <select #columnModel="ngModel" [class.invalid]="fieldInvalid(field.key) && (columnModel.touched || columnModel.dirty)" [name]="field.key" [(ngModel)]="mapping[field.key]" (ngModelChange)="dirtyMapping(); noteMap(field.key)" (blur)="noteMap(field.key)">
                 <option value="">Column</option>
                 @for (column of columns; track column.letter) {
                   <option [value]="column.letter">{{ column.letter }}{{ column.header ? ' · ' + column.header : '' }}</option>
                 }
               </select>
-              <input #fallback="ngModel" [leadTimeDays]="field.def === 'defaultLeadTime'" [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping(); noteMap(field.def)" (blur)="noteMap(field.def)" [class.invalid]="fieldInvalid(field.key) && (columnModel.touched || columnModel.dirty || fallback.touched || fallback.dirty)" [attr.inputmode]="field.def === 'defaultLeadTime' ? 'numeric' : null" placeholder="Default" />
+              @if (field.key === 'currencyColumn') {
+                <select [disabled]="saving || checking" [ngModel]="currencyId" (ngModelChange)="onHeaderCurrency($event)" name="defaultImportCurrency" aria-label="Default currency">
+                  @for (currency of currencies; track currency.id) {
+                    <option [ngValue]="currency.id">{{ currency.code }}</option>
+                  }
+                </select>
+              } @else {
+                <input #fallback="ngModel" [leadTimeDays]="field.def === 'defaultLeadTime'" [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping(); noteMap(field.def)" (blur)="noteMap(field.def)" [class.invalid]="fieldInvalid(field.key) && (columnModel.touched || columnModel.dirty || fallback.touched || fallback.dirty)" [attr.inputmode]="field.def === 'defaultLeadTime' ? 'numeric' : null" placeholder="Default" />
+              }
             }
           </div>
           @if (requiredMissing && mappingNoted) {
@@ -187,10 +195,10 @@
               <col class="col-dsn" />
               <col class="col-part" />
               <col class="col-description" />
-              <col class="col-condition" />
-              <col class="col-unit" />
               <col class="col-lead" />
+              <col class="col-currency" />
               <col class="col-qty" />
+              <col class="col-condition" />
               <col class="col-price" />
               <col class="col-price" />
             </colgroup>
@@ -199,10 +207,10 @@
                 <th class="dsn">DSN No<span class="req" aria-hidden="true">*</span></th>
                 <th class="part">Part No<span class="req" aria-hidden="true">*</span></th>
                 <th>Description</th>
-                <th>Condition</th>
-                <th>Unit</th>
                 <th>Lead Time (days)</th>
+                <th class="currency">Currency</th>
                 <th class="qty">Quantity<span class="req" aria-hidden="true">*</span></th>
+                <th>Condition</th>
                 <th class="price">Unit Price<span class="req" aria-hidden="true">*</span></th>
                 <th class="price">Total Price</th>
               </tr>
@@ -220,6 +228,27 @@
                     }
                   </td>
                   <td><input [attr.disabled]="saving ? '' : null" [(ngModel)]="line.description" [name]="'description' + line.row" maxlength="500" /></td>
+                  <td [class.invalid]="lineInvalid(line, 'lead')"><input leadTimeDays [attr.disabled]="saving ? '' : null" [(ngModel)]="line.leadTime" [name]="'lead' + line.row" inputmode="numeric" /></td>
+                  <td class="currency">
+                    <select [attr.disabled]="saving ? '' : null" [(ngModel)]="line.currencyId" (ngModelChange)="onLineCurrency(line)" [name]="'currency' + line.row" aria-label="Currency">
+                      @for (currency of currencies; track currency.id) {
+                        <option [ngValue]="currency.id">{{ currency.code }}</option>
+                      }
+                    </select>
+                  </td>
+                  <td class="qty" [class.invalid]="lineInvalid(line, 'qty')">
+                    <div class="qty-edit qty-unit">
+                      <input wholeQuantity [attr.disabled]="saving ? '' : null" [(ngModel)]="line.quantity" (ngModelChange)="onQuantity(line)" (blur)="onQuantityBlur(line)" [name]="'qty' + line.row" inputmode="numeric" autocomplete="off" aria-label="Quantity" />
+                      <app-lookup-combobox
+                        ariaLabel="Unit"
+                        [value]="line.unit"
+                        [options]="unitNames"
+                        [disabled]="saving"
+                        (valueChange)="line.unit = $event"
+                        (committed)="normalizeUnit(line)"
+                      />
+                    </div>
+                  </td>
                   <td>
                     <app-lookup-combobox
                       ariaLabel="Condition"
@@ -230,29 +259,15 @@
                       (committed)="normalizeCondition(line)"
                     />
                   </td>
-                  <td>
-                    <app-lookup-combobox
-                      ariaLabel="Unit"
-                      [value]="line.unit"
-                      [options]="unitNames"
-                      [disabled]="saving"
-                      (valueChange)="line.unit = $event"
-                      (committed)="normalizeUnit(line)"
-                    />
-                  </td>
-                  <td [class.invalid]="lineInvalid(line, 'lead')"><input leadTimeDays [attr.disabled]="saving ? '' : null" [(ngModel)]="line.leadTime" [name]="'lead' + line.row" inputmode="numeric" /></td>
-                  <td [class.invalid]="lineInvalid(line, 'qty')">
-                    <input [attr.disabled]="saving ? '' : null" [(ngModel)]="line.quantity" (ngModelChange)="onQuantity(line)" (blur)="onQuantityBlur(line)" [name]="'qty' + line.row" inputmode="numeric" />
-                  </td>
                   <td class="price" [class.invalid]="lineInvalid(line, 'price')">
                     <span class="price-field">
-                      <span class="price-mark">{{ symbol }}</span>
+                      <span class="price-mark">{{ currencyMark(line.currencyId) }}</span>
                       <input [attr.disabled]="saving ? '' : null" [(ngModel)]="line.unitPrice" (ngModelChange)="onUnitPrice(line)" [name]="'unitPrice' + line.row" />
                     </span>
                   </td>
                   <td class="price" [class.invalid]="lineInvalid(line, 'price')">
                     <span class="price-field">
-                      <span class="price-mark">{{ symbol }}</span>
+                      <span class="price-mark">{{ currencyMark(line.currencyId) }}</span>
                       <input [attr.disabled]="saving ? '' : null" [(ngModel)]="line.totalPrice" (ngModelChange)="onTotalPrice(line)" [name]="'totalPrice' + line.row" />
                     </span>
                   </td>

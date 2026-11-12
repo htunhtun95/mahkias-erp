@@ -1,0 +1,51 @@
+:host {
+  display: block;
+}
+
+.history-status,
+.history-error {
+  margin: 8px 0 0;
+  font-size: 14px;
+}
+
+.history-status {
+  color: #5f6368;
+}
+
+.history-error {
+  color: #d93025;
+}
+
+.history {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.history-item {
+  padding: 12px 0;
+  border-top: 1px solid #e8eaed;
+}
+
+.history-item:first-child {
+  border-top: 0;
+}
+
+.history-title {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  color: #202124;
+  font-size: 14px;
+}
+
+.history-action {
+  flex: 0 0 auto;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.history-meta {
+  margin: 4px 0 0;
+  color: #5f6368;
+  font-size: 12px;
+}

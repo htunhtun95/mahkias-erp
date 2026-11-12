@@ -253,11 +253,12 @@ export class ProjectPurchasesTabComponent implements OnChanges, OnDestroy {
     }
     this.dialog.open(PurchaseOrderDetailDialog, {
       disableClose: true,
-      width: '95vw',
-      maxWidth: '95vw',
-      minWidth: 'min(720px, 95vw)',
-      maxHeight: 'none',
-      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-detail-panel', 'app-dialog-pane'],
+      width: '100vw',
+      maxWidth: '100vw',
+      minWidth: '100vw',
+      height: '100vh',
+      maxHeight: '100vh',
+      panelClass: ['add-project-dialog-panel', 'quotation-dialog-panel', 'po-new-panel', 'app-dialog-pane'],
       backdropClass: 'add-project-dialog-backdrop',
       autoFocus: 'first-tabbable',
       data: {

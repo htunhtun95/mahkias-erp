@@ -19,6 +19,7 @@ import { DocumentManagerComponent, syncDocumentDrafts } from '../document-manage
 import { DriveUploadCardComponent } from '../drive-upload-card/drive-upload-card';
 import { formatMoney } from '../money-format';
 import { leadTimeDays, leadTimeInvalid, leadTimeText, LeadTimeDaysDirective } from '../lead-time';
+import { WholeQuantityDirective } from '../whole-quantity';
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
 import { QuotationChargeRow, QuotationChargesComponent, quotationChargeTotal, readQuotationCharges } from '../quotation-charges/quotation-charges';
 import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-date-field';
@@ -42,6 +43,8 @@ interface PreviewLine {
   condition: string;
   unit: string;
   leadTime: string;
+  currencyId: number | null;
+  currencyExplicit: boolean;
   quantity: string;
   unitPrice: string;
   totalPrice: string;
@@ -53,7 +56,7 @@ interface PreviewLine {
 @Component({
   selector: 'app-import-purchase-order-dialog',
   standalone: true,
-  imports: [FormsModule, TextFieldModule, MaterialModule, QuotationDateFieldComponent, QuotationChargesComponent, DriveUploadCardComponent, LookupComboboxComponent, SheetCellFocusDirective, DocumentManagerComponent, LeadTimeDaysDirective],
+  imports: [FormsModule, TextFieldModule, MaterialModule, QuotationDateFieldComponent, QuotationChargesComponent, DriveUploadCardComponent, LookupComboboxComponent, SheetCellFocusDirective, DocumentManagerComponent, LeadTimeDaysDirective, WholeQuantityDirective],
   templateUrl: './import-purchase-order-dialog.html',
   styleUrls: ['../purchase-order-dialog/purchase-order-dialog.css'],
 })
@@ -91,11 +94,12 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
     { key: 'dsnNoColumn', def: 'defaultDsnNo', label: 'DSN No', required: true },
     { key: 'partNoColumn', def: 'defaultPartNo', label: 'Part No', required: true },
     { key: 'descriptionColumn', def: 'defaultDescription', label: 'Description', required: false },
-    { key: 'conditionColumn', def: 'defaultCondition', label: 'Condition', required: false },
-    { key: 'unitColumn', def: 'defaultUnit', label: 'Unit', required: false },
     { key: 'leadTimeColumn', def: 'defaultLeadTime', label: 'Lead Time (days)', required: false },
-    { key: 'unitPriceColumn', def: 'defaultUnitPrice', label: 'Unit Price', required: false },
+    { key: 'currencyColumn', def: '', label: 'Currency', required: false },
     { key: 'quantityColumn', def: 'defaultQuantity', label: 'Quantity', required: false },
+    { key: 'unitColumn', def: 'defaultUnit', label: 'Unit', required: false },
+    { key: 'conditionColumn', def: 'defaultCondition', label: 'Condition', required: false },
+    { key: 'unitPriceColumn', def: 'defaultUnitPrice', label: 'Unit Price', required: false },
     { key: 'totalPriceColumn', def: 'defaultTotalPrice', label: 'Total Price', required: false },
   ] as const;
   lines: PreviewLine[] = [];
@@ -135,7 +139,26 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
   }
 
   get symbol(): string {
-    return this.currencies.find((currency) => currency.id === this.currencyId)?.symbol || '$';
+    return this.currencyMark(this.currencyId);
+  }
+
+  onHeaderCurrency(value: number | null) {
+    const next = Number(value);
+    this.currencyId = Number.isFinite(next) ? next : null;
+    for (const line of this.lines) {
+      if (!line.currencyExplicit) {
+        line.currencyId = this.currencyId;
+      }
+    }
+  }
+
+  onLineCurrency(line: PreviewLine) {
+    line.currencyExplicit = true;
+  }
+
+  currencyMark(currencyId: number | null): string {
+    const currency = this.currencies.find((item) => item.id === currencyId);
+    return currency?.symbol || currency?.code || '$';
   }
 
   get currencyCode(): string {
@@ -446,6 +469,7 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
           conditionColumn: suggested.condition ?? '',
           unitColumn: suggested.unit ?? '',
           leadTimeColumn: suggested.leadTime ?? '',
+          currencyColumn: suggested.currency ?? '',
           quantityColumn: suggested.quantity ?? '',
           unitPriceColumn: suggested.unitPrice ?? '',
           totalPriceColumn: suggested.totalPrice ?? '',
@@ -539,7 +563,7 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
     this.isVerifyStep = false;
   }
 
-  private previewLine(item: PurchaseOrderItemInput & { row?: number }, index: number): PreviewLine {
+  private previewLine(item: PurchaseOrderItemInput & { row?: number; currencyCode?: string | null }, index: number): PreviewLine {
     const unitText = item.unitPrice == null ? '' : String(item.unitPrice);
     const totalText = item.totalPrice == null ? '' : String(item.totalPrice);
     const line: PreviewLine = {
@@ -552,6 +576,8 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
       condition: item.condition ?? '',
       unit: item.unit ?? '',
       leadTime: leadTimeText(item.leadTime),
+      currencyId: this.currencyIdFor(item.currencyCode),
+      currencyExplicit: !!item.currencyCode?.trim(),
       quantity: item.quantity == null ? '' : String(item.quantity),
       unitPrice: unitText,
       totalPrice: totalText,
@@ -618,6 +644,15 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
   }
 
+  private currencyIdFor(code: string | null | undefined): number | null {
+    const text = (code ?? '').trim();
+    if (!text) {
+      return this.currencyId;
+    }
+    const match = this.currencies.find((currency) => currency.code.localeCompare(text, undefined, { sensitivity: 'accent' }) === 0);
+    return match?.id ?? this.currencyId;
+  }
+
   private formatAmount(value: number): string {
     return String(Math.round(value * 10000) / 10000);
   }
@@ -635,6 +670,7 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
         condition: line.condition.trim(),
         unit: line.unit.trim(),
         leadTime: leadTimeDays(line.leadTime),
+        currencyId: line.currencyId ?? this.currencyId,
         quantity,
         unitPrice,
         totalPrice,
@@ -754,6 +790,7 @@ function blankMapping(): PurchaseOrderExcelMappingInput {
     conditionColumn: '',
     unitColumn: '',
     leadTimeColumn: '',
+    currencyColumn: '',
     quantityColumn: '',
     unitPriceColumn: '',
     totalPriceColumn: '',

@@ -8,6 +8,7 @@ namespace Mahkias.Core.Modules.Projects
     public interface IActivityRepository : IRepository<Activity>
     {
         Task<IReadOnlyList<ProjectActivityResult>> GetByProjectAsync(int projectId, string sortBy = null, string sortDirection = null);
+        Task<ActivityIdentity> FindIdentityAsync(int id);
         Task<int> CreateAsync(CreateActivityArgs args);
         Task<IReadOnlyList<ActivityImportIssue>> ValidateImportAsync(int projectId, IEnumerable<ActivityImportCandidate> rows);
         Task<int> BulkInsertAsync(int projectId, IEnumerable<CreateActivityArgs> activities);

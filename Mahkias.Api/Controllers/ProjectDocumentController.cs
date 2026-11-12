@@ -1,3 +1,5 @@
+using Mahkias.Api.Helpers;
+using Mahkias.Api.Modules.Projects;
 using Mahkias.Api.Security;
 using Mahkias.Api.Services;
 using Mahkias.Core.Data;
@@ -155,6 +157,7 @@ namespace Mahkias.Api.Controllers
                     return StatusCode(StatusCodes.Status500InternalServerError, new { message = "The file was stored, but its record could not be saved." });
                 }
 
+                await this.Write(_uow, projectId, "DocumentUploaded", ProjectHistoryText.DocumentsUploaded(new[] { document.FileName }, null));
                 return Ok(document);
             }
             catch (InvalidOperationException ex)
@@ -177,8 +180,14 @@ namespace Mahkias.Api.Controllers
                 return NotFound(new { message = "Project was not found." });
             }
 
+            var before = await _uow.ProjectDocuments.ListByProjectAsync(projectId);
             await _uow.ProjectDocuments.OrderAsync(projectId, request.Documents, request.OriginalDocumentId);
-            return Ok(await _uow.ProjectDocuments.ListByProjectAsync(projectId));
+            var after = await _uow.ProjectDocuments.ListByProjectAsync(projectId);
+            if (ProjectHistoryText.KeptOrderChanged(before, after, item => item.DocumentId, item => item.SortOrder, item => item.IsOriginal))
+            {
+                await this.Write(_uow, projectId, "DocumentReordered", ProjectHistoryText.DocumentsReordered(null));
+            }
+            return Ok(after);
         }
 
         [HttpDelete("documents/{documentId:int}")]
@@ -190,12 +199,15 @@ namespace Mahkias.Api.Controllers
                 return NotFound(new { message = "Project was not found." });
             }
 
+            var existing = await _uow.ProjectDocuments.ListByProjectAsync(projectId);
+            var fileName = existing.FirstOrDefault(item => item.DocumentId == documentId)?.FileName;
             var removed = await _uow.ProjectDocuments.RemoveAsync(projectId, documentId);
             if (!removed)
             {
                 return NotFound(new { message = "Document was not found on this project." });
             }
 
+            await this.Write(_uow, projectId, "DocumentRemoved", ProjectHistoryText.DocumentRemoved(fileName, null));
             return NoContent();
         }
     }

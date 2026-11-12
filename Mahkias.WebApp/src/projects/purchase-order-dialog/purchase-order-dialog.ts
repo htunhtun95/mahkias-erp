@@ -21,6 +21,7 @@ import { DocumentManagerComponent, syncDocumentDrafts } from '../document-manage
 import { documentAccept as acceptedDocuments } from '../document-library-dialog/document-library-dialog';
 import { formatMoney } from '../money-format';
 import { leadTimeDays, leadTimeInvalid, leadTimeText, LeadTimeDaysDirective } from '../lead-time';
+import { WholeQuantityDirective } from '../whole-quantity';
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
 import { QuotationChargeRow, QuotationChargesComponent, quotationChargeTotal, readQuotationCharges } from '../quotation-charges/quotation-charges';
 import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-date-field';
@@ -68,6 +69,8 @@ interface PoLine {
   condition: string;
   unit: string;
   leadTime: string;
+  currencyId: number | null;
+  currencyExplicit: boolean;
   quantity: string;
   unitPrice: string;
   totalPrice: string;
@@ -99,6 +102,7 @@ interface PoEdits {
     SheetCellFocusDirective,
     DocumentManagerComponent,
     LeadTimeDaysDirective,
+    WholeQuantityDirective,
   ],
   templateUrl: './purchase-order-dialog.html',
   styleUrl: './purchase-order-dialog.css',
@@ -251,7 +255,26 @@ export class PurchaseOrderDialogComponent implements OnInit {
   }
 
   get symbol(): string {
-    return this.currencies.find((currency) => currency.id === this.currencyId)?.symbol || '$';
+    return this.currencyMark(this.currencyId);
+  }
+
+  onHeaderCurrency(value: number | null) {
+    const next = Number(value);
+    this.currencyId = Number.isFinite(next) ? next : null;
+    for (const row of this.rows) {
+      if (!row.currencyExplicit) {
+        row.currencyId = this.currencyId;
+      }
+    }
+  }
+
+  onRowCurrency(row: PoLine) {
+    row.currencyExplicit = true;
+  }
+
+  currencyMark(currencyId: number | null): string {
+    const currency = this.currencies.find((item) => item.id === currencyId);
+    return currency?.symbol || currency?.code || '$';
   }
 
   get currencyCode(): string {
@@ -705,6 +728,7 @@ export class PurchaseOrderDialogComponent implements OnInit {
         condition: textOrNull(canonicalCondition(row.condition, this.conditions)),
         unit: textOrNull(canonicalUnit(row.unit, this.units)),
         leadTime: leadTimeDays(row.leadTime),
+        currencyId: row.currencyId ?? this.currencyId,
         quantity,
         unitPrice: roundMoney(unitPrice as number),
         totalPrice: roundMoney(totalPrice as number),
@@ -788,6 +812,8 @@ export class PurchaseOrderDialogComponent implements OnInit {
       condition: this.activityLookup(activity, 'condition'),
       unit: this.activityLookup(activity, 'unit'),
       leadTime: '',
+      currencyId: this.currencyId,
+      currencyExplicit: false,
       quantity: activityQuantity(activity) || '1',
       unitPrice: '',
       totalPrice: '',
@@ -818,6 +844,8 @@ export class PurchaseOrderDialogComponent implements OnInit {
       condition: this.whenMissing(canonicalCondition(line.condition ?? '', this.conditions), 'NE'),
       unit: this.whenMissing(canonicalUnit(line.unit ?? '', this.units), 'EA'),
       leadTime: leadTimeText(line.leadTime),
+      currencyId: this.currencyId,
+      currencyExplicit: false,
       quantity,
       unitPrice,
       totalPrice,
@@ -842,6 +870,8 @@ export class PurchaseOrderDialogComponent implements OnInit {
       condition: canonicalCondition(line.condition ?? '', this.conditions),
       unit: canonicalUnit(line.unit ?? '', this.units),
       leadTime: leadTimeText(line.leadTime),
+      currencyId: line.currencyId || this.currencyId,
+      currencyExplicit: line.currencyId != null && line.currencyId !== this.currencyId,
       quantity: line.quantity == null ? '1' : String(line.quantity),
       unitPrice: String(line.unitPrice ?? ''),
       totalPrice: String(line.totalPrice ?? ''),
@@ -864,6 +894,8 @@ export class PurchaseOrderDialogComponent implements OnInit {
       condition: 'NE',
       unit: 'EA',
       leadTime: '',
+      currencyId: this.currencyId,
+      currencyExplicit: false,
       quantity: '1',
       unitPrice: '',
       totalPrice: '',

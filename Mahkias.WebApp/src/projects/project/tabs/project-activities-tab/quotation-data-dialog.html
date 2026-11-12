@@ -55,11 +55,11 @@
             @if (!isGroup) {
               <span>Quoted part no</span>
             }
-            <span>Condition</span>
-            <span>Unit</span>
             <span>Lead time</span>
-            <span>Unit price</span>
             <span>Quantity</span>
+            <span>Unit</span>
+            <span>Condition</span>
+            <span>Unit price</span>
             <span>Total price</span>
           </div>
           @for (row of rows; track (row.link?.itemId ?? row.dsnNo) + '-' + $index) {
@@ -94,22 +94,21 @@
                   }
                 </span>
               }
-              <span>{{ row.link?.condition || '—' }}</span>
-              <span>{{ row.link?.unit || '—' }}</span>
-
               <span>{{ leadTimeLabel(row.link?.leadTime) }}</span>
+              <span class="qty-stack">
+                @if (quantityDisplay(row.link); as shown) {
+                  <span [class.moq-value]="!!shown.note">{{ shown.value }}</span>
+                  @if (shown.note) {
+                    <span class="moq-note" [class.short]="shown.short">{{ shown.note }}</span>
+                  }
+                }
+              </span>
+              <span>{{ row.link?.unit || '—' }}</span>
+              <span>{{ row.link?.condition || '—' }}</span>
               <span class="price">
                 {{ row.link ? quotedUnit(row.link) : '—' }}
                 @if (!isGroup && row.link?.lowest) {
                   <span class="lowest-badge">Lowest price</span>
-                }
-              </span>
-              <span class="qty-stack">
-                @if (quantityDisplay(row.link); as shown) {
-                  <span>{{ shown.value }}</span>
-                  @if (shown.note) {
-                    <span class="moq-note" [class.short]="shown.short">{{ shown.note }}</span>
-                  }
                 }
               </span>
               <span>{{ row.link ? quotedTotal(row.link) : '—' }}</span>

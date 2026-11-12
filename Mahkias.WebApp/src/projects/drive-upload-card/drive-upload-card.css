@@ -176,7 +176,8 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 4px 12px;
-  padding: 4px 12px;
+  min-height: 130px;
+  padding: 16px 12px;
 }
 
 .upload-card.compact .upload-heading {
@@ -186,9 +187,10 @@
 .upload-card.compact .drop-zone {
   width: auto;
   flex: 1 1 auto;
+  align-self: stretch;
   justify-content: flex-start;
-  min-height: 28px;
-  height: 28px;
+  min-height: 0;
+  height: auto;
   padding: 0 4px;
 }
 

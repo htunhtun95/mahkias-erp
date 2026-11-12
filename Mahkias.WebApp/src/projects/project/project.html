@@ -72,6 +72,16 @@
       >
         Documents
       </button>
+      <button
+        class="tab"
+        type="button"
+        role="tab"
+        [class.active]="tab === 'history'"
+        [attr.aria-selected]="tab === 'history'"
+        (click)="selectTab('history')"
+      >
+        History
+      </button>
     </div>
 
     <div class="header-actions">
@@ -227,6 +237,9 @@
       [project]="project"
       [disabled]="isDeleting"
     />
+    @if (tab === 'history') {
+      <app-project-history-tab class="tab-panel" [project]="project" />
+    }
   </div>
 } @else {
   <p class="error">{{ error || 'Project not found.' }}</p>

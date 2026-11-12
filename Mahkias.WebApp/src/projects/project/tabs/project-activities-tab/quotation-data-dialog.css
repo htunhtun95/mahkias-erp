@@ -142,7 +142,7 @@ h3 {
 .quote-line {
   display: grid;
   box-sizing: border-box;
-  grid-template-columns: 36px minmax(0, 1.1fr) minmax(0, 0.85fr) minmax(0, 0.9fr) minmax(0, 0.9fr) 88px 88px 100px minmax(120px, 1.3fr) minmax(88px, 0.55fr) minmax(120px, 1.2fr);
+  grid-template-columns: 36px minmax(0, 1.1fr) minmax(0, 0.85fr) minmax(0, 0.9fr) minmax(0, 0.9fr) 100px minmax(96px, 0.7fr) 88px 88px minmax(120px, 1.3fr) minmax(120px, 1.2fr);
   gap: 10px;
   align-items: center;
   width: 100%;
@@ -154,7 +154,7 @@ h3 {
 }
 
 .quote-line.group {
-  grid-template-columns: 36px minmax(64px, 0.5fr) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 0.75fr) minmax(0, 0.85fr) 88px 88px 100px minmax(110px, 1.1fr) minmax(88px, 0.5fr) minmax(110px, 1fr);
+  grid-template-columns: 36px minmax(64px, 0.5fr) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 0.75fr) minmax(0, 0.85fr) 100px minmax(96px, 0.7fr) 88px 88px minmax(110px, 1.1fr) minmax(110px, 1fr);
   min-width: 1380px;
 }
 
@@ -179,6 +179,30 @@ h3 {
 
 .quote-line.lowest {
   background: #e6f4ea;
+}
+
+.moq-value {
+  font-weight: 600;
+  color: #202124;
+}
+
+.moq-note {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-top: 4px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #e8f0fe;
+  color: #174ea6;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.moq-note.short {
+  background: #fef7e0;
+  color: #b06000;
 }
 
 .part {

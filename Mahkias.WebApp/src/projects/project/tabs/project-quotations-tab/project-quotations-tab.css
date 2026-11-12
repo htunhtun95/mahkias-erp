@@ -209,8 +209,8 @@
 
 .line-row {
   display: grid;
-  grid-template-columns: 28px 80px minmax(120px, 1.1fr) minmax(160px, 1.5fr) 100px 90px 110px 72px 110px 112px 110px;
-  min-width: 1220px;
+  grid-template-columns: 28px 72px minmax(110px, 1.1fr) minmax(180px, 1.6fr) 88px 72px 96px 64px 88px 108px 112px;
+  min-width: 1200px;
   gap: 8px;
   align-items: center;
   min-height: 48px;
@@ -224,6 +224,57 @@
   min-width: 0;
   overflow: hidden;
   overflow-wrap: anywhere;
+}
+
+.line-row > span.description {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  overflow: visible;
+}
+
+.description-main {
+  min-width: 0;
+  color: #202124;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.usage-line {
+  color: #5f6368;
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+
+.usage-key {
+  color: #3c4043;
+  font-weight: 600;
+}
+
+.moq-value {
+  font-weight: 600;
+  color: #202124;
+}
+
+.moq-note {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-top: 4px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #e8f0fe;
+  color: #174ea6;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.moq-note.short {
+  background: #fef7e0;
+  color: #b06000;
 }
 
 .line-row.heading {

@@ -1,7 +1,9 @@
+using Mahkias.Api.Helpers;
 using Mahkias.Api.Modules.Projects;
 using Mahkias.Api.Security;
 using Mahkias.Core.Data;
 using Mahkias.Core.Modules.Projects.Data.Args;
+using Mahkias.Core.Modules.Projects.Data.Result;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Mahkias.Api.Controllers
@@ -68,7 +70,16 @@ namespace Mahkias.Api.Controllers
                 return BadRequest(new { message = "Activity updates failed validation.", errors });
             }
 
-            var updated = await _uow.Activities.UpdateBatchAsync(activities.Select(activity => new ActivityBatchUpdate
+            var before = new Dictionary<int, ProjectActivityResult>();
+            foreach (var projectId in activities.Select(activity => activity.ProjectId).Where(id => id > 0).Distinct())
+            {
+                foreach (var existing in await _uow.Activities.GetByProjectAsync(projectId))
+                {
+                    before[existing.Id] = existing;
+                }
+            }
+
+            var writes = activities.Select(activity => new ActivityBatchUpdate
             {
                 Id = activity.Id,
                 Args = new CreateActivityArgs
@@ -88,11 +99,22 @@ namespace Mahkias.Api.Controllers
                     CSN = activity.CSN,
                     CSO = activity.CSO
                 }
-            }).ToList());
+            }).ToList();
+            var updated = await _uow.Activities.UpdateBatchAsync(writes);
 
             if (updated <= 0)
             {
                 return BadRequest(new { message = "The activities could not be updated." });
+            }
+
+            foreach (var write in writes)
+            {
+                if (!before.TryGetValue(write.Id, out var existing))
+                {
+                    continue;
+                }
+
+                await RecordAsync(write.Args.ProjectId, "ActivityUpdated", ProjectHistoryText.ActivityUpdate(existing, write.Args));
             }
 
             foreach (var projectId in activities.Select(activity => activity.ProjectId).Distinct())
@@ -128,7 +150,7 @@ namespace Mahkias.Api.Controllers
                 return NotFound();
             }
 
-            var updated = await _uow.Activities.UpdateAsync(id, new CreateActivityArgs
+            var args = new CreateActivityArgs
             {
                 ProjectId = request.ProjectId,
                 PartNo = request.PartNo,
@@ -144,12 +166,15 @@ namespace Mahkias.Api.Controllers
                 TSO = request.TSO,
                 CSN = request.CSN,
                 CSO = request.CSO
-            });
+            };
+            var updated = await _uow.Activities.UpdateAsync(id, args);
 
             if (updated <= 0)
             {
                 return NotFound();
             }
+
+            await RecordAsync(request.ProjectId, "ActivityUpdated", ProjectHistoryText.ActivityUpdate(current, args));
 
             if (current.ActivityGroupId != null && current.TypeId != request.TypeId)
             {
@@ -214,14 +239,37 @@ namespace Mahkias.Api.Controllers
         [HttpDelete("/api/activities/{id}")]
         public async Task<IActionResult> Delete(int id)
         {
+            var identity = await _uow.Activities.FindIdentityAsync(id);
             var deleted = await _uow.Activities.DeleteAsync(id);
             if (deleted <= 0)
             {
                 return NotFound();
             }
 
+            if (identity != null)
+            {
+                await RecordAsync(identity.ProjectId, "ActivityRemoved", ProjectHistoryText.Removed(identity));
+            }
+
             await _uow.ActivityLabels.DeleteEmptyForActivityAsync(id);
             return NoContent();
+        }
+
+        private Task RecordAsync(int projectId, string action, string summary)
+        {
+            if (projectId <= 0 || string.IsNullOrWhiteSpace(summary))
+            {
+                return Task.CompletedTask;
+            }
+
+            return _uow.ProjectHistory.AddAsync(new ProjectHistoryWrite
+            {
+                ProjectId = projectId,
+                Action = action,
+                Summary = summary,
+                ActorName = this.ActorName(),
+                ActorEmail = this.ActorEmail(),
+            });
         }
 
         private async Task<List<object>> GroupedTypeChangesAsync(List<BatchActivityUpdate> activities)

@@ -9,6 +9,7 @@ import { documentAccept, openDocumentLibrary } from '../../../document-library-d
 import { formatMoney } from '../../../money-format';
 import { leadTimeLabel } from '../../../lead-time';
 import { quotationQuantity, quotationValidity } from '../../../quotation-terms';
+import { usageDetails } from '../../../usage-fields';
 
 export interface QuotationDetailDialogData {
   projectId: number;
@@ -24,6 +25,7 @@ export interface QuotationDetailDialogData {
 })
 export class QuotationDetailDialog implements OnInit {
   readonly leadTimeLabel = leadTimeLabel;
+  readonly usageDetails = usageDetails;
   private api = inject(ProjectApiService);
   private dialog = inject(MatDialog);
   private dialogRef = inject(MatDialogRef<QuotationDetailDialog>);

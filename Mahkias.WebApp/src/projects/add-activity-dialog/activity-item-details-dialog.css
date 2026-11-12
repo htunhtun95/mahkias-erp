@@ -1,0 +1,108 @@
+:host {
+  display: block;
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-sizing: border-box;
+  padding: 24px 28px 20px;
+  background: #fff;
+}
+
+header {
+  position: relative;
+  padding-right: 36px;
+}
+
+h2 {
+  margin: 0;
+  color: #202124;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+header p {
+  margin: 4px 0 0;
+  color: #5f6368;
+  font-size: 13px;
+}
+
+.erp-modal-close {
+  position: absolute;
+  top: -4px;
+  right: -8px;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 28px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  color: #5f6368;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+label.wide {
+  grid-column: 1 / -1;
+}
+
+input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  background: #fff;
+  color: #202124;
+  font: inherit;
+  font-size: 14px;
+}
+
+input:focus {
+  border-color: #1a73e8;
+  outline: none;
+}
+
+footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.btn {
+  min-height: 36px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  color: #5f6368;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: #f1f3f4;
+  color: #202124;
+}
+
+.btn.primary {
+  background: #1a73e8;
+  color: #fff;
+}
+
+.btn.primary:hover {
+  background: #1765cc;
+  color: #fff;
+}

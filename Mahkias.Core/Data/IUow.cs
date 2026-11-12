@@ -5,6 +5,7 @@ namespace Mahkias.Core.Data
     public interface IUow
     {
         IProjectRepository Projects { get; }
+        IProjectHistoryRepository ProjectHistory { get; }
         IActivityRepository Activities { get; }
         ISupplierRepository Suppliers { get; }
         IQuotationRepository Quotations { get; }

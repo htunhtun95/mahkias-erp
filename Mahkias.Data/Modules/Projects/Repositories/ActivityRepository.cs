@@ -280,6 +280,38 @@ namespace Mahkias.Data.Modules.Projects.Repositories
             };
         }
 
+        public async Task<ActivityIdentity> FindIdentityAsync(int id)
+        {
+            using var command = new SqlCommand(@"
+SELECT Id, ProjectId, DSNNo, PartNo
+FROM projects.Activities
+WHERE Id = @Id
+  AND IsDeleted = 0;");
+            command.Parameters.AddInt("Id", id);
+            command.Connection = _connection;
+            _connection.Open();
+            try
+            {
+                using var reader = await command.ExecuteReaderAsync();
+                if (!await reader.ReadAsync())
+                {
+                    return null;
+                }
+
+                return new ActivityIdentity
+                {
+                    Id = reader.ReadIntValue("Id"),
+                    ProjectId = reader.ReadIntValue("ProjectId"),
+                    DsnNo = reader.ReadNullableStringValue("DSNNo"),
+                    PartNo = reader.ReadNullableStringValue("PartNo"),
+                };
+            }
+            finally
+            {
+                _connection.Close();
+            }
+        }
+
         public async Task<int> UpdateBatchAsync(IReadOnlyList<ActivityBatchUpdate> activities)
         {
             var pending = (activities ?? Array.Empty<ActivityBatchUpdate>())

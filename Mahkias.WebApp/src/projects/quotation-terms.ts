@@ -28,6 +28,24 @@ export function quotationValidity(validUntil?: string | null, today = new Date()
   return { days, expired: false, label: days === 1 ? '1 day left' : `${days} days left` };
 }
 
+export function pricedQuantity(
+  quantity: number | null | undefined,
+  minimumQty: number | null | undefined,
+  fallback = 0,
+): number {
+  const requested = Number(quantity);
+  const hasRequested = Number.isFinite(requested) && requested > 0;
+  const minimum = Number(minimumQty);
+  const hasMinimum = Number.isFinite(minimum) && minimum > 0;
+  if (hasMinimum && hasRequested) {
+    return requested > minimum ? requested : minimum;
+  }
+  if (hasMinimum) {
+    return minimum;
+  }
+  return hasRequested ? requested : fallback;
+}
+
 export function quotationQuantity(
   quantity: number | null | undefined,
   minimumQty: number | null | undefined,

@@ -180,8 +180,8 @@ section {
 
 .line-row {
   display: grid;
-  grid-template-columns: 64px minmax(120px, 1.3fr) minmax(140px, 1.2fr) 72px 56px 80px 64px 96px 88px 104px;
-  min-width: 980px;
+  grid-template-columns: 72px minmax(120px, 1.15fr) minmax(180px, 1.7fr) 92px 72px 96px 64px 88px 108px 112px;
+  min-width: 1100px;
   gap: 8px;
   align-items: center;
   min-height: 40px;
@@ -195,6 +195,57 @@ section {
   min-width: 0;
   overflow: hidden;
   overflow-wrap: anywhere;
+}
+
+.line-row > span.description {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  overflow: visible;
+}
+
+.description-main {
+  min-width: 0;
+  color: #202124;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.usage-line {
+  color: #5f6368;
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+
+.usage-key {
+  color: #3c4043;
+  font-weight: 600;
+}
+
+.moq-value {
+  font-weight: 600;
+  color: #202124;
+}
+
+.moq-note {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-top: 4px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #e8f0fe;
+  color: #174ea6;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.moq-note.short {
+  background: #fef7e0;
+  color: #b06000;
 }
 
 .line-row:last-child {

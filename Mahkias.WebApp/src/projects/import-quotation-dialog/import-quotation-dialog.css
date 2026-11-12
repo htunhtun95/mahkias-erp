@@ -637,7 +637,7 @@ label.invalid input:focus {
 
 .sheet {
   width: 100%;
-  min-width: 1080px;
+  min-width: 1400px;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
@@ -645,13 +645,49 @@ label.invalid input:focus {
 
 .col-dsn { width: 90px; }
 .col-part { width: 180px; }
+.col-description { width: auto; }
 .col-condition { width: 110px; }
 .col-unit { width: 100px; }
 .col-lead { width: 120px; }
 .col-currency { width: 110px; }
 .col-qty { width: 90px; }
-.col-moq { width: 90px; }
 .col-price { width: 148px; }
+.col-action { width: 96px; }
+
+.row-menu {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: #5f6368;
+  cursor: pointer;
+}
+
+.row-menu:hover:not(:disabled) {
+  background: #f1f3f4;
+  color: #202124;
+}
+
+.row-menu:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.row-menu mat-icon {
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+}
+
+.sheet th.action,
+.sheet td.action {
+  text-align: center;
+}
 
 .sheet td.invalid {
   background: #fff;

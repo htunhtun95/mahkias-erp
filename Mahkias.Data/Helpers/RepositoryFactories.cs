@@ -15,6 +15,7 @@ namespace Mahkias.Data.Helpers
             return new Dictionary<Type, Func<string, object>>
             {
                 { typeof(IProjectRepository), connectionString => new ProjectRepository(connectionString) },
+                { typeof(IProjectHistoryRepository), connectionString => new ProjectHistoryRepository(connectionString) },
                 { typeof(IActivityRepository), connectionString => new ActivityRepository(connectionString) },
                 { typeof(ISupplierRepository), connectionString => new SupplierRepository(connectionString) },
                 { typeof(IQuotationRepository), connectionString => new QuotationRepository(connectionString) },

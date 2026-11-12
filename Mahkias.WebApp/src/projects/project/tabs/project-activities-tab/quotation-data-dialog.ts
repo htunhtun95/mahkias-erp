@@ -7,7 +7,7 @@ import { ProcurementTrace } from '../../../procurement-trace';
 import { closeOnEscape } from '../../../../core/close-on-escape';
 import { formatMoney } from '../../../money-format';
 import { leadTimeLabel, leadTimeText } from '../../../lead-time';
-import { quotationQuantity, quotationValidity } from '../../../quotation-terms';
+import { pricedQuantity, quotationQuantity, quotationValidity } from '../../../quotation-terms';
 import { PurchaseOrderDialogComponent, PurchaseOrderPresetLine } from '../../../purchase-order-dialog/purchase-order-dialog';
 import { PurchaseOrderSync } from '../../../purchase-order-sync';
 
@@ -391,10 +391,5 @@ export class QuotationDataDialog {
 }
 
 function orderedQuantity(link: ActivityQuotationLink): number {
-  const minimum = Number(link.minimumQty);
-  if (Number.isFinite(minimum) && minimum > 0) {
-    return minimum;
-  }
-  const quantity = Number(link.quantity);
-  return Number.isFinite(quantity) && quantity > 0 ? quantity : 0;
+  return pricedQuantity(link.quantity, link.minimumQty);
 }

@@ -154,17 +154,33 @@
                     <option [ngValue]="currency.id">{{ currency.code }}</option>
                   }
                 </select>
+              } @else if (field.def === 'defaultCondition') {
+                <select [disabled]="busy" [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping(); noteMap(field.def)" aria-label="Default condition">
+                  <option value="">Default</option>
+                  @for (condition of conditions; track condition.id) {
+                    <option [value]="condition.name">{{ condition.name }}</option>
+                  }
+                </select>
+              } @else if (field.def === 'defaultUnit') {
+                <select [disabled]="busy" [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping(); noteMap(field.def)" aria-label="Default unit">
+                  <option value="">Default</option>
+                  @for (unit of units; track unit.id) {
+                    <option [value]="unit.name">{{ unit.name }}</option>
+                  }
+                </select>
               } @else if (field.def === 'defaultLeadTime') {
                 <input leadTimeDays #fallback="ngModel" [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping(); noteMap(field.def)" (blur)="noteMap(field.def)" [class.invalid]="fieldInvalid(field.key) && (fallback.touched || fallback.dirty)" placeholder="Default" inputmode="numeric" />
-              } @else {
+              } @else if (field.def) {
                 <input #fallback="ngModel" [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping(); noteMap(field.def)" (blur)="noteMap(field.def)" [class.invalid]="fieldInvalid(field.key) && (fallback.touched || fallback.dirty)" placeholder="Default" />
+              } @else {
+                <span></span>
               }
             }
           </div>
           @if (requiredMissing && mappingNoted) {
             <p class="hint-error">Please select a Column Index or enter a Default Value for this required field.</p>
           }
-          <p class="hint">DSN No and Part No are required. Condition, unit, lead time, and MOQ are optional. Quoted date and valid until belong to the quotation. A row with no unit price and no total price is skipped.</p>
+          <p class="hint">DSN No and Part No are required. Condition, unit, lead time, MOQ, and the technical fields are optional. SerialNo, TSN, TSO, CSN, and CSO have no default: an unmapped column or an empty cell is saved as blank. Quoted date and valid until belong to the quotation. A row with no unit price and no total price is skipped.</p>
           @if (checkState === 'failed' && importErrors.length) {
             <p class="hint-error">⚠ Validation Failed ({{ importErrors.length }} Errors Found)</p>
             <ul class="errors">
@@ -192,27 +208,29 @@
             <colgroup>
               <col class="col-dsn" />
               <col class="col-part" />
-              <col class="col-condition" />
-              <col class="col-unit" />
+              <col class="col-description" />
               <col class="col-lead" />
               <col class="col-currency" />
               <col class="col-qty" />
-              <col class="col-moq" />
+              <col class="col-unit" />
+              <col class="col-condition" />
               <col class="col-price" />
               <col class="col-price" />
+              <col class="col-action" />
             </colgroup>
             <thead>
               <tr>
                 <th class="dsn">DSN No<span class="req" aria-hidden="true">*</span></th>
                 <th class="part">Part No<span class="req" aria-hidden="true">*</span></th>
-                <th>Condition</th>
-                <th>Unit</th>
+                <th>Description</th>
                 <th>Lead Time (days)</th>
                 <th>Currency</th>
                 <th class="qty">Quantity<span class="req" aria-hidden="true">*</span></th>
-                <th class="qty">MOQ</th>
+                <th>Unit</th>
+                <th>Condition</th>
                 <th class="price">Unit Price<span class="req" aria-hidden="true">*</span></th>
                 <th class="price">Total Price</th>
+                <th class="action">Settings</th>
               </tr>
             </thead>
             <tbody>
@@ -225,15 +243,22 @@
                       <span class="map-badge warning" title="Unit × quantity does not match total">Price</span>
                     }
                   </td>
+                  <td><input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.description" [name]="'desc' + line.row" /></td>
+                  <td [class.invalid]="lineInvalid(line, 'lead') && lineSeen(line, 'lead')"><input leadTimeDays [attr.disabled]="busy ? '' : null" [(ngModel)]="line.leadTime" (ngModelChange)="touchLine(line, 'lead')" (blur)="touchLine(line, 'lead')" [name]="'lead' + line.row" inputmode="numeric" /></td>
                   <td>
-                    <app-lookup-combobox
-                      ariaLabel="Condition"
-                      [value]="line.condition"
-                      [options]="conditionNames"
-                      [disabled]="busy"
-                      (valueChange)="line.condition = $event"
-                      (committed)="normalizeCondition(line)"
-                    />
+                    <select [disabled]="busy" [(ngModel)]="line.currencyId" (ngModelChange)="onLineCurrency(line)" [name]="'currency' + line.row">
+                      @for (currency of currencies; track currency.id) {
+                        <option [ngValue]="currency.id">{{ currency.code }}</option>
+                      }
+                    </select>
+                  </td>
+                  <td class="qty" [class.invalid]="lineInvalid(line, 'qty') && lineSeen(line, 'qty')">
+                    <div class="qty-edit">
+                      <input wholeQuantity [attr.disabled]="busy ? '' : null" [(ngModel)]="line.quantity" (ngModelChange)="onQuantity(line); touchLine(line, 'qty')" (blur)="onQuantityBlur(line); touchLine(line, 'qty')" [name]="'qty' + line.row" inputmode="numeric" autocomplete="off" aria-label="Quantity" />
+                      @if (moqNote(line); as note) {
+                        <span class="moq-note" [class.short]="note.short">{{ note.text }}</span>
+                      }
+                    </div>
                   </td>
                   <td>
                     <app-lookup-combobox
@@ -245,19 +270,15 @@
                       (committed)="normalizeUnit(line)"
                     />
                   </td>
-                  <td [class.invalid]="lineInvalid(line, 'lead') && lineSeen(line, 'lead')"><input leadTimeDays [attr.disabled]="busy ? '' : null" [(ngModel)]="line.leadTime" (ngModelChange)="touchLine(line, 'lead')" (blur)="touchLine(line, 'lead')" [name]="'lead' + line.row" inputmode="numeric" /></td>
                   <td>
-                    <select [disabled]="busy" [(ngModel)]="line.currencyId" (ngModelChange)="onLineCurrency(line)" [name]="'currency' + line.row">
-                      @for (currency of currencies; track currency.id) {
-                        <option [ngValue]="currency.id">{{ currency.code }}</option>
-                      }
-                    </select>
-                  </td>
-                  <td class="qty" [class.invalid]="lineInvalid(line, 'qty') && lineSeen(line, 'qty')">
-                    <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.quantity" (ngModelChange)="onQuantity(line); touchLine(line, 'qty')" (blur)="onQuantityBlur(line); touchLine(line, 'qty')" [name]="'qty' + line.row" />
-                  </td>
-                  <td class="qty" [class.invalid]="lineInvalid(line, 'moq') && lineSeen(line, 'moq')">
-                    <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.minimumQty" (ngModelChange)="onMinimum(line); touchLine(line, 'moq')" (blur)="touchLine(line, 'moq')" [name]="'moq' + line.row" inputmode="numeric" />
+                    <app-lookup-combobox
+                      ariaLabel="Condition"
+                      [value]="line.condition"
+                      [options]="conditionNames"
+                      [disabled]="busy"
+                      (valueChange)="line.condition = $event"
+                      (committed)="normalizeCondition(line)"
+                    />
                   </td>
                   <td class="price" [class.invalid]="lineInvalid(line, 'price') && lineSeen(line, 'unit')">
                     <span class="price-field">
@@ -271,11 +292,16 @@
                       <input [attr.disabled]="busy ? '' : null" [(ngModel)]="line.totalPrice" (ngModelChange)="onTotal(line); touchLine(line, 'total')" (blur)="touchLine(line, 'total')" [name]="'total' + line.row" />
                     </span>
                   </td>
+                  <td class="action">
+                    <button class="row-menu" type="button" [disabled]="busy" aria-label="Item settings" (click)="openDetails(line)">
+                      <mat-icon>tune</mat-icon>
+                    </button>
+                  </td>
                 </tr>
               }
               @if (!filteredLines.length) {
                 <tr>
-                  <td class="filter-empty" colspan="10">No preview rows match this search.</td>
+                  <td class="filter-empty" colspan="11">No preview rows match this search.</td>
                 </tr>
               }
             </tbody>

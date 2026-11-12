@@ -100,13 +100,28 @@ namespace Mahkias.Api.Controllers
                 return NotFound();
             }
 
-            return Ok(await _uow.Quotations.GetDetailAsync(id));
+            var detail = await _uow.Quotations.GetDetailAsync(id);
+            await this.WriteAll(_uow, prepared.Args.ProjectIds, "QuotationUpdated", ProjectHistoryText.QuotationUpdated(detail?.Code));
+            return Ok(detail);
         }
 
         [HttpDelete("/api/quotations/{id:int}")]
         public async Task<IActionResult> Delete(int id)
         {
-            return await _uow.Quotations.DeleteAsync(id) ? NoContent() : NotFound();
+            var detail = await _uow.Quotations.GetDetailAsync(id);
+            if (detail == null)
+            {
+                return NotFound();
+            }
+
+            var projectIds = await QuotationProjectIdsAsync(id);
+            if (!await _uow.Quotations.DeleteAsync(id))
+            {
+                return NotFound();
+            }
+
+            await this.WriteAll(_uow, projectIds, "QuotationDeleted", ProjectHistoryText.QuotationDeleted(detail.Code));
+            return NoContent();
         }
 
         [HttpPost("/api/quotations")]
@@ -121,6 +136,7 @@ namespace Mahkias.Api.Controllers
             var projectId = prepared.Args.ProjectIds.First();
             var id = await _uow.Quotations.ImportAsync(prepared.Args, null, HttpContext.RequestAborted);
             var saved = (await _uow.Quotations.GetByProjectAsync(projectId)).FirstOrDefault(item => item.Id == id);
+            await this.WriteAll(_uow, prepared.Args.ProjectIds, "QuotationCreated", ProjectHistoryText.QuotationCreated(saved?.Code, saved?.SupplierName));
             return Ok(saved);
         }
 
@@ -203,6 +219,11 @@ namespace Mahkias.Api.Controllers
                     buffer == null ? null : (quotationId, token) => UploadQuotationFileAsync(projectId, quotationId, 0, uploadName, contentType, fileType, buffer, token),
                     cancellationToken);
                 var saved = (await _uow.Quotations.GetByProjectAsync(projectId)).FirstOrDefault(item => item.Id == id);
+                await this.WriteAll(_uow, prepared.Args.ProjectIds, "QuotationCreated", ProjectHistoryText.QuotationCreated(saved?.Code, saved?.SupplierName));
+                if (buffer != null)
+                {
+                    await this.WriteAll(_uow, prepared.Args.ProjectIds, "DocumentUploaded", ProjectHistoryText.DocumentsUploaded(new[] { uploadName }, saved?.Code));
+                }
                 return Ok(saved);
             }
             catch (InvalidOperationException ex)
@@ -294,7 +315,18 @@ namespace Mahkias.Api.Controllers
                     (id, token) => UploadQuotationFileAsync(projectId, id, form.DocumentId, uploadName, contentType, fileType, buffer, token),
                     cancellationToken);
                 var saved = await _uow.Quotations.GetDetailAsync(quotationId);
-                return saved == null ? NotFound() : Ok(saved);
+                if (saved == null)
+                {
+                    return NotFound();
+                }
+
+                await this.WriteAll(_uow, prepared.Args.ProjectIds, "QuotationUpdated", ProjectHistoryText.QuotationUpdated(saved.Code));
+                var documentAction = form.DocumentId > 0 ? "DocumentUpdated" : "DocumentUploaded";
+                var documentSummary = form.DocumentId > 0
+                    ? ProjectHistoryText.DocumentReplaced(null, uploadName, saved.Code)
+                    : ProjectHistoryText.DocumentsUploaded(new[] { uploadName }, saved.Code);
+                await this.WriteAll(_uow, prepared.Args.ProjectIds, documentAction, documentSummary);
+                return Ok(saved);
             }
             catch (InvalidOperationException ex)
             {
@@ -371,6 +403,11 @@ namespace Mahkias.Api.Controllers
                     unit = Suggest(sheet.Columns, "uom", "unitofmeasure", "unitcode", "unit"),
                     leadTime = Suggest(sheet.Columns, "leadtime", "lead", "deliveryleadtime"),
                     minimumQty = Suggest(sheet.Columns, "minimumqty", "moq", "minqty", "minimumorderqty", "minimumquantity"),
+                    serialNo = Suggest(sheet.Columns, "serialno", "serialnumber", "serial", "sn"),
+                    tsn = Suggest(sheet.Columns, "tsn", "timesincenew"),
+                    tso = Suggest(sheet.Columns, "tso", "timesinceoverhaul"),
+                    csn = Suggest(sheet.Columns, "csn", "cyclessincenew"),
+                    cso = Suggest(sheet.Columns, "cso", "cyclessinceoverhaul"),
                     quotedDate = Suggest(sheet.Columns, "quoteddate", "quotedate", "quotationdate", "quotedon"),
                     validUntil = Suggest(sheet.Columns, "validuntil", "validto", "expirydate", "expiry", "validthru"),
                     unitPrice = Suggest(sheet.Columns, "unitprice", "price", "unitcost"),
@@ -452,6 +489,11 @@ namespace Mahkias.Api.Controllers
                         unit = row.UnitName,
                         leadTime = row.LeadTime,
                         minimumQty = row.MinimumQty,
+                        serialNo = row.SerialNo,
+                        tsn = row.Tsn,
+                        tso = row.Tso,
+                        csn = row.Csn,
+                        cso = row.Cso,
                         unitPrice = unit,
                         quantity,
                         totalPrice = total,
@@ -546,6 +588,21 @@ namespace Mahkias.Api.Controllers
                 if (!string.IsNullOrWhiteSpace(entry.item.Condition) && entry.item.Condition.Trim().Length > 100)
                 {
                     errors.Add(new ActivityImportIssue { Row = entry.row, Field = "Condition", Message = "Condition must be 100 characters or fewer." });
+                }
+
+                foreach (var field in new (string Name, string Value)[]
+                {
+                    ("SerialNo", entry.item.SerialNo),
+                    ("TSN", entry.item.TSN),
+                    ("TSO", entry.item.TSO),
+                    ("CSN", entry.item.CSN),
+                    ("CSO", entry.item.CSO),
+                })
+                {
+                    if (!string.IsNullOrWhiteSpace(field.Value) && field.Value.Trim().Length > 100)
+                    {
+                        errors.Add(new ActivityImportIssue { Row = entry.row, Field = field.Name, Message = field.Name + " must be 100 characters or fewer." });
+                    }
                 }
 
                 if (!string.IsNullOrWhiteSpace(entry.item.Unit) && entry.item.Unit.Trim().Length > 100)
@@ -772,6 +829,11 @@ namespace Mahkias.Api.Controllers
                 PartNo = item.PartNo.Trim(),
                 PartDescription = item.Description?.Trim(),
                 Condition = TrimOptional(item.Condition),
+                SerialNo = TrimOptional(item.SerialNo),
+                TSN = TrimOptional(item.TSN),
+                TSO = TrimOptional(item.TSO),
+                CSN = TrimOptional(item.CSN),
+                CSO = TrimOptional(item.CSO),
                 Unit = TrimOptional(item.Unit),
                 LeadTime = item.LeadTime is < 0 ? null : item.LeadTime,
                 MinimumQty = item.MinimumQty is > 0 ? item.MinimumQty : null,
@@ -851,8 +913,13 @@ namespace Mahkias.Api.Controllers
                         DsnNo = first.DsnNo,
                         PartNo = first.PartNo,
                         PartDescription = first.PartDescription,
-                Condition = first.Condition,
-                Unit = first.Unit,
+                        Condition = first.Condition,
+                        SerialNo = first.SerialNo,
+                        TSN = first.TSN,
+                        TSO = first.TSO,
+                        CSN = first.CSN,
+                        CSO = first.CSO,
+                        Unit = first.Unit,
                 LeadTime = first.LeadTime,
                         MinimumQty = first.MinimumQty,
                         UnitPrice = unit,
@@ -867,6 +934,13 @@ namespace Mahkias.Api.Controllers
         private async Task<bool> ProjectExists(int projectId)
         {
             return await _context.Projects.AsNoTracking().AnyAsync(project => project.Id == projectId);
+        }
+
+        private Task<List<int>> QuotationProjectIdsAsync(int quotationId)
+        {
+            return _context.Database
+                .SqlQuery<int>($"SELECT QP.ProjectId AS Value FROM projects.QuotationProjects AS QP WHERE QP.QuotationId = {quotationId}")
+                .ToListAsync();
         }
 
         private static bool SameDate(ref DateTime? current, DateTime? next)
@@ -978,12 +1052,7 @@ namespace Mahkias.Api.Controllers
 
         private static int EffectiveQuantity(int? minimumQty, int quantity)
         {
-            if (minimumQty is > 0)
-            {
-                return minimumQty.Value;
-            }
-
-            return quantity > 0 ? quantity : 1;
+            return QuotationPricing.EffectiveQuantity(minimumQty, quantity);
         }
 
         private static bool TryPrice(decimal? unitPrice, decimal? totalPrice, int quantity, out decimal? unit, out decimal? total)

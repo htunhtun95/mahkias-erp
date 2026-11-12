@@ -1,0 +1,25 @@
+@if (loading) {
+  <p class="history-status">Loading history...</p>
+} @else if (error) {
+  <p class="history-error">{{ error }}</p>
+} @else if (!entries.length) {
+  <p class="history-status">No history recorded yet.</p>
+} @else {
+  <section class="history" aria-label="Project history">
+    @for (entry of entries; track track(entry)) {
+      <div class="history-item">
+        <div class="history-title">
+          <span class="history-action">{{ label(entry.action) }}</span>
+          <span>{{ entry.summary }}</span>
+        </div>
+        <p class="history-meta">
+          @if (actor(entry); as who) {
+            {{ who }} · {{ when(entry.createdAt) }}
+          } @else {
+            {{ when(entry.createdAt) }}
+          }
+        </p>
+      </div>
+    }
+  </section>
+}

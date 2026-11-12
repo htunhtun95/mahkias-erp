@@ -78,6 +78,8 @@ namespace Mahkias.Api.Controllers
                 return BadRequest(new { message = "Reference code already exists." });
             }
 
+            await RecordAsync(id, "Created", ProjectHistoryText.Created(request.Name));
+
             try
             {
                 await _folders.EnsureManagedFoldersAsync(id);
@@ -98,6 +100,7 @@ namespace Mahkias.Api.Controllers
                 return BadRequest("Name is required.");
             }
 
+            var before = await _context.Projects.AsNoTracking().FirstOrDefaultAsync(project => project.Id == id);
             var current = await _uow.ProjectDocuments.GetDriveFolderAsync(id);
             var name = request.Name.Trim();
             var reference = request.Reference?.Trim();
@@ -120,6 +123,24 @@ namespace Mahkias.Api.Controllers
             if (status == 0)
             {
                 return NotFound();
+            }
+
+            if (before != null)
+            {
+                var fields = new List<string>();
+                if (!string.Equals(before.Name?.Trim(), name, StringComparison.Ordinal))
+                {
+                    fields.Add("name");
+                }
+                if (!string.Equals(before.Reference?.Trim() ?? string.Empty, reference ?? string.Empty, StringComparison.Ordinal))
+                {
+                    fields.Add("reference");
+                }
+                if (!string.Equals(before.Description?.Trim() ?? string.Empty, request.Description?.Trim() ?? string.Empty, StringComparison.Ordinal))
+                {
+                    fields.Add("description");
+                }
+                await RecordAsync(id, "Updated", ProjectHistoryText.Updated(fields));
             }
 
             if (folderNameChanged)
@@ -154,13 +175,30 @@ namespace Mahkias.Api.Controllers
                 return NotFound();
             }
 
+            var before = await _context.Projects.AsNoTracking().FirstOrDefaultAsync(project => project.Id == id);
             var deleted = await _uow.Projects.DeleteAsync(id);
             if (!deleted)
             {
                 return NotFound();
             }
 
+            if (before != null)
+            {
+                await RecordAsync(id, "Deleted", ProjectHistoryText.Deleted(before.Name));
+            }
+
             return NoContent();
+        }
+
+        [HttpGet("/api/projects/{id}/history")]
+        public async Task<IActionResult> History(int id, [FromQuery] bool includePurchaseOrders = false)
+        {
+            if (!await ProjectExists(id))
+            {
+                return NotFound();
+            }
+
+            return Ok(await _uow.ProjectHistory.ListAsync(id, includePurchaseOrders));
         }
 
         [HttpGet("/api/projects/{id}")]
@@ -219,6 +257,8 @@ namespace Mahkias.Api.Controllers
                 }
             }
 
+            await RecordAsync(id, "ActivityAdded", ProjectHistoryText.Added(request));
+
             var created = (await _uow.Activities.GetByProjectAsync(id)).FirstOrDefault(activity => activity.Id == createdId);
             return Ok(created == null ? new ActivityResponse { Id = createdId, ProjectId = id, PartNo = request.PartNo } : ToResponse(created));
         }
@@ -231,7 +271,12 @@ namespace Mahkias.Api.Controllers
                 return NotFound();
             }
 
-            var inserted = await _uow.Activities.BulkInsertAsync(id, (request?.Activities ?? new List<CreateActivityRequest>()).Select(activity => ToArgs(id, activity)));
+            var activities = (request?.Activities ?? new List<CreateActivityRequest>()).Select(activity => ToArgs(id, activity)).ToList();
+            var inserted = await _uow.Activities.BulkInsertAsync(id, activities);
+            if (inserted > 0)
+            {
+                await RecordAsync(id, "ActivityAdded", ProjectHistoryText.Added(activities));
+            }
             return Ok(new { inserted });
         }
 
@@ -369,7 +414,7 @@ namespace Mahkias.Api.Controllers
                 });
             }
 
-            var inserted = await _uow.Activities.BulkInsertAsync(id, plan.Rows.Select(row => new CreateActivityArgs
+            var activities = plan.Rows.Select(row => new CreateActivityArgs
             {
                 ProjectId = id,
                 PartNo = row.PartNo,
@@ -386,8 +431,30 @@ namespace Mahkias.Api.Controllers
                 TSO = row.TSO,
                 CSN = row.CSN,
                 CSO = row.CSO
-            }));
+            }).ToList();
+            var inserted = await _uow.Activities.BulkInsertAsync(id, activities);
+            if (inserted > 0)
+            {
+                await RecordAsync(id, "ActivityAdded", ProjectHistoryText.Added(activities));
+            }
             return Ok(new { inserted });
+        }
+
+        private Task RecordAsync(int projectId, string action, string summary)
+        {
+            if (string.IsNullOrWhiteSpace(summary))
+            {
+                return Task.CompletedTask;
+            }
+
+            return _uow.ProjectHistory.AddAsync(new ProjectHistoryWrite
+            {
+                ProjectId = projectId,
+                Action = action,
+                Summary = summary,
+                ActorName = this.ActorName(),
+                ActorEmail = this.ActorEmail(),
+            });
         }
 
         private async Task<bool> ProjectExists(int id)

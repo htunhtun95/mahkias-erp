@@ -1,0 +1,46 @@
+<form class="details" (submit)="$event.preventDefault()">
+  <header>
+    <h2>Item details</h2>
+    <p>{{ heading }}</p>
+    <button class="erp-modal-close" type="button" aria-label="Close" (click)="cancel()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </header>
+  <div class="fields">
+    <label>
+      <span>MOQ</span>
+      <input [(ngModel)]="minimumQty" name="minimumQty" inputmode="numeric" autocomplete="off" [readonly]="readOnly" (input)="error = ''" />
+    </label>
+    <label>
+      <span>SerialNo</span>
+      <input maxlength="100" [(ngModel)]="serialNo" name="serialNo" autocomplete="off" [readonly]="readOnly" />
+    </label>
+    <label>
+      <span>TSN</span>
+      <input maxlength="100" [(ngModel)]="tsn" name="tsn" autocomplete="off" [readonly]="readOnly" />
+    </label>
+    <label>
+      <span>TSO</span>
+      <input maxlength="100" [(ngModel)]="tso" name="tso" autocomplete="off" [readonly]="readOnly" />
+    </label>
+    <label>
+      <span>CSN</span>
+      <input maxlength="100" [(ngModel)]="csn" name="csn" autocomplete="off" [readonly]="readOnly" />
+    </label>
+    <label>
+      <span>CSO</span>
+      <input maxlength="100" [(ngModel)]="cso" name="cso" autocomplete="off" [readonly]="readOnly" />
+    </label>
+  </div>
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+  <footer>
+    @if (readOnly) {
+      <button class="btn primary" type="button" (click)="cancel()">Close</button>
+    } @else {
+      <button class="btn" type="button" (click)="cancel()">Cancel</button>
+      <button class="btn primary" type="button" (click)="confirm()">Confirm</button>
+    }
+  </footer>
+</form>
