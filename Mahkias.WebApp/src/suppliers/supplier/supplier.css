@@ -2,11 +2,15 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-bottom: 8px;
+  margin: 0 0 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: #1a73e8;
-  text-decoration: none;
+  font: inherit;
   font-size: 14px;
   font-weight: 500;
+  cursor: pointer;
 }
 
 .back mat-icon {

@@ -67,7 +67,17 @@ export class QuotationDetailDialog implements OnInit {
   }
 
   get chargesTotal(): number {
-    return this.charges.reduce((sum, charge) => sum + (Number(charge.amount) || 0), 0);
+    return roundMoney(this.charges.reduce((sum, charge) => sum + (Number(charge.amount) || 0), 0));
+  }
+
+  get subtotal(): number {
+    const base = this.lines.reduce((sum, line) => sum + (Number(line.baseTotalPrice) || 0), 0);
+    const rate = Number(this.quotation.exchangeRate) || 1;
+    return roundMoney(base / rate);
+  }
+
+  get grandTotal(): number {
+    return roundMoney(this.subtotal + this.chargesTotal);
   }
 
   get validityLabel(): string {
@@ -82,7 +92,7 @@ export class QuotationDetailDialog implements OnInit {
     return formatMoney(value, symbol, code);
   }
 
-  headerMoney(value?: number | null): string {
+  summaryMoney(value?: number | null): string {
     return formatMoney(value, this.quotation.currencySymbol, this.quotation.currencyCode);
   }
 
@@ -149,6 +159,10 @@ export class QuotationDetailDialog implements OnInit {
   close() {
     this.dialogRef.close(false);
   }
+}
+
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 function extension(fileName: string): string {

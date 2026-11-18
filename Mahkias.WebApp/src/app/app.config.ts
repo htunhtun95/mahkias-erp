@@ -6,6 +6,7 @@ import { provideRouter } from '@angular/router';
 import { googleAuthInitializer } from '../auth/google-auth.init';
 import { apiKeyInterceptor } from '../core/services/api-key.interceptor';
 import { GoogleAuthService } from '../auth/google-auth.service';
+import { ReturnNavigation } from '../core/return-navigation';
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
@@ -15,6 +16,7 @@ export const appConfig: ApplicationConfig = {
     provideAnimations(),
     { provide: MAT_DIALOG_DEFAULT_OPTIONS, useValue: { disableClose: true } },
     provideAppInitializer(() => {
+      inject(ReturnNavigation);
       const googleAuth = inject(GoogleAuthService);
       return googleAuthInitializer(googleAuth)();
     }),

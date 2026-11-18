@@ -1,9 +1,10 @@
-import { Component, OnDestroy, OnInit, inject, viewChild } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, inject, viewChild } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MaterialModule } from '../../app/material-module';
+import { ReturnNavigation } from '../../core/return-navigation';
 import { whileBusy } from '../../core/while-busy';
 import { ActivityType, Project, ProjectApiService } from '../../core/services/project-api.service';
 import { AddProjectDialog } from '../add-project-dialog/add-project-dialog';
@@ -51,6 +52,7 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
   private quotationSync = inject(QuotationSync);
   private purchaseSync = inject(PurchaseOrderSync);
   private trace = inject(ProcurementTrace);
+  private returns = inject(ReturnNavigation);
   private syncSub?: Subscription;
   private traceSub?: Subscription;
   private activitiesTab = viewChild(ProjectActivitiesTabComponent);
@@ -66,7 +68,13 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
   isDeleting = false;
   openingQuotation = false;
   activityFilter = '';
-  quoteFilter: 'all' | 'quoted' | 'unquoted' = 'all';
+  filterOpen = false;
+  appliedQuotes: Array<'quoted' | 'unquoted'> = [];
+  appliedTypeIds: number[] = [];
+  draftQuotes: Array<'quoted' | 'unquoted'> = [];
+  draftTypeIds: number[] = [];
+  private appliedOrder: string[] = [];
+  private draftOrder: string[] = [];
   quotationCount = 0;
   purchaseCount = 0;
   procurementMounted = false;
@@ -74,6 +82,131 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
 
   get activityCount(): number {
     return this.project?.activities?.length ?? 0;
+  }
+
+  goBack() {
+    const previous = this.returns.previous();
+    if (previous) {
+      this.router.navigateByUrl(previous);
+      return;
+    }
+    this.router.navigate(['/projects']);
+  }
+
+  get filterCount(): number {
+    return this.appliedQuotes.length + this.appliedTypeIds.length;
+  }
+
+  get filterNames(): string[] {
+    return this.appliedOrder
+      .map((key) => this.filterTokenName(key))
+      .filter((name) => name.length > 0);
+  }
+
+  get filterLabel(): string {
+    const names = this.filterNames;
+    if (names.length === 0) {
+      return 'All Items';
+    }
+    if (names.length === 1) {
+      return names[0];
+    }
+    if (names.length === 2) {
+      return `${names[0]}, ${names[1]}`;
+    }
+    return `${names[0]} + ${names.length - 1}`;
+  }
+
+  get filterTitle(): string | null {
+    const names = this.filterNames;
+    return names.length > 2 ? names.join(', ') : null;
+  }
+
+  @HostListener('document:click')
+  closeActivityFilterFromOutside() {
+    if (this.filterOpen) {
+      this.cancelActivityFilter();
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  closeActivityFilterOnEscape() {
+    if (this.filterOpen) {
+      this.cancelActivityFilter();
+    }
+  }
+
+  toggleActivityFilter(event: Event) {
+    event.stopPropagation();
+    if (this.filterOpen) {
+      this.cancelActivityFilter();
+      return;
+    }
+    this.draftQuotes = [...this.appliedQuotes];
+    this.draftTypeIds = [...this.appliedTypeIds];
+    this.draftOrder = [...this.appliedOrder];
+    this.filterOpen = true;
+  }
+
+  isQuoteDraft(value: 'quoted' | 'unquoted'): boolean {
+    return this.draftQuotes.includes(value);
+  }
+
+  isTypeDraft(typeId: number): boolean {
+    return this.draftTypeIds.includes(typeId);
+  }
+
+  toggleQuoteDraft(value: 'quoted' | 'unquoted') {
+    const key = `quote:${value}`;
+    if (this.draftQuotes.includes(value)) {
+      this.draftQuotes = this.draftQuotes.filter((item) => item !== value);
+      this.draftOrder = this.draftOrder.filter((item) => item !== key);
+      return;
+    }
+    this.draftQuotes = [...this.draftQuotes, value];
+    this.draftOrder = [...this.draftOrder, key];
+  }
+
+  toggleTypeDraft(typeId: number) {
+    const key = `type:${typeId}`;
+    if (this.draftTypeIds.includes(typeId)) {
+      this.draftTypeIds = this.draftTypeIds.filter((id) => id !== typeId);
+      this.draftOrder = this.draftOrder.filter((item) => item !== key);
+      return;
+    }
+    this.draftTypeIds = [...this.draftTypeIds, typeId];
+    this.draftOrder = [...this.draftOrder, key];
+  }
+
+  applyActivityFilter() {
+    this.appliedQuotes = [...this.draftQuotes];
+    this.appliedTypeIds = [...this.draftTypeIds];
+    this.appliedOrder = [...this.draftOrder];
+    this.filterOpen = false;
+  }
+
+  cancelActivityFilter() {
+    this.filterOpen = false;
+  }
+
+  clearActivityFilter() {
+    this.draftQuotes = [];
+    this.draftTypeIds = [];
+    this.draftOrder = [];
+  }
+
+  private filterTokenName(key: string): string {
+    if (key === 'quote:quoted') {
+      return 'Quoted';
+    }
+    if (key === 'quote:unquoted') {
+      return 'Unquoted';
+    }
+    if (key.startsWith('type:')) {
+      const id = Number(key.slice(5));
+      return this.types.find((type) => type.id === id)?.name ?? '';
+    }
+    return '';
   }
 
   ngOnInit() {

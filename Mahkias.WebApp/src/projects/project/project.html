@@ -6,10 +6,10 @@
     </div>
   </div>
 } @else if (project) {
-  <a class="back" routerLink="/projects">
+  <button class="back" type="button" (click)="goBack()">
     <mat-icon>arrow_back</mat-icon>
-    Projects
-  </a>
+    Back
+  </button>
 
   <header class="project-header">
     <div class="header-main">
@@ -88,18 +88,52 @@
       @switch (tab) {
         @case ('activities') {
           <div class="activity-filters">
-            <mat-form-field class="quote-status-filter" appearance="outline" subscriptSizing="dynamic">
-              <mat-select
-                [value]="quoteFilter"
-                (selectionChange)="quoteFilter = $event.value"
+            <div class="activity-filter">
+              <button
+                class="filter-trigger"
+                type="button"
+                [class.has-filters]="filterCount > 0"
+                [attr.aria-expanded]="filterOpen"
+                aria-haspopup="dialog"
+                aria-label="Filter activities"
                 [disabled]="isDeleting"
-                aria-label="Quotation status"
+                (click)="toggleActivityFilter($event)"
               >
-                <mat-option value="all">All Items</mat-option>
-                <mat-option value="quoted">Quoted</mat-option>
-                <mat-option value="unquoted">Unquoted</mat-option>
-              </mat-select>
-            </mat-form-field>
+                <span class="filter-label" [attr.title]="filterTitle">{{ filterLabel }}</span>
+                <mat-icon>expand_more</mat-icon>
+              </button>
+              @if (filterOpen) {
+                <div class="filter-panel" role="dialog" aria-label="Activity filters" (click)="$event.stopPropagation()">
+                  <div class="filter-body">
+                    <section class="filter-section">
+                      <h3>Quotes</h3>
+                      <label class="filter-option">
+                        <input type="checkbox" [checked]="isQuoteDraft('quoted')" (change)="toggleQuoteDraft('quoted')" />
+                        <span>Quoted</span>
+                      </label>
+                      <label class="filter-option">
+                        <input type="checkbox" [checked]="isQuoteDraft('unquoted')" (change)="toggleQuoteDraft('unquoted')" />
+                        <span>Unquoted</span>
+                      </label>
+                    </section>
+                    <section class="filter-section">
+                      <h3>Activity Type</h3>
+                      @for (type of types; track type.id) {
+                        <label class="filter-option">
+                          <input type="checkbox" [checked]="isTypeDraft(type.id)" (change)="toggleTypeDraft(type.id)" />
+                          <span>{{ type.name }}</span>
+                        </label>
+                      }
+                    </section>
+                  </div>
+                  <div class="filter-actions">
+                    <button class="filter-clear" type="button" (click)="clearActivityFilter()">Clear all</button>
+                    <button class="filter-cancel" type="button" (click)="cancelActivityFilter()">Cancel</button>
+                    <button class="filter-apply" type="button" (click)="applyActivityFilter()">Apply</button>
+                  </div>
+                </div>
+              }
+            </div>
             @if (activityCount > 10) {
               <label class="activity-search">
                 <mat-icon>search</mat-icon>
@@ -212,7 +246,8 @@
       [project]="project"
       [types]="types"
       [activityFilter]="activityCount > 10 ? activityFilter : ''"
-      [quoteFilter]="quoteFilter"
+      [quoteFilters]="appliedQuotes"
+      [typeFilterIds]="appliedTypeIds"
       (reload)="reload()"
       (activitiesChange)="onActivitiesChange()"
       (failed)="error = $event"

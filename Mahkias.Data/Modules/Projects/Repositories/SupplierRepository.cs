@@ -53,7 +53,17 @@ ORDER BY S.Name, S.Id");
             SupplierDetailResult supplier = null;
             using var command = new SqlCommand(@"
 SELECT S.Id, S.Name, S.Reference, S.CreatedAt, S.ModifiedAt,
-       (SELECT COUNT(*) FROM projects.Quotations Q WHERE Q.SupplierId = S.Id AND Q.IsDeleted = 0) AS QuotationCount,
+       (SELECT COUNT(*)
+        FROM projects.Quotations Q
+        WHERE Q.SupplierId = S.Id
+          AND Q.IsDeleted = 0
+          AND (
+                NOT EXISTS (SELECT 1 FROM projects.QuotationProjects QP WHERE QP.QuotationId = Q.Id)
+                OR EXISTS (
+                    SELECT 1
+                    FROM projects.QuotationProjects QP
+                    INNER JOIN projects.Projects P ON P.Id = QP.ProjectId AND P.IsDeleted = 0
+                    WHERE QP.QuotationId = Q.Id))) AS QuotationCount,
        (SELECT COUNT(DISTINCT QP.ProjectId)
         FROM projects.QuotationProjects QP
         INNER JOIN projects.Quotations Q ON Q.Id = QP.QuotationId AND Q.IsDeleted = 0
@@ -77,6 +87,13 @@ SELECT Q.Id, Q.Code, Q.SupplierReference, Q.CreatedAt, Q.QuotedDate, Q.ValidUnti
 FROM projects.Quotations Q
 WHERE Q.SupplierId = @Id
   AND Q.IsDeleted = 0
+  AND (
+        NOT EXISTS (SELECT 1 FROM projects.QuotationProjects QP WHERE QP.QuotationId = Q.Id)
+        OR EXISTS (
+            SELECT 1
+            FROM projects.QuotationProjects QP
+            INNER JOIN projects.Projects P ON P.Id = QP.ProjectId AND P.IsDeleted = 0
+            WHERE QP.QuotationId = Q.Id))
 ORDER BY Q.CreatedAt DESC, Q.Id DESC;
 
 SELECT QP.QuotationId, P.Id AS ProjectId, P.Reference, P.Name

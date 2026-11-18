@@ -141,6 +141,17 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
     });
   }
 
+  onQuotationRowClick(quotation: QuotationListItem, event: Event) {
+    if (event.defaultPrevented || this.deletingId != null) {
+      return;
+    }
+    const target = event.target;
+    if (target instanceof Element && target.closest('.expand, .actions, a, button')) {
+      return;
+    }
+    this.openDetails(quotation);
+  }
+
   openDetails(quotation: QuotationListItem) {
     if (!this.project || this.deletingId != null) {
       return;

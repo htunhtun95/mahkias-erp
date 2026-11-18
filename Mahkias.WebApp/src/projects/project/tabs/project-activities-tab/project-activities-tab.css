@@ -856,6 +856,28 @@
   cursor: pointer;
 }
 
+.activity-table .row:not(.heading):not(.group-row):not(.editing) {
+  cursor: pointer;
+}
+
+.activity-group.is-editing .row,
+.row.editing {
+  cursor: default;
+}
+
+.activity-table .row .pick,
+.activity-table .row .lowest-price,
+.activity-table .row .row-actions,
+.activity-table .row .more-cell {
+  cursor: default;
+}
+
+.activity-table .row .price-link:not(:disabled),
+.activity-table .row .icon-btn:not(:disabled),
+.activity-table .row .pick input:not(:disabled) {
+  cursor: pointer;
+}
+
 .description {
   display: flex;
   flex-direction: column;

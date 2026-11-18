@@ -1,10 +1,10 @@
 import { Component, inject } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MaterialModule } from '../../../../app/material-module';
 import { blockEnterSubmit } from '../../../../core/block-enter-submit';
 import { requiredText } from '../../../../core/required-text';
-import { ActivityGroup } from '../../../../core/services/project-api.service';
+import { ActivityGroup, ActivityType } from '../../../../core/services/project-api.service';
 
 @Component({
   selector: 'app-activity-group-dialog',
@@ -16,16 +16,30 @@ import { ActivityGroup } from '../../../../core/services/project-api.service';
 export class ActivityGroupDialog {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<ActivityGroupDialog>);
-  data = inject<{ group?: ActivityGroup } | null>(MAT_DIALOG_DATA, { optional: true });
+  data = inject<{ group?: ActivityGroup; types?: ActivityType[] } | null>(MAT_DIALOG_DATA, { optional: true });
 
   form = this.fb.group({
     name: [this.data?.group?.name ?? '', requiredText],
     description: [this.data?.group?.description ?? ''],
+    typeId: [this.data?.group?.typeId ?? null as number | null, this.data?.group ? Validators.required : []],
   });
+
+  get types(): ActivityType[] {
+    return this.data?.types ?? [];
+  }
+
+  get editing(): boolean {
+    return !!this.data?.group;
+  }
 
   get nameInvalid() {
     const name = this.form.controls.name;
     return name.invalid && (name.touched || name.dirty);
+  }
+
+  get typeInvalid() {
+    const typeId = this.form.controls.typeId;
+    return this.editing && typeId.invalid && (typeId.touched || typeId.dirty);
   }
 
   onFieldEnter(event: Event) {
@@ -44,6 +58,7 @@ export class ActivityGroupDialog {
     this.dialogRef.close({
       name: this.form.controls.name.value?.trim() ?? '',
       description: this.form.controls.description.value?.trim() ?? '',
+      typeId: this.editing ? this.form.controls.typeId.value : null,
     });
   }
 }

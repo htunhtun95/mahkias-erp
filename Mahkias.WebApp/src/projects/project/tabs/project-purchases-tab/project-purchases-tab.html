@@ -38,15 +38,19 @@
     } @else {
       @for (order of orders; track order.id) {
         <div class="order-block" [attr.data-order-id]="order.id">
-          <div class="row">
+          <div class="row po-row" (click)="onOrderRowClick(order, $event)">
             <button class="expand" type="button" [matTooltip]="isExpanded(order.id) ? 'Collapse purchase order' : 'Expand purchase order'" [attr.aria-expanded]="isExpanded(order.id)" [attr.aria-label]="isExpanded(order.id) ? 'Collapse purchase order' : 'Expand purchase order'" (click)="toggle(order)">
               <mat-icon>{{ isExpanded(order.id) ? 'expand_more' : 'chevron_right' }}</mat-icon>
             </button>
             <span>{{ order.code }}</span>
-            <span>{{ order.supplierName }}</span>
+            @if (order.supplierId) {
+              <a class="cell-link" [routerLink]="['/suppliers', order.supplierId]">{{ order.supplierName }}</a>
+            } @else {
+              <span>{{ order.supplierName }}</span>
+            }
             <span [attr.class]="'status-pill ' + statusClass(order.statusCode)">{{ order.statusName || 'Draft' }}</span>
             <span>{{ when(order.poDate) }}</span>
-            <button class="count-btn" type="button" (click)="toggle(order)">{{ order.itemCount }}</button>
+            <span>{{ order.itemCount }}</span>
             <span>{{ money(order) }}</span>
             <span class="actions">
               <button class="icon-btn" type="button" [matMenuTriggerFor]="orderMenu" aria-label="Purchase order actions" aria-haspopup="menu" [disabled]="deletingId != null">
@@ -57,10 +61,6 @@
                 }
               </button>
               <mat-menu #orderMenu="matMenu" class="activity-row-menu">
-                <button mat-menu-item type="button" (click)="openDetails(order)" [disabled]="deletingId != null">
-                  <mat-icon>visibility</mat-icon>
-                  <span>View Details</span>
-                </button>
                 <button mat-menu-item type="button" (click)="manageDocuments(order)" [disabled]="deletingId != null">
                   <mat-icon>folder</mat-icon>
                   <span>Manage Documents</span>

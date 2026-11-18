@@ -20,7 +20,8 @@ import { QuotationItemDetailsDialog } from '../add-quotation-dialog/quotation-it
 import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-date-field';
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
 import { LookupValue, canonicalCondition, canonicalUnit } from '../quotation-lookups';
-import { QuotationChargeRow, QuotationChargesComponent, readQuotationCharges } from '../quotation-charges/quotation-charges';
+import { formatMoney } from '../money-format';
+import { QuotationChargeRow, QuotationChargesComponent, quotationChargeTotal, readQuotationCharges } from '../quotation-charges/quotation-charges';
 
 interface ImportLine {
   row: number;
@@ -219,6 +220,26 @@ export class ImportQuotationDialogComponent {
 
   get chargeSymbol(): string {
     return this.currencyMark(this.currencyId);
+  }
+
+  get currencyCode(): string {
+    return this.currencies.find((currency) => currency.id === this.currencyId)?.code || 'USD';
+  }
+
+  get subtotal(): number {
+    return roundMoney(this.lines.reduce((sum, line) => sum + (this.money(line.totalPrice) ?? 0), 0));
+  }
+
+  get chargesAmount(): number {
+    return roundMoney(quotationChargeTotal(this.charges));
+  }
+
+  get grandTotal(): number {
+    return roundMoney(this.subtotal + this.chargesAmount);
+  }
+
+  summaryMoney(value: number): string {
+    return formatMoney(value, this.chargeSymbol, this.currencyCode);
   }
 
   get conditionNames(): string[] {
@@ -1038,4 +1059,8 @@ export class ImportQuotationDialogComponent {
       defaultTotalPrice: '',
     };
   }
+}
+
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
 }

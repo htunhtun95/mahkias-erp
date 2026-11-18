@@ -32,7 +32,8 @@ import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-d
 import { dateInputValue, pricedQuantity, quotationQuantity } from '../quotation-terms';
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
 import { LookupValue, canonicalCondition, canonicalUnit } from '../quotation-lookups';
-import { QuotationChargeRow, QuotationChargesComponent, readQuotationCharges } from '../quotation-charges/quotation-charges';
+import { formatMoney } from '../money-format';
+import { QuotationChargeRow, QuotationChargesComponent, quotationChargeTotal, readQuotationCharges } from '../quotation-charges/quotation-charges';
 import { ActivitySuggestComponent } from '../activity-suggest/activity-suggest';
 import { QuotationItemDetails, QuotationItemDetailsDialog } from './quotation-item-details-dialog';
 
@@ -667,6 +668,26 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
     return this.currencyMark(this.currencyId);
   }
 
+  get currencyCode(): string {
+    return this.currencies.find((currency) => currency.id === this.currencyId)?.code || 'USD';
+  }
+
+  get subtotal(): number {
+    return roundMoney(this.rows.reduce((sum, row) => sum + (this.isPriced(row) ? (this.money(row.totalPrice) ?? 0) : 0), 0));
+  }
+
+  get chargesAmount(): number {
+    return roundMoney(quotationChargeTotal(this.charges));
+  }
+
+  get grandTotal(): number {
+    return roundMoney(this.subtotal + this.chargesAmount);
+  }
+
+  totalsMoney(value: number): string {
+    return formatMoney(value, this.chargeSymbol, this.currencyCode);
+  }
+
   get conditionNames(): string[] {
     return this.conditions.map((condition) => condition.name);
   }
@@ -1225,6 +1246,10 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
   }
 
+}
+
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 function labelTime(label: ActivityLabel): number {

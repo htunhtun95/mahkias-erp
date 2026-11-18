@@ -161,7 +161,7 @@
       </section>
     }
 
-    @if (!isGroup) {
+    @if (data.kind === 'item') {
       <section class="card">
         <h3>Purchase orders</h3>
         @if (data.ordersLoading && !orders.length) {

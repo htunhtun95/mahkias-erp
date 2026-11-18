@@ -124,22 +124,26 @@ SELECT
      FROM projects.Quotations Q
      INNER JOIN projects.Suppliers S ON S.Id = Q.SupplierId AND S.IsDeleted = 0
      WHERE Q.IsDeleted = 0
-       AND EXISTS (
-            SELECT 1
-            FROM projects.QuotationProjects QP
-            INNER JOIN projects.Projects P ON P.Id = QP.ProjectId AND P.IsDeleted = 0
-            WHERE QP.QuotationId = Q.Id)
+       AND (
+            NOT EXISTS (SELECT 1 FROM projects.QuotationProjects QP WHERE QP.QuotationId = Q.Id)
+            OR EXISTS (
+                SELECT 1
+                FROM projects.QuotationProjects QP
+                INNER JOIN projects.Projects P ON P.Id = QP.ProjectId AND P.IsDeleted = 0
+                WHERE QP.QuotationId = Q.Id))
        AND (@From IS NULL OR Q.CreatedAt >= @From)
        AND (@ToExclusive IS NULL OR Q.CreatedAt < @ToExclusive)) AS QuotationCount,
     (SELECT ISNULL(SUM(Q.BaseTotalAmount), 0)
      FROM projects.Quotations Q
      INNER JOIN projects.Suppliers S ON S.Id = Q.SupplierId AND S.IsDeleted = 0
      WHERE Q.IsDeleted = 0
-       AND EXISTS (
-            SELECT 1
-            FROM projects.QuotationProjects QP
-            INNER JOIN projects.Projects P ON P.Id = QP.ProjectId AND P.IsDeleted = 0
-            WHERE QP.QuotationId = Q.Id)
+       AND (
+            NOT EXISTS (SELECT 1 FROM projects.QuotationProjects QP WHERE QP.QuotationId = Q.Id)
+            OR EXISTS (
+                SELECT 1
+                FROM projects.QuotationProjects QP
+                INNER JOIN projects.Projects P ON P.Id = QP.ProjectId AND P.IsDeleted = 0
+                WHERE QP.QuotationId = Q.Id))
        AND (@From IS NULL OR Q.CreatedAt >= @From)
        AND (@ToExclusive IS NULL OR Q.CreatedAt < @ToExclusive)) AS QuotedValue,
     (SELECT COUNT(*)
@@ -148,11 +152,13 @@ SELECT
      INNER JOIN dbo.PurchaseOrderStatuses ST ON ST.Id = O.StatusId
      WHERE O.IsDeleted = 0
        AND ST.Code <> N'Cancelled'
-       AND EXISTS (
-            SELECT 1
-            FROM projects.PurchaseOrderProjects PP
-            INNER JOIN projects.Projects P ON P.Id = PP.ProjectId AND P.IsDeleted = 0
-            WHERE PP.PurchaseOrderId = O.Id)
+       AND (
+            NOT EXISTS (SELECT 1 FROM projects.PurchaseOrderProjects PP WHERE PP.PurchaseOrderId = O.Id)
+            OR EXISTS (
+                SELECT 1
+                FROM projects.PurchaseOrderProjects PP
+                INNER JOIN projects.Projects P ON P.Id = PP.ProjectId AND P.IsDeleted = 0
+                WHERE PP.PurchaseOrderId = O.Id))
        AND (@From IS NULL OR O.PoDate >= @From)
        AND (@ToExclusive IS NULL OR O.PoDate < @ToExclusive)) AS OpenPurchaseOrderCount;
 ";
@@ -162,11 +168,13 @@ SELECT COUNT(*) AS TotalCount
 FROM projects.Quotations Q
 INNER JOIN projects.Suppliers S ON S.Id = Q.SupplierId AND S.IsDeleted = 0
 WHERE Q.IsDeleted = 0
-  AND EXISTS (
-        SELECT 1
-        FROM projects.QuotationProjects QP
-        INNER JOIN projects.Projects P ON P.Id = QP.ProjectId AND P.IsDeleted = 0
-        WHERE QP.QuotationId = Q.Id)
+  AND (
+        NOT EXISTS (SELECT 1 FROM projects.QuotationProjects QP WHERE QP.QuotationId = Q.Id)
+        OR EXISTS (
+            SELECT 1
+            FROM projects.QuotationProjects QP
+            INNER JOIN projects.Projects P ON P.Id = QP.ProjectId AND P.IsDeleted = 0
+            WHERE QP.QuotationId = Q.Id))
   AND (@From IS NULL OR Q.CreatedAt >= @From)
   AND (@ToExclusive IS NULL OR Q.CreatedAt < @ToExclusive)
   AND (
@@ -198,11 +206,13 @@ OUTER APPLY (
     ORDER BY CASE WHEN NULLIF(LTRIM(RTRIM(P.Name)), N'') IS NULL THEN 1 ELSE 0 END, P.Name, P.Id
 ) Linked
 WHERE Q.IsDeleted = 0
-  AND EXISTS (
-        SELECT 1
-        FROM projects.QuotationProjects QP
-        INNER JOIN projects.Projects P ON P.Id = QP.ProjectId AND P.IsDeleted = 0
-        WHERE QP.QuotationId = Q.Id)
+  AND (
+        NOT EXISTS (SELECT 1 FROM projects.QuotationProjects QP WHERE QP.QuotationId = Q.Id)
+        OR EXISTS (
+            SELECT 1
+            FROM projects.QuotationProjects QP
+            INNER JOIN projects.Projects P ON P.Id = QP.ProjectId AND P.IsDeleted = 0
+            WHERE QP.QuotationId = Q.Id))
   AND (@From IS NULL OR Q.CreatedAt >= @From)
   AND (@ToExclusive IS NULL OR Q.CreatedAt < @ToExclusive)
   AND (
@@ -219,11 +229,13 @@ FROM projects.PurchaseOrders O
 INNER JOIN projects.Suppliers S ON S.Id = O.SupplierId AND S.IsDeleted = 0
 INNER JOIN dbo.PurchaseOrderStatuses ST ON ST.Id = O.StatusId
 WHERE O.IsDeleted = 0
-  AND EXISTS (
-        SELECT 1
-        FROM projects.PurchaseOrderProjects PP
-        INNER JOIN projects.Projects P ON P.Id = PP.ProjectId AND P.IsDeleted = 0
-        WHERE PP.PurchaseOrderId = O.Id)
+  AND (
+        NOT EXISTS (SELECT 1 FROM projects.PurchaseOrderProjects PP WHERE PP.PurchaseOrderId = O.Id)
+        OR EXISTS (
+            SELECT 1
+            FROM projects.PurchaseOrderProjects PP
+            INNER JOIN projects.Projects P ON P.Id = PP.ProjectId AND P.IsDeleted = 0
+            WHERE PP.PurchaseOrderId = O.Id))
   AND (@From IS NULL OR O.PoDate >= @From)
   AND (@ToExclusive IS NULL OR O.PoDate < @ToExclusive)
   AND (@Status = N'' OR LOWER(ST.Code) = @Status);
@@ -253,11 +265,13 @@ OUTER APPLY (
     ORDER BY CASE WHEN NULLIF(LTRIM(RTRIM(P.Name)), N'') IS NULL THEN 1 ELSE 0 END, P.Name, P.Id
 ) Linked
 WHERE O.IsDeleted = 0
-  AND EXISTS (
-        SELECT 1
-        FROM projects.PurchaseOrderProjects PP
-        INNER JOIN projects.Projects P ON P.Id = PP.ProjectId AND P.IsDeleted = 0
-        WHERE PP.PurchaseOrderId = O.Id)
+  AND (
+        NOT EXISTS (SELECT 1 FROM projects.PurchaseOrderProjects PP WHERE PP.PurchaseOrderId = O.Id)
+        OR EXISTS (
+            SELECT 1
+            FROM projects.PurchaseOrderProjects PP
+            INNER JOIN projects.Projects P ON P.Id = PP.ProjectId AND P.IsDeleted = 0
+            WHERE PP.PurchaseOrderId = O.Id))
   AND (@From IS NULL OR O.PoDate >= @From)
   AND (@ToExclusive IS NULL OR O.PoDate < @ToExclusive)
   AND (@Status = N'' OR LOWER(ST.Code) = @Status)

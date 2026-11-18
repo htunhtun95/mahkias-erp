@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, inject } from '@angular/core';
+import { RouterModule } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { forkJoin, Subscription } from 'rxjs';
@@ -18,7 +19,7 @@ import { PurchaseOrderSync } from '../../../purchase-order-sync';
 @Component({
   selector: 'app-project-purchases-tab',
   standalone: true,
-  imports: [MaterialModule],
+  imports: [MaterialModule, RouterModule],
   templateUrl: './project-purchases-tab.html',
   styleUrl: './project-purchases-tab.css',
 })
@@ -245,6 +246,17 @@ export class ProjectPurchasesTabComponent implements OnChanges, OnDestroy {
         });
       },
     });
+  }
+
+  onOrderRowClick(order: PurchaseOrderListItem, event: Event) {
+    if (event.defaultPrevented || this.deletingId != null) {
+      return;
+    }
+    const target = event.target;
+    if (target instanceof Element && target.closest('.expand, .actions, a, button')) {
+      return;
+    }
+    this.openDetails(order);
   }
 
   openDetails(order: PurchaseOrderListItem) {

@@ -800,8 +800,8 @@ export class ProjectApiService {
     );
   }
 
-  updateActivityGroup(projectId: number, id: number, name: string, description: string) {
-    return this.http.put<ActivityGroup>(`${this.baseUrl}/projects/${projectId}/activity-groups/${id}`, { name, description }).pipe(
+  updateActivityGroup(projectId: number, id: number, name: string, description: string, typeId?: number | null) {
+    return this.http.put<ActivityGroup>(`${this.baseUrl}/projects/${projectId}/activity-groups/${id}`, { name, description, typeId: typeId ?? null }).pipe(
       tap(() => this.forgetProject(projectId)),
     );
   }

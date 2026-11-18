@@ -316,6 +316,20 @@
           </div>
         </section>
         <app-quotation-charges [rows]="charges" [symbol]="chargeSymbol" [disabled]="busy"></app-quotation-charges>
+        <div class="po-totals" aria-label="Quotation totals">
+          <div>
+            <span>Subtotal</span>
+            <strong>{{ summaryMoney(subtotal) }}</strong>
+          </div>
+          <div>
+            <span>Additional charges</span>
+            <strong>{{ summaryMoney(chargesAmount) }}</strong>
+          </div>
+          <div class="grand">
+            <span>Total</span>
+            <strong>{{ summaryMoney(grandTotal) }}</strong>
+          </div>
+        </div>
     }
     @if (error) {
       <p class="hint-error">{{ error }}</p>

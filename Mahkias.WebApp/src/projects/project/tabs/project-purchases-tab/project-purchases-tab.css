@@ -72,6 +72,26 @@
   overflow-x: auto;
 }
 
+.po-row {
+  cursor: pointer;
+}
+
+.po-row > a.cell-link {
+  justify-self: start;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.cell-link {
+  color: #1a73e8;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.cell-link:hover {
+  text-decoration: underline;
+}
+
 .row {
   display: grid;
   grid-template-columns: 36px 130px minmax(140px, 1.2fr) 110px 130px 70px 130px 120px;
@@ -112,21 +132,6 @@
 .expand:hover {
   background: #f1f3f4;
   color: #202124;
-}
-
-.count-btn {
-  justify-self: start;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: #1a73e8;
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.count-btn:hover {
-  text-decoration: underline;
 }
 
 .lines {

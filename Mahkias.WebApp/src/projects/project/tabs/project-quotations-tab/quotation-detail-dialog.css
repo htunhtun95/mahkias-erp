@@ -294,65 +294,50 @@ h3 {
 }
 
 .extras {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.8fr);
-  gap: 16px;
-  align-items: start;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.extras > section {
+  flex: 1 1 auto;
 }
 
 .panel {
   min-width: 0;
 }
 
-.charge-card {
+.po-totals {
+  flex: 0 0 33.333%;
+  box-sizing: border-box;
+  width: 33.333%;
+  min-width: min(100%, 320px);
+  max-width: 100%;
   overflow: hidden;
   border: 1px solid #e0e0e0;
   border-radius: 12px;
   background: #fff;
 }
 
-.charge-line {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 120px;
-  gap: 16px;
+.po-totals div {
+  display: flex;
   align-items: center;
-  min-height: 44px;
-  padding: 10px 16px;
-  border-bottom: 1px solid #eef0f2;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 40px;
+  padding: 8px 16px;
+  color: #202124;
   font-size: 13px;
 }
 
-.charge-line.heading {
-  min-height: 36px;
-  background: #f8f9fa;
-  color: #5f6368;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-.charge-line.heading span:last-child,
-.charge-amount {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.charge-name {
-  overflow: hidden;
-  color: #202124;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.charge-line.total {
-  background: #f8f9fa;
-  color: #202124;
+.po-totals .grand {
+  border-top: 1px solid #e8eaed;
   font-weight: 600;
 }
 
-.charge-card .note {
-  padding: 8px 16px 12px;
+.po-totals strong {
+  font-variant-numeric: tabular-nums;
 }
 
 .file-list {
@@ -436,8 +421,15 @@ h3 {
 }
 
 @media (max-width: 720px) {
-  .facts,
-  .extras {
+  .facts {
     grid-template-columns: 1fr;
+  }
+
+  .extras {
+    flex-direction: column;
+  }
+
+  .po-totals {
+    width: 100%;
   }
 }

@@ -45,10 +45,6 @@
         <span>Items</span>
         <strong>{{ lines.length }}</strong>
       </div>
-      <div>
-        <span>Total</span>
-        <strong>{{ money(quotation.totalPrice, '$', 'USD') }}</strong>
-      </div>
     </section>
 
     <section>
@@ -101,31 +97,6 @@
 
     <div class="extras">
       <section class="panel">
-        <h3>Additional charges</h3>
-        @if (!charges.length) {
-          <p class="empty">No additional charges.</p>
-        } @else {
-          <div class="charge-card">
-            <div class="charge-line heading">
-              <span>Name</span>
-              <span>Amount</span>
-            </div>
-            @for (charge of charges; track charge.id) {
-              <div class="charge-line">
-                <span class="charge-name">{{ charge.name }}</span>
-                <span class="charge-amount">{{ headerMoney(charge.amount) }}</span>
-              </div>
-            }
-            <div class="charge-line total">
-              <span>Charges total</span>
-              <span class="charge-amount">{{ headerMoney(chargesTotal) }}</span>
-            </div>
-            <p class="note">Included in the quotation total.</p>
-          </div>
-        }
-      </section>
-
-      <section class="panel">
         <div class="files-head">
           <h3>Attached files</h3>
           <button type="button" (click)="manageDocuments()">Manage Documents</button>
@@ -149,6 +120,21 @@
           </div>
         }
       </section>
+
+      <div class="po-totals" aria-label="Quotation totals">
+        <div>
+          <span>Subtotal</span>
+          <strong>{{ summaryMoney(subtotal) }}</strong>
+        </div>
+        <div>
+          <span>Additional charges</span>
+          <strong>{{ summaryMoney(chargesTotal) }}</strong>
+        </div>
+        <div class="grand">
+          <span>Total</span>
+          <strong>{{ summaryMoney(grandTotal) }}</strong>
+        </div>
+      </div>
     </div>
   }
   </div>

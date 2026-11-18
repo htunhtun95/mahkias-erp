@@ -58,25 +58,76 @@ VALUES (@ProjectId, @Name, @Description)", _connection);
             }
         }
 
-        public async Task<bool> UpdateAsync(int id, int projectId, string name, string description)
+        public async Task<bool> UpdateAsync(int id, int projectId, string name, string description, int? typeId)
         {
-            using var command = new SqlCommand(@"
-UPDATE projects.ActivityGroups
-SET Name = @Name,
-    Description = @Description
-WHERE Id = @Id
-  AND ProjectId = @ProjectId", _connection);
-            command.Parameters.AddInt("Id", id);
-            command.Parameters.AddInt("ProjectId", projectId);
-            command.Parameters.AddNVarChar("Name", name.Trim(), 200);
-            command.Parameters.Add(OptionalText("Description", NullIfBlank(description)));
             _connection.Open();
+            SqlTransaction transaction = null;
             try
             {
-                return await command.ExecuteNonQueryAsync() > 0;
+                transaction = _connection.BeginTransaction();
+                int? previousType;
+                using (var read = new SqlCommand(@"
+SELECT ActivityTypeId
+FROM projects.ActivityGroups
+WHERE Id = @Id AND ProjectId = @ProjectId", _connection, transaction))
+                {
+                    read.Parameters.AddInt("Id", id);
+                    read.Parameters.AddInt("ProjectId", projectId);
+                    using var reader = await read.ExecuteReaderAsync();
+                    if (!await reader.ReadAsync())
+                    {
+                        transaction.Rollback();
+                        return false;
+                    }
+
+                    previousType = reader.ReadNullableIntValue("ActivityTypeId");
+                }
+
+                var nextType = typeId.HasValue && typeId.Value > 0 ? typeId : previousType;
+                using (var update = new SqlCommand(@"
+UPDATE projects.ActivityGroups
+SET Name = @Name,
+    Description = @Description,
+    ActivityTypeId = @TypeId
+WHERE Id = @Id
+  AND ProjectId = @ProjectId", _connection, transaction))
+                {
+                    update.Parameters.AddInt("Id", id);
+                    update.Parameters.AddInt("ProjectId", projectId);
+                    update.Parameters.AddNVarChar("Name", name.Trim(), 200);
+                    update.Parameters.Add(OptionalText("Description", NullIfBlank(description)));
+                    update.Parameters.Add(new SqlParameter("@TypeId", SqlDbType.Int)
+                    {
+                        Value = (object)nextType ?? DBNull.Value,
+                    });
+                    await update.ExecuteNonQueryAsync();
+                }
+
+                if (nextType.HasValue && nextType != previousType)
+                {
+                    using var members = new SqlCommand(@"
+UPDATE projects.Activities
+SET ActivityTypeId = @TypeId,
+    ModifiedAt = GETDATE()
+WHERE ActivityGroupId = @Id
+  AND ProjectId = @ProjectId", _connection, transaction);
+                    members.Parameters.AddInt("TypeId", nextType.Value);
+                    members.Parameters.AddInt("Id", id);
+                    members.Parameters.AddInt("ProjectId", projectId);
+                    await members.ExecuteNonQueryAsync();
+                }
+
+                transaction.Commit();
+                return true;
+            }
+            catch
+            {
+                transaction?.Rollback();
+                throw;
             }
             finally
             {
+                transaction?.Dispose();
                 _connection.Close();
             }
         }

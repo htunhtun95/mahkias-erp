@@ -11,7 +11,7 @@ import { pricedQuantity, quotationQuantity, quotationValidity } from '../../../q
 import { PurchaseOrderDialogComponent, PurchaseOrderPresetLine } from '../../../purchase-order-dialog/purchase-order-dialog';
 import { PurchaseOrderSync } from '../../../purchase-order-sync';
 
-export type QuotationViewKind = 'item' | 'group';
+export type QuotationViewKind = 'item' | 'group' | 'quotes';
 
 export interface QuotationDataRow {
   dsnNo: string | null;

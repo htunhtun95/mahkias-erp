@@ -59,10 +59,20 @@ namespace Mahkias.Api.Controllers
                 return BadRequest(new { message = "Group name is required." });
             }
 
-            var updated = await _uow.ActivityGroups.UpdateAsync(id, projectId, request.Name, request.Description);
+            if (request.TypeId.HasValue && (request.TypeId.Value <= 0 || !await ActivityTypeExists(request.TypeId.Value)))
+            {
+                return BadRequest(new { message = "Act Type is required." });
+            }
+
+            var updated = await _uow.ActivityGroups.UpdateAsync(id, projectId, request.Name, request.Description, request.TypeId);
             if (!updated)
             {
                 return NotFound();
+            }
+
+            if (request.TypeId.HasValue)
+            {
+                await _uow.ActivityLabels.ClearMismatchedAsync(projectId);
             }
 
             var group = (await _uow.ActivityGroups.ListAsync(projectId)).FirstOrDefault(item => item.Id == id);
@@ -132,6 +142,11 @@ namespace Mahkias.Api.Controllers
         {
             return await _context.Projects.AsNoTracking().AnyAsync(project => project.Id == projectId);
         }
+
+        private async Task<bool> ActivityTypeExists(int typeId)
+        {
+            return await _context.ActivityTypes.AsNoTracking().AnyAsync(type => type.Id == typeId);
+        }
     }
 
     public class ActivityGroupWrite
@@ -139,6 +154,8 @@ namespace Mahkias.Api.Controllers
         public string Name { get; set; }
 
         public string Description { get; set; }
+
+        public int? TypeId { get; set; }
     }
 
     public class AssignActivityGroupRequest

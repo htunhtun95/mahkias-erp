@@ -132,6 +132,10 @@
   overflow-x: auto;
 }
 
+.quote-row {
+  cursor: pointer;
+}
+
 .row {
   display: grid;
   grid-template-columns: 36px minmax(120px, 1fr) minmax(140px, 1.2fr) minmax(120px, 0.9fr) 64px minmax(120px, 0.9fr) minmax(140px, 1.05fr) minmax(110px, 0.8fr) 48px;

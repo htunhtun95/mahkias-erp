@@ -60,7 +60,7 @@
     } @else {
       @for (quotation of quotations; track quotation.id) {
         <div class="quote-block">
-          <div class="row">
+          <div class="row quote-row" (click)="onQuotationRowClick(quotation, $event)">
             <button class="expand" type="button" [matTooltip]="isExpanded(quotation.id) ? 'Collapse quotation' : 'Expand quotation'" [attr.aria-expanded]="isExpanded(quotation.id)" [attr.aria-label]="isExpanded(quotation.id) ? 'Collapse quotation' : 'Expand quotation'" (click)="toggle(quotation)">
               <mat-icon>{{ isExpanded(quotation.id) ? 'expand_more' : 'chevron_right' }}</mat-icon>
             </button>
@@ -93,10 +93,6 @@
                 }
               </button>
               <mat-menu #quotationMenu="matMenu" class="activity-row-menu">
-                <button mat-menu-item type="button" (click)="openDetails(quotation)" [disabled]="deletingId != null">
-                  <mat-icon>visibility</mat-icon>
-                  <span>View Details</span>
-                </button>
                 <button mat-menu-item type="button" (click)="manageDocuments(quotation)" [disabled]="deletingId != null">
                   <mat-icon>folder</mat-icon>
                   <span>Manage Documents</span>

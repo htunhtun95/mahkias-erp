@@ -105,6 +105,40 @@
   min-height: min-content;
 }
 
+.po-totals {
+  align-self: flex-end;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: 33.333%;
+  min-width: min(100%, 320px);
+  max-width: 100%;
+  min-height: min-content;
+  overflow: hidden;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.po-totals div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 40px;
+  padding: 8px 16px;
+  color: #202124;
+  font-size: 13px;
+}
+
+.po-totals .grand {
+  border-top: 1px solid #e8eaed;
+  font-weight: 600;
+}
+
+.po-totals strong {
+  font-variant-numeric: tabular-nums;
+}
+
 .quotation-dialog-footer {
   flex: 0 0 auto;
   display: flex;
@@ -838,5 +872,9 @@ label.invalid input:focus {
   .header-fields.creating-supplier,
   .new-supplier {
     grid-template-columns: 1fr;
+  }
+
+  .po-totals {
+    width: 100%;
   }
 }

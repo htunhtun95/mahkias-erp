@@ -247,6 +247,20 @@
       </table>
     </div>
     <app-quotation-charges [rows]="charges" [symbol]="chargeSymbol" [disabled]="isSaving"></app-quotation-charges>
+    <div class="po-totals" aria-label="Quotation totals">
+      <div>
+        <span>Subtotal</span>
+        <strong>{{ totalsMoney(subtotal) }}</strong>
+      </div>
+      <div>
+        <span>Additional charges</span>
+        <strong>{{ totalsMoney(chargesAmount) }}</strong>
+      </div>
+      <div class="grand">
+        <span>Total</span>
+        <strong>{{ totalsMoney(grandTotal) }}</strong>
+      </div>
+    </div>
     <app-document-manager
       #library
       title="Documents"

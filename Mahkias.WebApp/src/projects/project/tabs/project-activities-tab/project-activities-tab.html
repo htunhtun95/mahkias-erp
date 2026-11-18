@@ -148,16 +148,7 @@
                 @if (isBatchEditing(group.typeId)) {
                   <span class="more-cell"></span>
                 } @else {
-                <span class="lowest-price">
-                  @if (block.lowest; as link) {
-                    <button class="price-link" type="button" matTooltip="View quotes" (click)="openGroupQuotations(block.group, block.activities)" [disabled]="isSaving || deletingId != null" [attr.aria-label]="'View quotes for ' + block.group.name">{{ priceText(link) }}</button>
-                    @if ((block.quoteCount ?? 0) > 1) {
-                      <span class="count-badge">{{ block.quoteCount }}</span>
-                    }
-                  } @else {
-                    <span class="price-empty">Unquoted</span>
-                  }
-                </span>
+                <span class="lowest-price"></span>
                 <span class="row-actions">
                   <button class="icon-btn" type="button" [matMenuTriggerFor]="groupMenu" aria-label="Group actions" aria-haspopup="menu" [disabled]="isSaving || deletingId != null">
                     <mat-icon>more_vert</mat-icon>
@@ -183,7 +174,7 @@
               </div>
               @if (isGroupOpen(block.group.id) || isBatchEditing(group.typeId)) {
                 @for (activity of block.activities; track activity.id) {
-                  <div class="row child" [attr.data-activity-id]="activity.id" [class.editing]="isRowEditable(group, activity)">
+                  <div class="row child" [attr.data-activity-id]="activity.id" [class.editing]="isRowEditable(group, activity)" (click)="onActivityDetailsClick(activity, group, $event)">
                     <div class="identity">
                       <span></span>
                       <label class="pick">
@@ -251,7 +242,7 @@
                     } @else {
                     <span class="lowest-price">
                       @if (lowestLink(activity); as link) {
-                        <button class="price-link" type="button" matTooltip="View details" (click)="openActivityDetails(activity)" [disabled]="isSaving || deletingId != null" [attr.aria-label]="'View details for ' + (activity.dsnNo || activity.partNo)">{{ priceText(link) }}</button>
+                        <button class="price-link" type="button" matTooltip="View quotes" (click)="onActivityQuotesClick(activity, group, $event)" [disabled]="isSaving || deletingId != null || isBatchEditing(group.typeId)" [attr.aria-label]="'View quotes for ' + (activity.dsnNo || activity.partNo)">{{ priceText(link) }}</button>
                         @if (quoteCount(activity) > 1) {
                           <span class="count-badge">{{ quoteCount(activity) }}</span>
                         }
@@ -264,10 +255,6 @@
                         @if (deletingId === activity.id) { <mat-spinner diameter="18"></mat-spinner> } @else { <mat-icon>more_vert</mat-icon> }
                       </button>
                       <mat-menu #activityMenu="matMenu" class="activity-row-menu">
-                        <button mat-menu-item type="button" (click)="openActivityDetails(activity)" [disabled]="isSaving || deletingId != null">
-                          <mat-icon>visibility</mat-icon>
-                          <span>Details</span>
-                        </button>
                         <button mat-menu-item type="button" (click)="ungroupActivity(activity)" [disabled]="isSaving || deletingId != null">
                           <mat-icon>link_off</mat-icon>
                           <span>Remove from Group</span>
@@ -296,7 +283,7 @@
           }
           @for (activity of group.activities; track activity.id) {
             <div class="activity-block" [attr.data-activity-id]="activity.id">
-            <div class="row" [class.editing]="isRowEditable(group, activity)">
+            <div class="row" [class.editing]="isRowEditable(group, activity)" (click)="onActivityDetailsClick(activity, group, $event)">
               <div class="identity">
                 <span></span>
                 <label class="pick">
@@ -364,7 +351,7 @@
               } @else {
               <span class="lowest-price">
                 @if (lowestLink(activity); as link) {
-                  <button class="price-link" type="button" matTooltip="View details" (click)="openActivityDetails(activity)" [disabled]="isSaving || deletingId != null" [attr.aria-label]="'View details for ' + (activity.dsnNo || activity.partNo)">{{ priceText(link) }}</button>
+                  <button class="price-link" type="button" matTooltip="View quotes" (click)="onActivityQuotesClick(activity, group, $event)" [disabled]="isSaving || deletingId != null || isBatchEditing(group.typeId)" [attr.aria-label]="'View quotes for ' + (activity.dsnNo || activity.partNo)">{{ priceText(link) }}</button>
                   @if (quoteCount(activity) > 1) {
                     <span class="count-badge">{{ quoteCount(activity) }}</span>
                   }
@@ -381,10 +368,6 @@
                   }
                 </button>
                 <mat-menu #activityMenu="matMenu" class="activity-row-menu">
-                  <button mat-menu-item type="button" (click)="openActivityDetails(activity)" [disabled]="isSaving || deletingId != null">
-                    <mat-icon>visibility</mat-icon>
-                    <span>Details</span>
-                  </button>
                   @if (activity.activityGroupId) {
                     <button mat-menu-item type="button" (click)="ungroupActivity(activity)" [disabled]="isSaving || deletingId != null">
                       <mat-icon>link_off</mat-icon>

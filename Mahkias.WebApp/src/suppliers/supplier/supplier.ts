@@ -4,6 +4,7 @@ import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MaterialModule } from '../../app/material-module';
+import { ReturnNavigation } from '../../core/return-navigation';
 import { whileBusy } from '../../core/while-busy';
 import { ProjectApiService, SupplierDetail, SupplierQuotation } from '../../core/services/project-api.service';
 import { ConfirmDialog } from '../../projects/confirm-dialog/confirm-dialog';
@@ -23,6 +24,7 @@ export class SupplierDetailsComponent implements OnInit {
   private router = inject(Router);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
+  private returns = inject(ReturnNavigation);
 
   supplier: SupplierDetail | null = null;
   loading = true;
@@ -65,6 +67,15 @@ export class SupplierDetailsComponent implements OnInit {
       return '';
     }
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  goBack() {
+    const previous = this.returns.previous();
+    if (previous) {
+      this.router.navigateByUrl(previous);
+      return;
+    }
+    this.router.navigate(['/suppliers']);
   }
 
   openEdit() {
@@ -128,13 +139,14 @@ export class SupplierDetailsComponent implements OnInit {
     });
   }
 
+  canOpenProject(project?: { id?: number | null; name?: string | null } | null): boolean {
+    return (project?.id ?? 0) > 0 && hasProjectName(project?.name);
+  }
+
   projectLink(quotation: SupplierQuotation) {
-    const project = (quotation.projects ?? []).find((item) => item.id > 0 && hasProjectName(item.name));
+    const project = (quotation.projects ?? []).find((item) => this.canOpenProject(item));
     if (project) {
       return ['/projects', project.id];
-    }
-    if (quotation.projectId && hasProjectName(quotation.projectNames)) {
-      return ['/projects', quotation.projectId];
     }
     return null;
   }

@@ -13,7 +13,7 @@ namespace Mahkias.Core.Modules.Projects
 
         Task<int> CreateAsync(int projectId, string name, string description);
 
-        Task<bool> UpdateAsync(int id, int projectId, string name, string description);
+        Task<bool> UpdateAsync(int id, int projectId, string name, string description, int? typeId);
 
         Task<bool> DeleteAsync(int id, int projectId);
 

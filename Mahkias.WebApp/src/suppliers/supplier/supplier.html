@@ -1,10 +1,10 @@
 @if (loading) {
   <div class="loading"><mat-spinner diameter="36"></mat-spinner></div>
 } @else if (supplier) {
-  <a class="back" routerLink="/suppliers">
+  <button class="back" type="button" (click)="goBack()">
     <mat-icon>arrow_back</mat-icon>
-    Back to Suppliers
-  </a>
+    Back
+  </button>
 
   <header class="supplier-header">
     <div>
@@ -78,8 +78,10 @@
               @if (quotation.projects?.length) {
                 @for (project of quotation.projects; track project.id) {
                   <span class="project-entry">
-                    @if (project.reference) {
+                    @if (project.reference && canOpenProject(project)) {
                       <a class="project-tag" [routerLink]="['/projects', project.id]">{{ project.reference }}</a>
+                    } @else if (project.reference) {
+                      <span class="project-tag">{{ project.reference }}</span>
                     }
                     <span class="project-name">{{ project.name }}</span>
                   </span>
