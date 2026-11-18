@@ -63,7 +63,7 @@
             <span>Total price</span>
           </div>
           @for (row of rows; track (row.link?.itemId ?? row.dsnNo) + '-' + $index) {
-            <div class="quote-line" [class.group]="isGroup" [class.lowest]="!isGroup && !!row.link?.lowest">
+            <div class="quote-line" [class.group]="isGroup" [class.lowest]="!isGroup && !!row.link?.lowest" [class.selectable]="!!row.link" (click)="onRowClick(row, $event)">
               <label class="line-check">
                 @if (row.link) {
                   <input type="checkbox" [checked]="isSelected(row)" (change)="toggleRow(row, $any($event.target).checked)" [attr.aria-label]="'Select ' + (row.link.quotationRef || 'quotation line')" />

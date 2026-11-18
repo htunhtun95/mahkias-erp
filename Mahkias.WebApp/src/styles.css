@@ -1261,25 +1261,92 @@ textarea.cdk-textarea-autosize-measuring-firefox {
 .cdk-overlay-pane.po-new-panel table.sheet tbody td > :is(input, select),
 .cdk-overlay-pane.po-new-panel table.import-sheet tbody td > :is(input, select),
 .cdk-overlay-pane.po-new-panel table.app-grid-table tbody td > :is(input, select),
-.cdk-overlay-pane.po-new-panel table.sheet tbody td > :is(app-activity-suggest, app-lookup-combobox, .price-field),
-.cdk-overlay-pane.po-new-panel table.import-sheet tbody td > :is(app-activity-suggest, app-lookup-combobox, .price-field),
-.cdk-overlay-pane.po-new-panel table.app-grid-table tbody td > :is(app-activity-suggest, app-lookup-combobox, .price-field) {
+.cdk-overlay-pane.po-new-panel table.sheet tbody td > :is(app-activity-suggest, app-lookup-combobox, .price-field, .dsn-field),
+.cdk-overlay-pane.po-new-panel table.import-sheet tbody td > :is(app-activity-suggest, app-lookup-combobox, .price-field, .dsn-field),
+.cdk-overlay-pane.po-new-panel table.app-grid-table tbody td > :is(app-activity-suggest, app-lookup-combobox, .price-field, .dsn-field) {
   position: absolute;
   inset: 0;
   box-sizing: border-box;
   width: auto;
-  height: auto;
-  min-height: 0;
+  height: auto !important;
+  min-height: 0 !important;
   margin: 0;
 }
 
 .cdk-overlay-pane.po-new-panel table.sheet tbody td :is(app-activity-suggest, app-lookup-combobox, .lookup-combobox) :is(input, select),
 .cdk-overlay-pane.po-new-panel table.import-sheet tbody td :is(app-activity-suggest, app-lookup-combobox, .lookup-combobox) :is(input, select),
 .cdk-overlay-pane.po-new-panel table.app-grid-table tbody td :is(app-activity-suggest, app-lookup-combobox, .lookup-combobox) :is(input, select) {
+  position: relative;
+  inset: auto;
+  display: block;
+  box-sizing: border-box;
   width: 100%;
   height: 100% !important;
   min-height: 0 !important;
+  margin: 0;
   align-self: stretch;
+}
+
+.cdk-overlay-pane.po-new-panel table.sheet tbody td > .dsn-field > :is(input, app-activity-suggest),
+.cdk-overlay-pane.po-new-panel table.app-grid-table tbody td > .dsn-field > :is(input, app-activity-suggest) {
+  position: relative;
+  inset: auto;
+  flex: 1 1 auto;
+  width: auto;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.cdk-overlay-pane.po-new-panel table.import-sheet tbody td.dsn {
+  vertical-align: middle;
+}
+
+.cdk-overlay-pane.po-new-panel table.import-sheet tbody td.dsn > :is(input, app-activity-suggest, .dsn-field) {
+  position: relative !important;
+  inset: auto !important;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 44px !important;
+  min-height: 44px !important;
+}
+
+.cdk-overlay-pane.po-new-panel table.sheet tbody td.dsn,
+.cdk-overlay-pane.po-new-panel table.app-grid-table tbody td.dsn {
+  vertical-align: middle;
+  text-align: center;
+}
+
+.cdk-overlay-pane.po-new-panel table.sheet tbody td.dsn > :is(input, app-activity-suggest, .dsn-field),
+.cdk-overlay-pane.po-new-panel table.app-grid-table tbody td.dsn > :is(input, app-activity-suggest, .dsn-field),
+.cdk-overlay-pane.po-new-panel table.sheet tbody td.dsn > .dsn-field > app-activity-suggest,
+.cdk-overlay-pane.po-new-panel table.app-grid-table tbody td.dsn > .dsn-field > app-activity-suggest {
+  position: relative !important;
+  inset: auto !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100% !important;
+  min-height: 44px !important;
+  margin: 0;
+  padding: 0;
+}
+
+.cdk-overlay-pane.po-new-panel table.sheet tbody td.dsn :is(input, app-activity-suggest input),
+.cdk-overlay-pane.po-new-panel table.app-grid-table tbody td.dsn :is(input, app-activity-suggest input) {
+  position: relative !important;
+  inset: auto !important;
+  align-self: center;
+  width: 100%;
+  height: 44px !important;
+  min-height: 0 !important;
+  margin: 0;
+  padding: 0 8px;
+  line-height: 44px;
+  text-align: center;
 }
 
 .cdk-overlay-pane.po-new-panel .price-field {

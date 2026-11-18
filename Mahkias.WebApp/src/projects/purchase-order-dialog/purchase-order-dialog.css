@@ -285,18 +285,14 @@ h2 {
   background: transparent;
   color: #202124;
   font: inherit;
-  font-size: 13px;
-  font-weight: 400;
   text-align: left;
 }
 
 .supplier-menu button {
   display: flex;
-  justify-content: space-between;
+  align-items: baseline;
+  justify-content: flex-start;
   gap: 8px;
-  width: 100%;
-  height: auto;
-  border-radius: 0;
   cursor: pointer;
 }
 
@@ -516,7 +512,7 @@ table.sheet td.dsn {
 }
 
 table.sheet thead th.dsn {
-  padding-left: 42px;
+  text-align: left;
 }
 
 table.sheet th.part,
@@ -580,21 +576,23 @@ table.sheet td.quote {
 }
 
 .dsn-field {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   box-sizing: border-box;
   min-width: 0;
   height: 100%;
-  padding-left: 10px;
-  gap: 6px;
+  padding: 0;
+  gap: 0;
 }
 
 .dsn-field input,
 .dsn-field app-activity-suggest {
   flex: 1 1 auto;
+  width: 100%;
   min-width: 0;
-  text-align: left;
+  text-align: center;
 }
 
 .dsn-field > input {
@@ -602,13 +600,17 @@ table.sheet td.quote {
 }
 
 .dsn-warning {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  z-index: 1;
   display: inline-flex;
-  flex: 0 0 18px;
   align-items: center;
   justify-content: center;
   width: 18px;
   height: 18px;
   color: #e37400;
+  transform: translateY(-50%);
 }
 
 .dsn-warning mat-icon {
@@ -845,6 +847,52 @@ label.original-toggle input {
   cursor: default;
 }
 
+.po-import .header-fields {
+  grid-template-columns: minmax(160px, 0.9fr) minmax(180px, 1fr) minmax(220px, 1.4fr);
+  gap: 12px;
+  margin-top: 0;
+  align-items: start;
+}
+
+.po-import .header-fields .ship-to {
+  grid-column: auto;
+  grid-row: auto;
+}
+
+.po-import .supplier-field {
+  position: relative;
+  z-index: 6;
+  min-width: 0;
+}
+
+.po-import .supplier-control {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+}
+
+.po-import .supplier-menu {
+  position: absolute;
+  z-index: 8;
+  top: calc(100% + 4px);
+  left: 0;
+  right: auto;
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  grid-template-columns: none;
+  overflow: hidden;
+}
+
+.po-import .supplier-options {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+}
+
 .po-import .reading {
   display: flex;
   align-items: center;
@@ -856,6 +904,8 @@ label.original-toggle input {
 
 .po-import .map-panel {
   flex: 0 0 auto;
+  align-self: stretch;
+  width: 100%;
   min-height: 0;
   overflow: visible;
   display: flex;
@@ -863,37 +913,84 @@ label.original-toggle input {
   gap: 8px;
 }
 
-.po-import .map-grid {
-  display: grid;
-  grid-template-columns: 110px minmax(0, 1fr) minmax(140px, 0.55fr);
-  gap: 10px 12px;
-  align-items: center;
+.po-import .map {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: visible;
 }
 
-.po-import .map-label {
+.po-import .map-head,
+.po-import .map-row {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1.2fr) minmax(180px, 0.9fr);
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 16px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.po-import .map-head {
+  background: #f8f9fa;
   color: #5f6368;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
 }
 
-.po-import .map-label.invalid {
-  color: #d93025;
+.po-import .map-row:last-child {
+  border-bottom: 0;
 }
 
-.po-import .map-grid input,
-.po-import .map-grid select {
-  width: 100%;
-  height: 32px;
-  box-sizing: border-box;
-}
-
-.po-import .map-grid select.invalid,
-.po-import .map-grid select.invalid:focus,
-.po-import .map-grid input.invalid,
-.po-import .map-grid input.invalid:focus {
-  border-color: var(--field-invalid);
+.po-import .map-row.invalid {
+  border: 1px solid #d93025;
   background: #fff;
-  box-shadow: var(--field-invalid-ring);
+}
+
+.po-import .map-row > span:first-child {
+  color: #202124;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.po-import .map em {
+  margin-left: 2px;
+  color: #d93025;
+  font-style: normal;
+}
+
+.po-import .map select,
+.po-import .map input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--field-radius);
+  background: #fff;
+  color: #111827;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+.po-import .map select:focus,
+.po-import .map input:focus {
+  outline: none;
+  border-color: var(--field-focus);
+  box-shadow: var(--field-focus-ring);
+}
+
+.po-import .field-warning {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #d93025;
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .po-import .hint {
@@ -1104,4 +1201,17 @@ label.original-toggle input {
   padding: 16px;
   color: #80868b;
   text-align: center;
+}
+
+@media (max-width: 800px) {
+  .po-import .header-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .po-import .map-head,
+  .po-import .map-row {
+    grid-template-columns: 1fr;
+  }
 }

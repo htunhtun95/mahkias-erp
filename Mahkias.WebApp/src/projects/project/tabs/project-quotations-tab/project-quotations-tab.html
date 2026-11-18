@@ -139,7 +139,7 @@
                   <span>Total Price</span>
                 </div>
                 @for (line of lineItems(quotation.id); track line.id) {
-                  <div class="line-row">
+                  <div class="line-row selectable" (click)="onLineClick(line.id, $event)">
                     <label class="line-check">
                       <input type="checkbox" [checked]="lineSelected(line.id)" (change)="toggleLine(line.id, $any($event.target).checked)" [attr.aria-label]="'Select ' + (line.partNo || line.dsnNo || 'line item')" />
                     </label>

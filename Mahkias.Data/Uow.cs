@@ -29,6 +29,7 @@ namespace Mahkias.Data
         public ICurrencyRepository Currencies { get { return GetAdoRepo<ICurrencyRepository>(); } }
         public ILookupRepository Lookups { get { return GetAdoRepo<ILookupRepository>(); } }
         public IProjectDocumentRepository ProjectDocuments { get { return GetAdoRepo<IProjectDocumentRepository>(); } }
+        public IDashboardRepository Dashboard { get { return GetAdoRepo<IDashboardRepository>(); } }
 
         public void Dispose()
         {

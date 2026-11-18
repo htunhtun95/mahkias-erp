@@ -171,18 +171,10 @@
           @for (row of visibleRows; track row.key) {
             <tr>
               <td class="cell dsn" [class.invalid]="invalid(row, 'dsn') && interacted(row, 'dsn')">
-                @if (row.manual) {
-                  <app-activity-suggest [value]="row.dsnNo" [activities]="activities" ariaLabel="DSN No" [disabled]="isSaving" (valueChange)="setDsn(row, $event); touch(row, 'dsn')" (blurred)="touch(row, 'dsn')" (picked)="chooseActivity(row, $event)" />
-                } @else {
-                  <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.dsnNo" (ngModelChange)="onDsn(row); touch(row, 'dsn')" (blur)="touch(row, 'dsn')" [name]="'dsn' + row.key" />
-                }
+                <app-activity-suggest [value]="row.dsnNo" [activities]="activities" ariaLabel="DSN No" [disabled]="isSaving" (valueChange)="setDsn(row, $event); touch(row, 'dsn')" (blurred)="touch(row, 'dsn')" (picked)="chooseActivity(row, $event)" />
               </td>
               <td class="cell part" [class.invalid]="invalid(row, 'part') && interacted(row, 'part')">
-                @if (row.manual) {
-                  <app-activity-suggest [value]="row.partNo" [activities]="activities" ariaLabel="Part No" [disabled]="isSaving" (valueChange)="setPart(row, $event); touch(row, 'part')" (blurred)="touch(row, 'part')" (picked)="chooseActivity(row, $event)" />
-                } @else {
-                  <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.partNo" (ngModelChange)="onPart(row); touch(row, 'part')" (blur)="touch(row, 'part')" [name]="'part' + row.key" />
-                }
+                <app-activity-suggest [value]="row.partNo" [activities]="activities" ariaLabel="Part No" [disabled]="isSaving" (valueChange)="setPart(row, $event); touch(row, 'part')" (blurred)="touch(row, 'part')" (picked)="chooseActivity(row, $event)" />
               </td>
               <td class="cell description">
                 <textarea

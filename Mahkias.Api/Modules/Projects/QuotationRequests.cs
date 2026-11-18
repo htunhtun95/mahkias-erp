@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Mahkias.Api.Helpers;
 
 namespace Mahkias.Api.Modules.Projects
 {
@@ -38,6 +39,7 @@ namespace Mahkias.Api.Modules.Projects
 
         public decimal? UnitPrice { get; set; }
 
+        [JsonConverter(typeof(WholeQuantityConverter))]
         public int? Quantity { get; set; }
 
         public decimal? TotalPrice { get; set; }

@@ -181,6 +181,16 @@ a.ref-tag:hover {
   text-decoration: underline;
 }
 
+span.ref-tag {
+  height: auto;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #202124;
+  font-weight: 400;
+  cursor: default;
+}
+
 .ref-note {
   color: #5f6368;
   font-size: 12px;

@@ -225,7 +225,7 @@ SELECT TOP (1) Id
 FROM projects.ActivityLabels
 WHERE ProjectId = @ProjectId
   AND ActivityTypeId = @TypeId
-  AND LOWER(Name) = LOWER(@Name)
+  AND LOWER(LTRIM(RTRIM(Name))) = LOWER(LTRIM(RTRIM(@Name)))
 ORDER BY Id", _connection);
             existing.Parameters.AddInt("ProjectId", projectId);
             existing.Parameters.AddInt("TypeId", typeId);

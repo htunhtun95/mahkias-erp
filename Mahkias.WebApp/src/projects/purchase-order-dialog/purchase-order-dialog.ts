@@ -21,7 +21,7 @@ import { DocumentManagerComponent, syncDocumentDrafts } from '../document-manage
 import { documentAccept as acceptedDocuments } from '../document-library-dialog/document-library-dialog';
 import { formatMoney } from '../money-format';
 import { leadTimeDays, leadTimeInvalid, leadTimeText, LeadTimeDaysDirective } from '../lead-time';
-import { WholeQuantityDirective } from '../whole-quantity';
+import { WholeQuantityDirective, isDecimalQuantity } from '../whole-quantity';
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
 import { QuotationChargeRow, QuotationChargesComponent, quotationChargeTotal, readQuotationCharges } from '../quotation-charges/quotation-charges';
 import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-date-field';
@@ -471,9 +471,6 @@ export class PurchaseOrderDialogComponent implements OnInit {
   }
 
   onIdentity(row: PoLine) {
-    if (row.fromQuotation) {
-      return;
-    }
     const part = row.partNo;
     const nextId = directActivityId(row.dsnNo, row.partNo, this.data.activities ?? []);
     row.partNo = part;
@@ -632,7 +629,7 @@ export class PurchaseOrderDialogComponent implements OnInit {
   }
 
   syncFromUnit(row: PoLine) {
-    const quantity = numeric(row.quantity);
+    const quantity = quantityNumber(row.quantity);
     const unitPrice = numeric(row.unitPrice);
     if (quantity != null && quantity > 0 && unitPrice != null) {
       row.totalPrice = (quantity * unitPrice).toFixed(2);
@@ -640,7 +637,7 @@ export class PurchaseOrderDialogComponent implements OnInit {
   }
 
   syncFromTotal(row: PoLine) {
-    const quantity = numeric(row.quantity);
+    const quantity = quantityNumber(row.quantity);
     const total = numeric(row.totalPrice);
     if (quantity != null && quantity > 0 && total != null) {
       row.unitPrice = (total / quantity).toFixed(2);
@@ -716,7 +713,7 @@ export class PurchaseOrderDialogComponent implements OnInit {
       if (!row.quantity.trim()) {
         row.quantity = '1';
       }
-      const quantity = numeric(row.quantity) as number;
+      const quantity = quantityNumber(row.quantity) as number;
       const unitPrice = numeric(row.unitPrice) as number;
       const totalPrice = numeric(row.totalPrice) ?? unitPrice * quantity;
       items.push({
@@ -825,7 +822,7 @@ export class PurchaseOrderDialogComponent implements OnInit {
   private lineFromPreset(line: PurchaseOrderPresetLine): PoLine {
     const quantity = line.quantity && line.quantity > 0 ? String(line.quantity) : '1';
     const unitPrice = line.unitPrice == null ? '' : String(line.unitPrice);
-    const quantityValue = numeric(quantity);
+    const quantityValue = quantityNumber(quantity);
     const unitValue = numeric(unitPrice);
     const totalPrice = quantityValue != null && quantityValue > 0 && unitValue != null
       ? (quantityValue * unitValue).toFixed(2)
@@ -1019,7 +1016,7 @@ function lineAmount(row: PoLine): number | null {
     return null;
   }
   const unitPrice = numeric(row.unitPrice);
-  const quantity = row.quantity.trim() ? numeric(row.quantity) : 1;
+  const quantity = row.quantity.trim() ? quantityNumber(row.quantity) : 1;
   const totalPrice = numeric(row.totalPrice);
   if (unitPrice == null || quantity == null || quantity <= 0 || (row.totalPrice.trim() && totalPrice == null)) {
     return null;
@@ -1042,7 +1039,7 @@ function lineProblem(row: PoLine): 'dsn' | 'part' | 'qty' | 'price' | 'lead' | '
       return 'part';
     }
   }
-  const quantity = numeric(row.quantity);
+  const quantity = quantityNumber(row.quantity);
   const unitPrice = numeric(row.unitPrice);
   const totalPrice = numeric(row.totalPrice);
   if (row.quantity.trim() && (quantity == null || quantity <= 0)) {
@@ -1094,6 +1091,10 @@ function roundMoney(value: number): number {
 
 function names(values: LookupValue[]): string[] {
   return values.map((value) => value.name).filter((name) => !!name);
+}
+
+function quantityNumber(value: string): number | null {
+  return isDecimalQuantity(value) ? Number(value.trim()) : null;
 }
 
 function numeric(value: string): number | null {

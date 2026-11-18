@@ -277,6 +277,10 @@
   color: #b06000;
 }
 
+.line-row.selectable {
+  cursor: pointer;
+}
+
 .line-row.heading {
   color: #5f6368;
   font-size: 11px;

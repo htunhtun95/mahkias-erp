@@ -9,6 +9,12 @@ namespace Mahkias.Api.Modules.Projects
         public string Description { get; set; }
     }
 
+    public class ProjectListResponse
+    {
+        public List<ProjectResponse> Items { get; set; } = new();
+        public int TotalCount { get; set; }
+    }
+
     public class ProjectResponse
     {
         public int Id { get; set; }

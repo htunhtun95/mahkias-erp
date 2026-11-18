@@ -152,42 +152,34 @@
           <tbody>
             @for (row of visibleRows; track row.key) {
               <tr>
-                <td class="cell dsn" [class.locked]="row.fromQuotation" [class.invalid]="invalid(row, 'dsn') && interacted(row, 'dsn')">
+                <td class="cell dsn" [class.invalid]="invalid(row, 'dsn') && interacted(row, 'dsn')">
                   <span class="dsn-field">
                     <span class="dsn-warning" [attr.aria-hidden]="lowerPriceWarning(row) ? null : 'true'" [attr.aria-label]="lowerPriceWarning(row) ? 'Not the lowest price' : null">
                       @if (lowerPriceWarning(row)) {
                         <mat-icon>warning</mat-icon>
                       }
                     </span>
-                    @if (row.fromQuotation) {
-                      <input readonly [disabled]="saving" [(ngModel)]="row.dsnNo" (blur)="touch(row, 'dsn')" [name]="'dsn' + row.key" maxlength="100" />
-                    } @else {
-                      <app-activity-suggest
-                        [value]="row.dsnNo"
-                        [activities]="data.activities"
-                        ariaLabel="DSN No"
-                        [disabled]="saving"
-                        (valueChange)="setDsn(row, $event); touch(row, 'dsn')"
-                        (blurred)="touch(row, 'dsn')"
-                        (picked)="chooseActivity(row, $event)"
-                      />
-                    }
-                  </span>
-                </td>
-                <td class="cell part" [class.locked]="row.fromQuotation" [class.invalid]="invalid(row, 'part') && interacted(row, 'part')">
-                  @if (row.fromQuotation) {
-                    <input readonly [disabled]="saving" [(ngModel)]="row.partNo" (blur)="touch(row, 'part')" [name]="'part' + row.key" maxlength="200" />
-                  } @else {
                     <app-activity-suggest
-                      [value]="row.partNo"
+                      [value]="row.dsnNo"
                       [activities]="data.activities"
-                      ariaLabel="Part No"
+                      ariaLabel="DSN No"
                       [disabled]="saving"
-                      (valueChange)="setPart(row, $event); touch(row, 'part')"
-                      (blurred)="touch(row, 'part')"
+                      (valueChange)="setDsn(row, $event); touch(row, 'dsn')"
+                      (blurred)="touch(row, 'dsn')"
                       (picked)="chooseActivity(row, $event)"
                     />
-                  }
+                  </span>
+                </td>
+                <td class="cell part" [class.invalid]="invalid(row, 'part') && interacted(row, 'part')">
+                  <app-activity-suggest
+                    [value]="row.partNo"
+                    [activities]="data.activities"
+                    ariaLabel="Part No"
+                    [disabled]="saving"
+                    (valueChange)="setPart(row, $event); touch(row, 'part')"
+                    (blurred)="touch(row, 'part')"
+                    (picked)="chooseActivity(row, $event)"
+                  />
                 </td>
                 <td class="cell description">
                   <textarea

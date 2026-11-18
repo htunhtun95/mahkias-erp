@@ -34,11 +34,21 @@ export const DASHBOARD_DATASETS: DashboardDataset[] = [
       { id: 'processing', label: 'Processing' },
     ],
   },
+  {
+    id: 'purchase-orders',
+    label: 'Purchase orders',
+    statuses: [
+      { id: 'draft', label: 'Draft' },
+      { id: 'sent', label: 'Sent' },
+      { id: 'revised', label: 'Revised' },
+      { id: 'cancelled', label: 'Cancelled' },
+    ],
+  },
 ];
 
 export function createDashboardFilters(): DashboardFilterState {
   return {
-    dataset: 'all',
+    dataset: 'quotations',
     status: 'all',
     created: 'all',
     createdFrom: '',

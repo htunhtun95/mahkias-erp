@@ -295,7 +295,7 @@ namespace Mahkias.Api.Helpers
                 return string.Empty;
             }
 
-            return value?.Trim() ?? string.Empty;
+            return ImportCellText.Normalize(value) ?? string.Empty;
         }
 
         private static int? ParseQuantity(string value)

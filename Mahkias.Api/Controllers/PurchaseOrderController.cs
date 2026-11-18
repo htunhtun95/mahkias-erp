@@ -243,6 +243,9 @@ namespace Mahkias.Api.Controllers
 
             var planned = QuotationExcelPlanner.Plan(sheet, form);
             var activities = await _uow.PurchaseOrders.GetProjectActivitiesAsync(projectId);
+            var units = await _uow.Lookups.ListUnitsAsync();
+            var conditions = await _uow.Lookups.ListConditionsAsync();
+            var currencies = await _uow.Currencies.ListActiveAsync();
             var errors = new List<ActivityImportIssue>(planned.Errors);
             var items = new List<object>();
             foreach (var row in planned.Rows)
@@ -274,10 +277,10 @@ namespace Mahkias.Api.Controllers
                     dsnNo = row.DsnNo,
                     partNo = row.PartNo,
                     description = row.Description,
-                    condition = row.Condition,
-                    unit = row.UnitName,
+                    condition = LookupText.Canonical(row.Condition, null, conditions),
+                    unit = LookupText.Canonical(row.UnitName, null, units),
                     leadTime = row.LeadTime,
-                    currencyCode = row.CurrencyCode,
+                    currencyCode = LookupText.MatchCurrency(row.CurrencyCode, currencies)?.Code?.Trim() ?? LookupText.Fold(row.CurrencyCode),
                     quantity = row.Quantity,
                     unitPrice = row.UnitPrice,
                     totalPrice = row.TotalPrice,

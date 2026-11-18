@@ -14,7 +14,7 @@ import { Activity, ActivityImportIssue, Currency, ProjectApiService, QuotationIt
 import { directActivityId } from '../quotation-map';
 import { duplicateSupplierReferenceMessage, hasDuplicateSupplierReference } from '../../suppliers/supplier-reference';
 import { leadTimeDays, leadTimeInvalid, leadTimeText, LeadTimeDaysDirective } from '../lead-time';
-import { WholeQuantityDirective } from '../whole-quantity';
+import { WholeQuantityDirective, isWholeQuantity } from '../whole-quantity';
 import { quotationQuantity, pricedQuantity } from '../quotation-terms';
 import { QuotationItemDetailsDialog } from '../add-quotation-dialog/quotation-item-details-dialog';
 import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-date-field';
@@ -167,11 +167,13 @@ export class ImportQuotationDialogComponent {
     this.api.units().subscribe({
       next: (units) => {
         this.units = units ?? [];
+        this.mapping.defaultUnit = canonicalUnit(this.mapping.defaultUnit || 'EA', this.units) || 'EA';
       },
     });
     this.api.conditions().subscribe({
       next: (conditions) => {
         this.conditions = conditions ?? [];
+        this.mapping.defaultCondition = canonicalCondition(this.mapping.defaultCondition || 'NE', this.conditions) || 'NE';
       },
     });
     this.api.currencies().subscribe({
@@ -867,8 +869,8 @@ export class ImportQuotationDialogComponent {
       dsnNo: source.dsnNo ?? '',
       partNo: source.partNo ?? '',
       description: source.description ?? '',
-      condition: source.condition ?? '',
-      unit: source.unit?.trim() || '',
+      condition: canonicalCondition(source.condition ?? '', this.conditions),
+      unit: canonicalUnit(source.unit ?? '', this.units),
       leadTime: leadTimeText(source.leadTime),
       minimumQty: source.minimumQty ? String(source.minimumQty) : '',
       serialNo: source.serialNo ?? '',
@@ -977,11 +979,7 @@ export class ImportQuotationDialogComponent {
   }
 
   private validQuantity(value: string): boolean {
-    if (!value.trim()) {
-      return true;
-    }
-    const parsed = Number(value);
-    return Number.isInteger(parsed) && parsed >= 1;
+    return isWholeQuantity(value, true);
   }
 
   private optionalText(value: string): string | null {
@@ -1029,14 +1027,14 @@ export class ImportQuotationDialogComponent {
       defaultDsnNo: '',
       defaultPartNo: '',
       defaultDescription: '',
-      defaultCondition: '',
-      defaultUnit: '',
+      defaultCondition: 'NE',
+      defaultUnit: 'EA',
       defaultLeadTime: '',
       defaultMinimumQty: '',
       defaultQuotedDate: '',
       defaultValidUntil: '',
       defaultUnitPrice: '',
-      defaultQuantity: '',
+      defaultQuantity: '1',
       defaultTotalPrice: '',
     };
   }

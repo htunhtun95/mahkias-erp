@@ -20,6 +20,8 @@ export function canonicalCondition(value: string, conditions: LookupValue[]): st
   return match?.name || text;
 }
 
-function sameText(left: string, right: string): boolean {
-  return left.localeCompare(right, undefined, { sensitivity: 'accent' }) === 0;
+function sameText(left: string | null | undefined, right: string | null | undefined): boolean {
+  const expected = (left ?? '').trim().toLowerCase();
+  const actual = (right ?? '').trim().toLowerCase();
+  return expected.length > 0 && expected === actual;
 }

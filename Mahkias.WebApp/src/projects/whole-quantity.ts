@@ -1,4 +1,28 @@
 import { Directive, HostListener, inject } from '@angular/core';
+
+export function isWholeQuantity(value: string, allowBlank = false): boolean {
+  const text = value.trim();
+  if (!text) {
+    return allowBlank;
+  }
+  if (!/^\d+$/.test(text)) {
+    return false;
+  }
+  const parsed = Number(text);
+  return Number.isSafeInteger(parsed) && parsed >= 1 && parsed <= 2147483647;
+}
+
+export function isDecimalQuantity(value: string, allowBlank = false): boolean {
+  const text = value.trim();
+  if (!text) {
+    return allowBlank;
+  }
+  if (!/^\d+(\.\d+)?$/.test(text)) {
+    return false;
+  }
+  const parsed = Number(text);
+  return Number.isFinite(parsed) && parsed > 0;
+}
 import { NgControl } from '@angular/forms';
 
 @Directive({

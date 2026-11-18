@@ -19,7 +19,7 @@ import { DocumentManagerComponent, syncDocumentDrafts } from '../document-manage
 import { DriveUploadCardComponent } from '../drive-upload-card/drive-upload-card';
 import { formatMoney } from '../money-format';
 import { leadTimeDays, leadTimeInvalid, leadTimeText, LeadTimeDaysDirective } from '../lead-time';
-import { WholeQuantityDirective } from '../whole-quantity';
+import { WholeQuantityDirective, isWholeQuantity } from '../whole-quantity';
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
 import { QuotationChargeRow, QuotationChargesComponent, quotationChargeTotal, readQuotationCharges } from '../quotation-charges/quotation-charges';
 import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-date-field';
@@ -125,6 +125,8 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
         this.currencies = result.currencies;
         this.units = result.units;
         this.conditions = result.conditions;
+        this.mapping.defaultUnit = canonicalUnit(this.mapping.defaultUnit || 'EA', this.units) || 'EA';
+        this.mapping.defaultCondition = canonicalCondition(this.mapping.defaultCondition || 'NE', this.conditions) || 'NE';
         this.statuses = result.statuses ?? [];
         this.statusCode = 'Draft';
         this.currencyId = result.currencies.find((currency) => currency.isDefault)?.id ?? result.currencies[0]?.id ?? null;
@@ -573,8 +575,8 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
       dsnNo: item.dsnNo ?? '',
       partNo: item.partNo ?? '',
       description: item.description ?? '',
-      condition: item.condition ?? '',
-      unit: item.unit ?? '',
+      condition: canonicalCondition(item.condition ?? '', this.conditions),
+      unit: canonicalUnit(item.unit ?? '', this.units),
       leadTime: leadTimeText(item.leadTime),
       currencyId: this.currencyIdFor(item.currencyCode),
       currencyExplicit: !!item.currencyCode?.trim(),
@@ -624,11 +626,7 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
   }
 
   private validQuantity(value: string): boolean {
-    if (!value.trim()) {
-      return false;
-    }
-    const parsed = Number(value);
-    return Number.isInteger(parsed) && parsed >= 1;
+    return isWholeQuantity(value, false);
   }
 
   private quantity(line: PreviewLine): number | null {
@@ -645,11 +643,12 @@ export class ImportPurchaseOrderDialogComponent implements OnInit {
   }
 
   private currencyIdFor(code: string | null | undefined): number | null {
-    const text = (code ?? '').trim();
+    const text = (code ?? '').trim().toLowerCase();
     if (!text) {
       return this.currencyId;
     }
-    const match = this.currencies.find((currency) => currency.code.localeCompare(text, undefined, { sensitivity: 'accent' }) === 0);
+    const match = this.currencies.find((currency) =>
+      (currency.code ?? '').trim().toLowerCase() === text || (currency.name ?? '').trim().toLowerCase() === text);
     return match?.id ?? this.currencyId;
   }
 
@@ -797,10 +796,10 @@ function blankMapping(): PurchaseOrderExcelMappingInput {
     defaultDsnNo: '',
     defaultPartNo: '',
     defaultDescription: '',
-    defaultCondition: '',
-    defaultUnit: '',
+    defaultCondition: 'NE',
+    defaultUnit: 'EA',
     defaultLeadTime: '',
-    defaultQuantity: '',
+    defaultQuantity: '1',
     defaultUnitPrice: '',
     defaultTotalPrice: '',
   };

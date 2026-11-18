@@ -167,6 +167,10 @@ h3 {
   border-bottom: 0;
 }
 
+.quote-line.selectable {
+  cursor: pointer;
+}
+
 .quote-line.heading {
   min-height: 36px;
   background: #f8f9fa;

@@ -94,7 +94,7 @@
       }
     </div>
     }
-    <div class="header-dates">
+    <div class="header-dates" [class.creating-supplier]="creatingSupplier && !isVerifyStep">
       <app-quotation-date-field label="Quoted Date" [(ngModel)]="quotedDate" name="quotedDate" [disabled]="busy"></app-quotation-date-field>
       <app-quotation-date-field label="Valid Until" [(ngModel)]="validUntil" name="validUntil" [disabled]="busy" [externalError]="dateOrderError"></app-quotation-date-field>
     </div>
@@ -139,47 +139,54 @@
     }
     @if (columns.length) {
         <div class="map-panel">
-          <div class="map-grid">
+          <div class="map">
+            <div class="map-head">
+              <span>Field</span>
+              <span>Column</span>
+              <span>Default</span>
+            </div>
             @for (field of fields; track field.key) {
-              <span class="map-label" [class.invalid]="fieldInvalid(field.key) && (columnModel.touched || columnModel.dirty)">{{ field.label }}@if (field.required) {<span class="req" aria-hidden="true">*</span>}</span>
-              <select #columnModel="ngModel" [class.invalid]="fieldInvalid(field.key) && (columnModel.touched || columnModel.dirty)" [name]="field.key" [(ngModel)]="mapping[field.key]" (ngModelChange)="dirtyMapping(); noteMap(field.key)" (blur)="noteMap(field.key)">
-                <option value="">Column</option>
-                @for (column of columns; track column.letter) {
-                  <option [value]="column.letter">{{ column.letter }}{{ column.header ? ' · ' + column.header : '' }}</option>
+              <div class="map-row" [class.invalid]="fieldInvalid(field.key)">
+                <span>{{ field.label }}@if (field.required) {<em>*</em>}</span>
+                <select [name]="field.key" [(ngModel)]="mapping[field.key]" (ngModelChange)="dirtyMapping(); noteMap(field.key)" (blur)="noteMap(field.key)">
+                  <option value="">Unmapped</option>
+                  @for (column of columns; track column.letter) {
+                    <option [value]="column.letter">{{ column.letter }}{{ column.header ? ' · ' + column.header : '' }}</option>
+                  }
+                </select>
+                @if (field.key === 'currencyColumn') {
+                  <select [disabled]="busy" [ngModel]="currencyId" (ngModelChange)="onDefaultImportCurrency($event)" name="defaultImportCurrency" aria-label="Default currency">
+                    @for (currency of currencies; track currency.id) {
+                      <option [ngValue]="currency.id">{{ currency.code }}</option>
+                    }
+                  </select>
+                } @else if (field.def === 'defaultCondition') {
+                  <select [disabled]="busy" [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping(); noteMap(field.def)" aria-label="Default condition">
+                    <option value="">Default</option>
+                    @for (condition of conditions; track condition.id) {
+                      <option [value]="condition.name">{{ condition.name }}</option>
+                    }
+                  </select>
+                } @else if (field.def === 'defaultUnit') {
+                  <select [disabled]="busy" [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping(); noteMap(field.def)" aria-label="Default unit">
+                    <option value="">Default</option>
+                    @for (unit of units; track unit.id) {
+                      <option [value]="unit.name">{{ unit.name }}</option>
+                    }
+                  </select>
+                } @else if (field.def === 'defaultLeadTime') {
+                  <input leadTimeDays [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping(); noteMap(field.def)" (blur)="noteMap(field.def)" placeholder="Default" inputmode="numeric" />
+                } @else if (field.def) {
+                  <input [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping(); noteMap(field.def)" (blur)="noteMap(field.def)" placeholder="Default" />
+                } @else {
+                  <span class="default-note">Blank stays empty</span>
                 }
-              </select>
-              @if (field.key === 'currencyColumn') {
-                <select [disabled]="busy" [ngModel]="currencyId" (ngModelChange)="onDefaultImportCurrency($event)" name="defaultImportCurrency" aria-label="Default currency">
-                  @for (currency of currencies; track currency.id) {
-                    <option [ngValue]="currency.id">{{ currency.code }}</option>
-                  }
-                </select>
-              } @else if (field.def === 'defaultCondition') {
-                <select [disabled]="busy" [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping(); noteMap(field.def)" aria-label="Default condition">
-                  <option value="">Default</option>
-                  @for (condition of conditions; track condition.id) {
-                    <option [value]="condition.name">{{ condition.name }}</option>
-                  }
-                </select>
-              } @else if (field.def === 'defaultUnit') {
-                <select [disabled]="busy" [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping(); noteMap(field.def)" aria-label="Default unit">
-                  <option value="">Default</option>
-                  @for (unit of units; track unit.id) {
-                    <option [value]="unit.name">{{ unit.name }}</option>
-                  }
-                </select>
-              } @else if (field.def === 'defaultLeadTime') {
-                <input leadTimeDays #fallback="ngModel" [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping(); noteMap(field.def)" (blur)="noteMap(field.def)" [class.invalid]="fieldInvalid(field.key) && (fallback.touched || fallback.dirty)" placeholder="Default" inputmode="numeric" />
-              } @else if (field.def) {
-                <input #fallback="ngModel" [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping(); noteMap(field.def)" (blur)="noteMap(field.def)" [class.invalid]="fieldInvalid(field.key) && (fallback.touched || fallback.dirty)" placeholder="Default" />
-              } @else {
-                <span></span>
-              }
+                @if (fieldInvalid(field.key)) {
+                  <p class="field-warning">Please select a Column Index or enter a Default Value for this required field.</p>
+                }
+              </div>
             }
           </div>
-          @if (requiredMissing && mappingNoted) {
-            <p class="hint-error">Please select a Column Index or enter a Default Value for this required field.</p>
-          }
           <p class="hint">DSN No and Part No are required. Condition, unit, lead time, MOQ, and the technical fields are optional. SerialNo, TSN, TSO, CSN, and CSO have no default: an unmapped column or an empty cell is saved as blank. Quoted date and valid until belong to the quotation. A row with no unit price and no total price is skipped.</p>
           @if (checkState === 'failed' && importErrors.length) {
             <p class="hint-error">⚠ Validation Failed ({{ importErrors.length }} Errors Found)</p>
@@ -230,7 +237,7 @@
                 <th>Condition</th>
                 <th class="price">Unit Price<span class="req" aria-hidden="true">*</span></th>
                 <th class="price">Total Price</th>
-                <th class="action">Settings</th>
+                <th class="action">More</th>
               </tr>
             </thead>
             <tbody>
@@ -293,8 +300,8 @@
                     </span>
                   </td>
                   <td class="action">
-                    <button class="row-menu" type="button" [disabled]="busy" aria-label="Item settings" (click)="openDetails(line)">
-                      <mat-icon>tune</mat-icon>
+                    <button class="row-menu" type="button" [disabled]="busy" matTooltip="More Details" aria-label="More Details" (click)="openDetails(line)">
+                      <mat-icon>more_horiz</mat-icon>
                     </button>
                   </td>
                 </tr>

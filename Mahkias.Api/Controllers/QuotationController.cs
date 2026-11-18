@@ -457,6 +457,8 @@ namespace Mahkias.Api.Controllers
             var plan = QuotationExcelPlanner.Plan(sheet, form);
             var activities = await _uow.Quotations.GetActivitiesForMappingAsync(new[] { projectId });
             var currencies = await _uow.Currencies.ListActiveAsync();
+            var units = await _uow.Lookups.ListUnitsAsync();
+            var conditions = await _uow.Lookups.ListConditionsAsync();
             var errors = plan.Errors.ToList();
             var items = new List<object>();
             var choices = new List<object>();
@@ -485,8 +487,8 @@ namespace Mahkias.Api.Controllers
                         dsnNo = row.DsnNo,
                         partNo = row.PartNo,
                         description = row.Description,
-                        condition = row.Condition,
-                        unit = row.UnitName,
+                        condition = LookupText.Canonical(row.Condition, null, conditions),
+                        unit = LookupText.Canonical(row.UnitName, null, units),
                         leadTime = row.LeadTime,
                         minimumQty = row.MinimumQty,
                         serialNo = row.SerialNo,
@@ -1046,8 +1048,7 @@ namespace Mahkias.Api.Controllers
                 return null;
             }
 
-            var token = code.Trim();
-            return currencies.FirstOrDefault(currency => string.Equals(currency.Code, token, StringComparison.OrdinalIgnoreCase));
+            return LookupText.MatchCurrency(code, currencies);
         }
 
         private static int EffectiveQuantity(int? minimumQty, int quantity)

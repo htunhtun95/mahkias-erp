@@ -163,8 +163,8 @@ namespace Mahkias.Api.Helpers
                 return null;
             }
 
-            return row.TryGetValue(columnLetter.Trim(), out var value) && !string.IsNullOrWhiteSpace(value)
-                ? value.Trim()
+            return row.TryGetValue(columnLetter.Trim(), out var value)
+                ? ImportCellText.Normalize(value)
                 : null;
         }
 
@@ -185,16 +185,7 @@ namespace Mahkias.Api.Helpers
 
         private static string CanonicalLookup(string value, string fallback, IReadOnlyList<LookupValueResult> lookups)
         {
-            var text = string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
-            if (string.IsNullOrWhiteSpace(text))
-            {
-                return null;
-            }
-
-            var match = lookups?.FirstOrDefault(item =>
-                string.Equals(item.Name, text, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(item.Code, text, StringComparison.OrdinalIgnoreCase));
-            return string.IsNullOrWhiteSpace(match?.Name) ? text : match.Name;
+            return LookupText.Canonical(value, fallback, lookups);
         }
 
         private static int? ResolveType(string raw, int? defaultTypeId, IReadOnlyList<ActivityType> types, out string error)
@@ -227,7 +218,8 @@ namespace Mahkias.Api.Helpers
 
         private static int? MatchType(string raw, IReadOnlyList<ActivityType> types)
         {
-            if (int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
+            var text = LookupText.Fold(raw);
+            if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
             {
                 var byId = types?.FirstOrDefault(type => type.Id == id);
                 if (byId != null)
@@ -237,8 +229,8 @@ namespace Mahkias.Api.Helpers
             }
 
             var match = types?.FirstOrDefault(type =>
-                string.Equals(type.Name, raw, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(type.Slug, raw, StringComparison.OrdinalIgnoreCase));
+                LookupText.Equals(type.Name, text) ||
+                LookupText.Equals(type.Slug, text));
             return match?.Id;
         }
 

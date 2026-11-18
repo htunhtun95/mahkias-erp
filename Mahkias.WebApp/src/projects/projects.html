@@ -108,6 +108,13 @@
         </div>
       }
       </div>
+      <mat-paginator
+        [length]="totalCount"
+        [pageIndex]="pageNumber - 1"
+        [pageSize]="pageSize"
+        [pageSizeOptions]="pageSizeOptions"
+        (page)="onPage($event)"
+      />
     </div>
   }
 </div>

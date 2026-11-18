@@ -25,6 +25,7 @@ namespace Mahkias.Data.Helpers
                 { typeof(ICurrencyRepository), connectionString => new CurrencyRepository(connectionString) },
                 { typeof(ILookupRepository), connectionString => new LookupRepository(connectionString) },
                 { typeof(IProjectDocumentRepository), connectionString => new ProjectDocumentRepository(connectionString) },
+                { typeof(IDashboardRepository), connectionString => new DashboardRepository(connectionString) },
             };
         }
 

@@ -123,6 +123,13 @@ export class QuotationDataDialog {
     }
   }
 
+  onRowClick(row: QuotationDataRow, event: MouseEvent) {
+    if (!row.link || event.defaultPrevented || isInteractiveRowTarget(event.target)) {
+      return;
+    }
+    this.toggleRow(row, !this.isSelected(row));
+  }
+
   toggleAll(checked: boolean) {
     this.selectedKeys.clear();
     if (checked) {
@@ -392,4 +399,8 @@ export class QuotationDataDialog {
 
 function orderedQuantity(link: ActivityQuotationLink): number {
   return pricedQuantity(link.quantity, link.minimumQty);
+}
+
+function isInteractiveRowTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && !!target.closest('input, button, a, select, textarea, label');
 }

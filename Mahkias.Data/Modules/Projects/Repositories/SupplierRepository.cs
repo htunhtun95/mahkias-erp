@@ -69,7 +69,11 @@ SELECT Q.Id, Q.Code, Q.SupplierReference, Q.CreatedAt, Q.QuotedDate, Q.ValidUnti
         FROM projects.QuotationProjects QP
         INNER JOIN projects.Projects P ON P.Id = QP.ProjectId AND P.IsDeleted = 0
         WHERE QP.QuotationId = Q.Id) AS ProjectNames,
-       (SELECT MIN(QP.ProjectId) FROM projects.QuotationProjects QP WHERE QP.QuotationId = Q.Id) AS ProjectId
+       (SELECT MIN(P.Id)
+        FROM projects.QuotationProjects QP
+        INNER JOIN projects.Projects P ON P.Id = QP.ProjectId AND P.IsDeleted = 0
+        WHERE QP.QuotationId = Q.Id
+          AND NULLIF(LTRIM(RTRIM(P.Name)), N'') IS NOT NULL) AS ProjectId
 FROM projects.Quotations Q
 WHERE Q.SupplierId = @Id
   AND Q.IsDeleted = 0

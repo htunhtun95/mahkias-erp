@@ -44,12 +44,20 @@ import { ActivitySuggestion, activitySuggestions } from '../quotation-map';
     </ng-template>
   `,
   styles: `
-    :host { display: block; min-width: 0; height: 44px; }
+    :host {
+      display: block;
+      box-sizing: border-box;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+    }
     input {
       display: block;
       box-sizing: border-box;
       width: 100%;
-      height: 44px;
+      height: 100%;
+      min-height: 0;
       margin: 0;
       padding: 6px 8px;
       border: 0;

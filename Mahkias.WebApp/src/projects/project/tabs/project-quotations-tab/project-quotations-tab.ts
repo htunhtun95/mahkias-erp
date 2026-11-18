@@ -194,6 +194,13 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
     this.selectionError = '';
   }
 
+  onLineClick(id: number, event: MouseEvent) {
+    if (event.defaultPrevented || isInteractiveRowTarget(event.target)) {
+      return;
+    }
+    this.toggleLine(id, !this.lineSelected(id));
+  }
+
   toggleAllLines(quotationId: number, checked: boolean) {
     for (const line of this.lineItems(quotationId)) {
       this.toggleLine(line.id, checked);
@@ -491,4 +498,8 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
 
 function quotedQuantity(line: QuotationLine): number {
   return pricedQuantity(line.quantity, line.minimumQty);
+}
+
+function isInteractiveRowTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && !!target.closest('input, button, a, select, textarea, label');
 }

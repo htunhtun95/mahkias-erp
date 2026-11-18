@@ -3,7 +3,7 @@
     <div class="intro-copy">
       <p class="eyebrow">Overview</p>
       <h1>Welcome{{ userName ? ', ' + userName : '' }}</h1>
-      <p class="lede">Track supplier quotations as they move from an empty request into a priced quote.</p>
+      <p class="lede">Track projects, suppliers, quotations, and purchase orders in one place.</p>
     </div>
     <div class="filter-bar" role="group" aria-label="Created date">
       <mat-form-field class="created-filter" appearance="outline" subscriptSizing="dynamic">
@@ -49,46 +49,61 @@
     </div>
   </header>
 
-  <div class="metrics" role="group" aria-label="Quotation summary">
-    <button class="metric" type="button" [class.active]="filters.status === 'all'" (click)="setStatus('all')">
+  <div class="metrics" role="group" aria-label="Overview summary">
+    <article class="metric">
+      <span class="metric-icon projects" aria-hidden="true"><mat-icon>folder</mat-icon></span>
+      <span class="metric-copy">
+        <span class="metric-label">Total projects</span>
+        <strong>{{ projectTotal }}</strong>
+        <span class="metric-hint">{{ activeProjectCount }} active</span>
+      </span>
+    </article>
+    <article class="metric">
       <span class="metric-icon total" aria-hidden="true"><mat-icon>request_quote</mat-icon></span>
       <span class="metric-copy">
-        <span class="metric-label">Total Quotations</span>
-        <strong>{{ scopedRows.length }}</strong>
+        <span class="metric-label">Total quotations</span>
+        <strong>{{ quotationCount }}</strong>
+        <span class="metric-hint">{{ quotedValue }} USD base total</span>
       </span>
-    </button>
-    <button class="metric" type="button" [class.active]="filters.status === 'pending'" (click)="setStatus('pending')">
-      <span class="metric-icon pending" aria-hidden="true"><mat-icon>hourglass_empty</mat-icon></span>
-      <span class="metric-copy">
-        <span class="metric-label">Pending</span>
-        <strong>{{ pendingCount }}</strong>
-        <span class="metric-hint">No line items yet</span>
-      </span>
-    </button>
-    <button class="metric" type="button" [class.active]="filters.status === 'processing'" (click)="setStatus('processing')">
+    </article>
+    <article class="metric">
       <span class="metric-icon processing" aria-hidden="true"><mat-icon>local_shipping</mat-icon></span>
       <span class="metric-copy">
-        <span class="metric-label">Processing</span>
-        <strong>{{ processingCount }}</strong>
-        <span class="metric-hint">Priced and in procurement</span>
+        <span class="metric-label">Open purchase orders</span>
+        <strong>{{ openPurchaseOrderCount }}</strong>
+        <span class="metric-hint">Draft, sent, and revised</span>
       </span>
-    </button>
-    <article class="metric value">
-      <span class="metric-icon value" aria-hidden="true"><mat-icon>payments</mat-icon></span>
+    </article>
+    <article class="metric">
+      <span class="metric-icon suppliers" aria-hidden="true"><mat-icon>storefront</mat-icon></span>
       <span class="metric-copy">
-        <span class="metric-label">Quoted value</span>
-        <strong>{{ quotedValue }}</strong>
-        <span class="metric-hint">USD base total</span>
+        <span class="metric-label">Total suppliers</span>
+        <strong>{{ supplierTotal }}</strong>
+        <span class="metric-hint">Supplier records</span>
       </span>
     </article>
   </div>
 
-  <section class="board" aria-label="Quotation tracking">
+  <section class="board" aria-label="Procurement tracking">
     <div class="board-head">
       <div>
-        <h2>Quotation tracking</h2>
-        <p>Supplier quotes across projects, newest activity first.</p>
+        <h2>Procurement tracking</h2>
+        <p>{{ boardNote }}</p>
       </div>
+    </div>
+    <div class="board-tools">
+      <div class="view-tabs" role="tablist" aria-label="Tracking view">
+        <button type="button" role="tab" [class.active]="filters.dataset === 'quotations'" [attr.aria-selected]="filters.dataset === 'quotations'" (click)="setDataset('quotations')">Quotations</button>
+        <button type="button" role="tab" [class.active]="filters.dataset === 'purchase-orders'" [attr.aria-selected]="filters.dataset === 'purchase-orders'" (click)="setDataset('purchase-orders')">Purchase orders</button>
+      </div>
+      <mat-form-field class="created-filter status-filter" appearance="outline" subscriptSizing="dynamic">
+        <mat-select [value]="filters.status" (selectionChange)="setStatus($event.value)" aria-label="Status">
+          <mat-option value="all">All statuses</mat-option>
+          @for (option of statusOptions; track option.id) {
+            <mat-option [value]="option.id">{{ option.label }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
     </div>
 
     @if (error) {
@@ -110,39 +125,55 @@
         <div class="state" role="status" aria-live="polite" aria-busy="true">
           <mat-spinner diameter="36"></mat-spinner>
         </div>
-      } @else if (!visibleRows.length) {
+      } @else if (!rows.length) {
         <div class="state">
           <mat-icon>inventory_2</mat-icon>
-          <p>{{ rows.length ? 'No quotations match this filter.' : 'No quotations yet.' }}</p>
+          <p>{{ emptyMessage }}</p>
         </div>
       } @else {
-        @for (row of visibleRows; track row.id) {
+        @for (row of rows; track row.key) {
           <article class="track-row">
-            <span class="status" [class.pending]="row.status === 'pending'" [class.processing]="row.status === 'processing'">
+            <span [class]="'status ' + row.status">
               <span class="dot" aria-hidden="true"></span>
-              {{ row.status === 'pending' ? 'Pending' : 'Processing' }}
+              {{ statusLabel(row.status) }}
             </span>
             <span class="refs">
-              <a
-                class="ref-tag"
-                [routerLink]="['/projects', row.projectId]"
-                [queryParams]="{ tab: 'procurement', section: 'quotations' }"
-              >{{ row.code }}</a>
+              @if (canOpenProject(row)) {
+                <a
+                  class="ref-tag"
+                  [routerLink]="['/projects', row.projectId]"
+                  [queryParams]="{ tab: 'procurement', section: row.section }"
+                >{{ row.code }}</a>
+              } @else {
+                <span class="ref-tag">{{ row.code }}</span>
+              }
               @if (row.supplierReference) {
                 <span class="ref-note">{{ row.supplierReference }}</span>
               }
             </span>
-            <a class="supplier" [routerLink]="['/suppliers', row.supplierId]">{{ row.supplierName }}</a>
+            @if (canOpenSupplier(row)) {
+              <a class="supplier" [routerLink]="['/suppliers', row.supplierId]">{{ row.supplierName }}</a>
+            } @else {
+              <span class="supplier plain">{{ hasProjectName(row.supplierName) ? row.supplierName : '—' }}</span>
+            }
             <span class="project">
-              @if (row.projectReference) {
-                <a class="project-tag project-ref-link" [routerLink]="['/projects', row.projectId]">{{ row.projectReference }}</a>
+              @if (!hasProjectName(row.projectName) && !row.projectReference) {
+                <span class="project-name">—</span>
+              } @else {
+                @if (row.projectReference) {
+                  @if (canOpenProject(row)) {
+                    <a class="project-tag project-ref-link" [routerLink]="['/projects', row.projectId]">{{ row.projectReference }}</a>
+                  } @else {
+                    <span class="project-tag">{{ row.projectReference }}</span>
+                  }
+                }
+                <span class="project-name">{{ hasProjectName(row.projectName) ? row.projectName : '—' }}</span>
               }
-              <span class="project-name">{{ row.projectName }}</span>
             </span>
             <span class="items">{{ row.itemCount }}</span>
             <span class="when">
               {{ when(row.updatedAt) }}
-              @if (validity(row.validUntil); as term) {
+              @if (row.dataset === 'quotations' && validity(row.validUntil); as term) {
                 <span class="validity" [class.expired]="term.expired">{{ term.label }}</span>
               }
             </span>
@@ -151,5 +182,14 @@
         }
       }
     </div>
+    @if (!loading && totalCount > 0) {
+      <mat-paginator
+        [length]="totalCount"
+        [pageIndex]="pageNumber - 1"
+        [pageSize]="pageSize"
+        [pageSizeOptions]="pageSizeOptions"
+        (page)="onPage($event)"
+      />
+    }
   </section>
 </section>

@@ -48,10 +48,10 @@
             </button>
           }
           @if (supplierOpen) {
-            <div class="supplier-menu" role="listbox">
+            <div class="supplier-menu">
               <div class="supplier-options">
                 @for (supplier of filteredSuppliers; track supplier.id) {
-                  <button type="button" role="option" (mousedown)="$event.preventDefault(); chooseSupplier(supplier)">
+                  <button type="button" (mousedown)="$event.preventDefault(); chooseSupplier(supplier)">
                     {{ supplier.name }}
                     @if (supplier.reference) {
                       <small>{{ supplier.reference }}</small>
@@ -136,29 +136,36 @@
       }
       @if (columns.length) {
         <div class="map-panel">
-          <div class="map-grid">
+          <div class="map">
+            <div class="map-head">
+              <span>Field</span>
+              <span>Column</span>
+              <span>Default</span>
+            </div>
             @for (field of fields; track field.key) {
-              <span class="map-label" [class.invalid]="fieldInvalid(field.key) && (columnModel.touched || columnModel.dirty)">{{ field.label }}@if (field.required) {<span class="req" aria-hidden="true">*</span>}</span>
-              <select #columnModel="ngModel" [class.invalid]="fieldInvalid(field.key) && (columnModel.touched || columnModel.dirty)" [name]="field.key" [(ngModel)]="mapping[field.key]" (ngModelChange)="dirtyMapping(); noteMap(field.key)" (blur)="noteMap(field.key)">
-                <option value="">Column</option>
-                @for (column of columns; track column.letter) {
-                  <option [value]="column.letter">{{ column.letter }}{{ column.header ? ' · ' + column.header : '' }}</option>
-                }
-              </select>
-              @if (field.key === 'currencyColumn') {
-                <select [disabled]="saving || checking" [ngModel]="currencyId" (ngModelChange)="onHeaderCurrency($event)" name="defaultImportCurrency" aria-label="Default currency">
-                  @for (currency of currencies; track currency.id) {
-                    <option [ngValue]="currency.id">{{ currency.code }}</option>
+              <div class="map-row" [class.invalid]="fieldInvalid(field.key)">
+                <span>{{ field.label }}@if (field.required) {<em>*</em>}</span>
+                <select [name]="field.key" [(ngModel)]="mapping[field.key]" (ngModelChange)="dirtyMapping(); noteMap(field.key)" (blur)="noteMap(field.key)">
+                  <option value="">Unmapped</option>
+                  @for (column of columns; track column.letter) {
+                    <option [value]="column.letter">{{ column.letter }}{{ column.header ? ' · ' + column.header : '' }}</option>
                   }
                 </select>
-              } @else {
-                <input #fallback="ngModel" [leadTimeDays]="field.def === 'defaultLeadTime'" [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping(); noteMap(field.def)" (blur)="noteMap(field.def)" [class.invalid]="fieldInvalid(field.key) && (columnModel.touched || columnModel.dirty || fallback.touched || fallback.dirty)" [attr.inputmode]="field.def === 'defaultLeadTime' ? 'numeric' : null" placeholder="Default" />
-              }
+                @if (field.key === 'currencyColumn') {
+                  <select [disabled]="saving || checking" [ngModel]="currencyId" (ngModelChange)="onHeaderCurrency($event)" name="defaultImportCurrency" aria-label="Default currency">
+                    @for (currency of currencies; track currency.id) {
+                      <option [ngValue]="currency.id">{{ currency.code }}</option>
+                    }
+                  </select>
+                } @else {
+                  <input [leadTimeDays]="field.def === 'defaultLeadTime'" [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping(); noteMap(field.def)" (blur)="noteMap(field.def)" [attr.inputmode]="field.def === 'defaultLeadTime' ? 'numeric' : null" placeholder="Default" />
+                }
+                @if (fieldInvalid(field.key)) {
+                  <p class="field-warning">Please select a Column Index or enter a Default Value for this required field.</p>
+                }
+              </div>
             }
           </div>
-          @if (requiredMissing && mappingNoted) {
-            <p class="hint-error">Please select a Column Index or enter a Default Value for this required field.</p>
-          }
           <p class="hint">DSN No and Part No are required. Condition, unit, and lead time are optional. A row with no unit price and no total price is skipped.</p>
           @if (checkState === 'failed' && errors.length) {
             <p class="hint-error">⚠ Validation Failed ({{ errors.length }} Errors Found)</p>

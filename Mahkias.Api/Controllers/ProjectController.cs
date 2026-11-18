@@ -39,8 +39,8 @@ namespace Mahkias.Api.Controllers
             var result = await _uow.Projects.SearchAsync(new SearchProjectArgs
             {
                 SearchTerm = search,
-                PageNumber = pageNumber,
-                PageSize = pageSize,
+                PageNumber = pageNumber < 1 ? 1 : pageNumber,
+                PageSize = pageSize is 10 or 20 or 50 or 100 ? pageSize : 20,
                 SortBy = sortBy,
                 SortDirection = sortDirection
             });
@@ -53,9 +53,13 @@ namespace Mahkias.Api.Controllers
                 Description = p.Description,
                 CreatedAt = p.CreatedAt,
                 ModifiedAt = p.ModifiedAt
-            });
+            }).ToList();
 
-            return Ok(projects);
+            return Ok(new ProjectListResponse
+            {
+                Items = projects,
+                TotalCount = result.TotalResults
+            });
         }
 
         [HttpPost("/api/projects")]

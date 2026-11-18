@@ -112,13 +112,10 @@ export class ImportActivityDialog {
   }
 
   mapInvalid(field: 'dsn' | 'part' | 'type'): boolean {
-    const ready = field === 'dsn' ? this.dsnReady : field === 'part' ? this.partReady : this.typeReady;
-    if (ready) {
+    if (!this.columns.length) {
       return false;
     }
-    const column = field === 'dsn' ? this.form.controls.dsnNo : field === 'part' ? this.form.controls.partNo : this.form.controls.type;
-    const fallback = field === 'dsn' ? this.form.controls.defaultDsn : field === 'part' ? this.form.controls.defaultPart : this.form.controls.defaultTypeId;
-    return column.touched || column.dirty || fallback.touched || fallback.dirty;
+    return field === 'dsn' ? !this.dsnReady : field === 'part' ? !this.partReady : !this.typeReady;
   }
 
   get canValidate() {

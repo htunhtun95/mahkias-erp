@@ -1,3 +1,6 @@
+using System.Text.Json.Serialization;
+using Mahkias.Api.Helpers;
+
 namespace Mahkias.Api.Modules.Projects
 {
     public class PurchaseOrderItemRequest
@@ -18,6 +21,7 @@ namespace Mahkias.Api.Modules.Projects
 
         public int? LeadTime { get; set; }
 
+        [JsonConverter(typeof(DecimalQuantityConverter))]
         public decimal? Quantity { get; set; }
 
         public decimal? UnitPrice { get; set; }

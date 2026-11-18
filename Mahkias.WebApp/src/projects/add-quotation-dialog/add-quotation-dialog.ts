@@ -10,7 +10,7 @@ import { documentAccept as acceptedDocuments } from '../document-library-dialog/
 import { blockEnterSubmit } from '../../core/block-enter-submit';
 import { closeOnEscape } from '../../core/close-on-escape';
 import { leadTimeDays, leadTimeInvalid, leadTimeText, LeadTimeDaysDirective } from '../lead-time';
-import { WholeQuantityDirective } from '../whole-quantity';
+import { WholeQuantityDirective, isWholeQuantity } from '../whole-quantity';
 import { SheetCellFocusDirective } from '../sheet-cell-focus';
 import { whileBusy } from '../../core/while-busy';
 import {
@@ -1201,11 +1201,7 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
   }
 
   private validQuantity(value: string): boolean {
-    if (!value.trim()) {
-      return true;
-    }
-    const parsed = Number(value);
-    return Number.isInteger(parsed) && parsed >= 1;
+    return isWholeQuantity(value, true);
   }
 
   validOptionalQuantity(value: string): boolean {

@@ -2,6 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { PageEvent } from '@angular/material/paginator';
 import { Sort } from '@angular/material/sort';
 import { MaterialModule } from '../app/material-module';
 import { whileBusy } from '../core/while-busy';
@@ -26,11 +27,16 @@ export class ProjectsComponent implements OnInit {
   searchTerm = '';
   sortBy = 'createdAt';
   sortDirection: 'asc' | 'desc' = 'desc';
+  pageNumber = 1;
+  pageSize = 10;
+  readonly pageSizeOptions = [10, 20, 50, 100];
+  totalCount = 0;
   loading = true;
   deletingId: number | null = null;
   private hasLoaded = false;
   error = '';
   private searchTimer: ReturnType<typeof setTimeout> | undefined;
+  private loadToken = 0;
 
   ngOnInit() {
     this.load();
@@ -38,8 +44,16 @@ export class ProjectsComponent implements OnInit {
 
   onSearch(value: string) {
     this.searchTerm = value;
+    this.pageNumber = 1;
     clearTimeout(this.searchTimer);
     this.searchTimer = setTimeout(() => this.load(), 250);
+  }
+
+  onPage(event: PageEvent) {
+    const sizeChanged = event.pageSize !== this.pageSize;
+    this.pageSize = event.pageSize;
+    this.pageNumber = sizeChanged ? 1 : event.pageIndex + 1;
+    this.load();
   }
 
   load() {
@@ -47,13 +61,27 @@ export class ProjectsComponent implements OnInit {
       this.loading = true;
     }
     this.error = '';
-    this.api.list(this.searchTerm, this.sortBy, this.sortDirection).subscribe({
-      next: (projects) => {
-        this.projects = projects;
+    const token = ++this.loadToken;
+    this.api.list(this.searchTerm, this.sortBy, this.sortDirection, this.pageNumber, this.pageSize).subscribe({
+      next: (page) => {
+        if (token !== this.loadToken) {
+          return;
+        }
+        this.totalCount = page.totalCount ?? 0;
+        const lastPage = Math.max(1, Math.ceil(this.totalCount / this.pageSize));
+        if (this.pageNumber > lastPage) {
+          this.pageNumber = lastPage;
+          this.load();
+          return;
+        }
+        this.projects = page.items ?? [];
         this.hasLoaded = true;
         this.loading = false;
       },
       error: () => {
+        if (token !== this.loadToken) {
+          return;
+        }
         this.error = 'Projects could not be loaded.';
         this.loading = false;
       },
@@ -79,6 +107,7 @@ export class ProjectsComponent implements OnInit {
   onSort(event: Sort) {
     this.sortBy = event.active || 'createdAt';
     this.sortDirection = event.direction === 'asc' ? 'asc' : 'desc';
+    this.pageNumber = 1;
     this.load();
   }
 

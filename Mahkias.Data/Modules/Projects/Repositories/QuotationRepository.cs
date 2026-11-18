@@ -407,82 +407,97 @@ ORDER BY SortOrder, Id;", _connection);
         {
             var links = new List<ActivityQuotationLink>();
             using var command = new SqlCommand(@"
-WITH Matched AS (
-    SELECT A.Id AS ActivityId, Q.SupplierId AS SupplierId, Q.Id AS QuotationId, I.Id AS ItemId, Q.Code AS QuotationRef, S.Name AS SupplierName,
+WITH ProjectActivities AS (
+    SELECT A.Id,
+           DsnKey = LOWER(LTRIM(RTRIM(A.DSNNo))),
+           PartKey = LOWER(LTRIM(RTRIM(A.PartNo)))
+    FROM projects.Activities A
+    WHERE A.ProjectId = @ProjectId
+      AND A.IsDeleted = 0
+),
+DsnCounts AS (
+    SELECT DsnKey, COUNT(*) AS Cnt
+    FROM ProjectActivities
+    WHERE NULLIF(DsnKey, N'') IS NOT NULL
+    GROUP BY DsnKey
+),
+AltParts AS (
+    SELECT AP.ActivityId,
+           MainKey = LOWER(LTRIM(RTRIM(AP.MainPartNo))),
+           AltKey = LOWER(LTRIM(RTRIM(AP.AlternativePartNo)))
+    FROM projects.ActivityAlternativeParts AP
+    INNER JOIN ProjectActivities A ON A.Id = AP.ActivityId
+),
+AltMatchKeys AS (
+    SELECT DISTINCT ActivityId, PartKey
+    FROM (
+        SELECT ActivityId, MainKey AS PartKey FROM AltParts
+        UNION ALL
+        SELECT ActivityId, AltKey FROM AltParts
+    ) Keys
+),
+AltOnlyKeys AS (
+    SELECT DISTINCT ActivityId, AltKey
+    FROM AltParts
+    WHERE AltKey <> MainKey
+),
+ProjectItems AS (
+    SELECT Q.SupplierId, Q.Id AS QuotationId, I.Id AS ItemId, Q.Code AS QuotationRef, S.Name AS SupplierName,
            Q.SupplierReference AS SupplierQuotationRef, I.PartNo, I.PartDescription AS Description,
-           I.Condition, U.Name AS Unit, I.LeadTime, I.MinimumQty,
-           I.Quantity,
-           Q.QuotedDate, Q.ValidUntil,
-           I.UnitPrice,
-           I.TotalPrice,
+           I.Condition, U.Name AS Unit, I.LeadTime, I.MinimumQty, I.Quantity, Q.QuotedDate, Q.ValidUntil,
+           I.UnitPrice, I.TotalPrice,
            COALESCE(I.BaseUnitPrice, I.UnitPrice) AS BaseUnitPrice,
            COALESCE(I.BaseTotalPrice, I.TotalPrice) AS BaseTotalPrice,
-           C.Code AS CurrencyCode,
-           C.Symbol AS CurrencySymbol,
+           C.Code AS CurrencyCode, C.Symbol AS CurrencySymbol,
            RecordedAt = (SELECT MAX(v) FROM (VALUES (I.CreatedAt), (I.ModifiedAt), (Q.CreatedAt), (Q.ModifiedAt)) AS Stamp(v)),
-           CASE WHEN EXISTS (
-                SELECT 1
-                FROM projects.ActivityAlternativeParts AP
-                WHERE AP.ActivityId = A.Id
-                  AND LOWER(LTRIM(RTRIM(I.PartNo))) = LOWER(LTRIM(RTRIM(AP.AlternativePartNo)))
-                  AND LOWER(LTRIM(RTRIM(I.PartNo))) <> LOWER(LTRIM(RTRIM(AP.MainPartNo)))
-           ) THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS AlternativePart
-    FROM projects.Activities A
-    INNER JOIN projects.QuotationProjects QP ON QP.ProjectId = A.ProjectId
+           DsnKey = LOWER(LTRIM(RTRIM(I.DsnNo))),
+           PartKey = LOWER(LTRIM(RTRIM(I.PartNo)))
+    FROM projects.QuotationProjects QP
     INNER JOIN projects.Quotations Q ON Q.Id = QP.QuotationId
     INNER JOIN projects.Suppliers S ON S.Id = Q.SupplierId
     INNER JOIN projects.QuotationItems I ON I.QuotationId = Q.Id
     LEFT JOIN dbo.Currencies C ON C.Id = I.CurrencyId
     LEFT JOIN dbo.Units U ON U.Id = I.UnitId
-    WHERE A.ProjectId = @ProjectId
-      AND A.IsDeleted = 0
+    WHERE QP.ProjectId = @ProjectId
       AND Q.IsDeleted = 0
       AND S.IsDeleted = 0
       AND I.UnitPrice IS NOT NULL
-      AND (
-            (
-                NULLIF(LTRIM(RTRIM(A.DSNNo)), N'') IS NOT NULL
-                AND NULLIF(LTRIM(RTRIM(I.DsnNo)), N'') IS NOT NULL
-                AND LOWER(LTRIM(RTRIM(A.DSNNo))) = LOWER(LTRIM(RTRIM(I.DsnNo)))
-                AND (
-                    (
-                        SELECT COUNT(*)
-                        FROM projects.Activities SameDsn
-                        WHERE SameDsn.ProjectId = A.ProjectId
-                          AND SameDsn.IsDeleted = 0
-                          AND LOWER(LTRIM(RTRIM(SameDsn.DSNNo))) = LOWER(LTRIM(RTRIM(A.DSNNo)))
-                    ) = 1
-                    OR LOWER(LTRIM(RTRIM(I.PartNo))) = LOWER(LTRIM(RTRIM(A.PartNo)))
-                    OR EXISTS (
-                        SELECT 1
-                        FROM projects.ActivityAlternativeParts AP
-                        WHERE AP.ActivityId = A.Id
-                          AND (
-                                LOWER(LTRIM(RTRIM(I.PartNo))) = LOWER(LTRIM(RTRIM(AP.MainPartNo)))
-                                OR LOWER(LTRIM(RTRIM(I.PartNo))) = LOWER(LTRIM(RTRIM(AP.AlternativePartNo)))
-                          )
-                    )
-                )
-            )
-            OR EXISTS (
-                SELECT 1
-                FROM projects.ActivityAlternativeParts AP
-                WHERE AP.ActivityId = A.Id
-                  AND LOWER(LTRIM(RTRIM(I.PartNo))) = LOWER(LTRIM(RTRIM(AP.AlternativePartNo)))
-                  AND (
-                        NULLIF(LTRIM(RTRIM(I.DsnNo)), N'') IS NULL
-                        OR LOWER(LTRIM(RTRIM(I.DsnNo))) = LOWER(LTRIM(RTRIM(A.DSNNo)))
-                        OR NOT EXISTS (
-                            SELECT 1
-                            FROM projects.Activities Other
-                            WHERE Other.ProjectId = A.ProjectId
-                              AND Other.IsDeleted = 0
-                              AND NULLIF(LTRIM(RTRIM(Other.DSNNo)), N'') IS NOT NULL
-                              AND LOWER(LTRIM(RTRIM(Other.DSNNo))) = LOWER(LTRIM(RTRIM(I.DsnNo)))
-                        )
-                  )
-            )
-      )
+),
+DsnMatched AS (
+    SELECT A.Id AS ActivityId, I.SupplierId, I.QuotationId, I.ItemId, I.QuotationRef, I.SupplierName, I.SupplierQuotationRef,
+           I.PartNo, I.Description, I.Condition, I.Unit, I.LeadTime, I.MinimumQty, I.Quantity, I.QuotedDate, I.ValidUntil,
+           I.UnitPrice, I.TotalPrice, I.BaseUnitPrice, I.BaseTotalPrice, I.CurrencyCode, I.CurrencySymbol, I.RecordedAt,
+           CASE WHEN AF.ActivityId IS NOT NULL THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS AlternativePart
+    FROM ProjectActivities A
+    INNER JOIN ProjectItems I
+        ON I.DsnKey = A.DsnKey
+       AND NULLIF(A.DsnKey, N'') IS NOT NULL
+       AND NULLIF(I.DsnKey, N'') IS NOT NULL
+    INNER JOIN DsnCounts DC ON DC.DsnKey = A.DsnKey
+    LEFT JOIN AltMatchKeys AK ON AK.ActivityId = A.Id AND AK.PartKey = I.PartKey
+    LEFT JOIN AltOnlyKeys AF ON AF.ActivityId = A.Id AND AF.AltKey = I.PartKey
+    WHERE DC.Cnt = 1
+       OR I.PartKey = A.PartKey
+       OR AK.ActivityId IS NOT NULL
+),
+AltMatched AS (
+    SELECT A.Id AS ActivityId, I.SupplierId, I.QuotationId, I.ItemId, I.QuotationRef, I.SupplierName, I.SupplierQuotationRef,
+           I.PartNo, I.Description, I.Condition, I.Unit, I.LeadTime, I.MinimumQty, I.Quantity, I.QuotedDate, I.ValidUntil,
+           I.UnitPrice, I.TotalPrice, I.BaseUnitPrice, I.BaseTotalPrice, I.CurrencyCode, I.CurrencySymbol, I.RecordedAt,
+           CASE WHEN AF.ActivityId IS NOT NULL THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS AlternativePart
+    FROM ProjectActivities A
+    INNER JOIN (SELECT DISTINCT ActivityId, AltKey FROM AltParts) AP ON AP.ActivityId = A.Id
+    INNER JOIN ProjectItems I ON I.PartKey = AP.AltKey
+    LEFT JOIN DsnCounts ItemDsn ON ItemDsn.DsnKey = I.DsnKey AND NULLIF(I.DsnKey, N'') IS NOT NULL
+    LEFT JOIN AltOnlyKeys AF ON AF.ActivityId = A.Id AND AF.AltKey = I.PartKey
+    WHERE NULLIF(I.DsnKey, N'') IS NULL
+       OR I.DsnKey = A.DsnKey
+       OR ItemDsn.DsnKey IS NULL
+),
+Matched AS (
+    SELECT * FROM DsnMatched
+    UNION
+    SELECT * FROM AltMatched
 ),
 Ranked AS (
     SELECT *,

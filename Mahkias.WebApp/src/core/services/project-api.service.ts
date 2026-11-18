@@ -13,6 +13,40 @@ export interface Project {
   activities?: Activity[];
 }
 
+export interface ProjectPage {
+  items: Project[];
+  totalCount: number;
+}
+
+export interface DashboardTrackItem {
+  id: number;
+  dataset: 'quotations' | 'purchase-orders';
+  status: string;
+  code: string;
+  supplierId: number;
+  supplierName: string;
+  supplierReference?: string | null;
+  projectId: number;
+  projectName?: string | null;
+  projectReference?: string | null;
+  itemCount: number;
+  baseTotalAmount: number;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+  validUntil?: string | null;
+}
+
+export interface DashboardPage {
+  projectTotal: number;
+  activeProjectCount: number;
+  supplierTotal: number;
+  quotationCount: number;
+  quotedValue: number;
+  openPurchaseOrderCount: number;
+  totalCount: number;
+  items: DashboardTrackItem[];
+}
+
 export interface ProjectDocument {
   documentId: number;
   projectId: number;
@@ -609,12 +643,35 @@ export class ProjectApiService {
     this.reads.delete(key);
   }
 
-  list(search?: string, sortBy = 'createdAt', sortDirection: 'asc' | 'desc' = 'desc') {
-    const params: Record<string, string> = { sortBy, sortDirection };
+  list(search?: string, sortBy = 'createdAt', sortDirection: 'asc' | 'desc' = 'desc', pageNumber = 1, pageSize = 50) {
+    const params: Record<string, string> = {
+      sortBy,
+      sortDirection,
+      pageNumber: String(pageNumber),
+      pageSize: String(pageSize),
+    };
     if (search?.trim()) {
       params['search'] = search.trim();
     }
-    return this.http.get<Project[]>(`${this.baseUrl}/projects`, { params });
+    return this.http.get<ProjectPage>(`${this.baseUrl}/projects`, { params });
+  }
+
+  dashboard(dataset: string, status: string, from: string, to: string, pageNumber: number, pageSize: number) {
+    const params: Record<string, string> = {
+      dataset,
+      pageNumber: String(pageNumber),
+      pageSize: String(pageSize),
+    };
+    if (status && status !== 'all') {
+      params['status'] = status;
+    }
+    if (from) {
+      params['from'] = from;
+    }
+    if (to) {
+      params['to'] = to;
+    }
+    return this.http.get<DashboardPage>(`${this.baseUrl}/dashboard`, { params });
   }
 
   get(id: number, sortBy = 'createdAt', sortDirection: 'asc' | 'desc' = 'desc') {

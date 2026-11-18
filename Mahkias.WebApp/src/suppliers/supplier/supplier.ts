@@ -129,10 +129,22 @@ export class SupplierDetailsComponent implements OnInit {
   }
 
   projectLink(quotation: SupplierQuotation) {
-    return quotation.projectId ? ['/projects', quotation.projectId] : null;
+    const project = (quotation.projects ?? []).find((item) => item.id > 0 && hasProjectName(item.name));
+    if (project) {
+      return ['/projects', project.id];
+    }
+    if (quotation.projectId && hasProjectName(quotation.projectNames)) {
+      return ['/projects', quotation.projectId];
+    }
+    return null;
   }
 
   supplierRef(quotation: SupplierQuotation) {
     return quotation.supplierReference?.trim() ?? '';
   }
+}
+
+function hasProjectName(value?: string | null): boolean {
+  const name = (value ?? '').trim();
+  return name.length > 0 && name !== '-' && name !== '—' && name !== '–';
 }

@@ -15,5 +15,6 @@ namespace Mahkias.Core.Data
         ICurrencyRepository Currencies { get; }
         ILookupRepository Lookups { get; }
         IProjectDocumentRepository ProjectDocuments { get; }
+        IDashboardRepository Dashboard { get; }
     }
 }
