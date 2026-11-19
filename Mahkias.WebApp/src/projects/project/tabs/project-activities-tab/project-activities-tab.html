@@ -140,6 +140,9 @@
                   <span></span>
                   <span class="part-cell">
                     <span class="part-no">{{ block.group.name }}</span>
+                    @if (block.group.budget != null) {
+                      <span class="group-budget">{{ groupBudget(block.group) }}</span>
+                    }
                   </span>
                 </div>
                 <span class="description">{{ block.group.description || '—' }}</span>

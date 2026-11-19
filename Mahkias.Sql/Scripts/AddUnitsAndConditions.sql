@@ -74,6 +74,8 @@ IF NOT EXISTS (SELECT 1 FROM dbo.Conditions WHERE UPPER(Name) = N'EX')
     INSERT INTO dbo.Conditions (Id, Name, Code) VALUES ((SELECT ISNULL(MAX(Id), 0) + 1 FROM dbo.Conditions), N'EX', N'EX');
 IF NOT EXISTS (SELECT 1 FROM dbo.Conditions WHERE UPPER(Name) = N'EO')
     INSERT INTO dbo.Conditions (Id, Name, Code) VALUES ((SELECT ISNULL(MAX(Id), 0) + 1 FROM dbo.Conditions), N'EO', N'EO');
+IF NOT EXISTS (SELECT 1 FROM dbo.Conditions WHERE UPPER(Name) = N'RP' OR UPPER(Code) = N'RP')
+    INSERT INTO dbo.Conditions (Id, Name, Code) VALUES ((SELECT ISNULL(MAX(Id), 0) + 1 FROM dbo.Conditions), N'RP', N'RP');
 
 IF COL_LENGTH(N'projects.QuotationItems', N'UnitId') IS NULL
     ALTER TABLE projects.QuotationItems ADD UnitId INT NULL;

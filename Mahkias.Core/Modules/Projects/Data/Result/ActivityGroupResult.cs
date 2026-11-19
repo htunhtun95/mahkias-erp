@@ -12,7 +12,11 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
 
         public int? TypeId { get; set; }
 
+        public decimal? Budget { get; set; }
+
         public DateTime CreatedAt { get; set; }
+
+        public DateTime? ModifiedAt { get; set; }
     }
 
     public class ActivityGroupAssignResult

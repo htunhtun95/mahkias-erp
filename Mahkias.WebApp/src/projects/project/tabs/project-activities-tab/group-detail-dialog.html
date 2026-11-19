@@ -5,6 +5,9 @@
     <p>{{ data.group.description || 'Activities in this group stay in their type lists.' }}</p>
     <div class="metrics">
       <span class="chip">{{ itemLabel }}</span>
+      @if (budgetLabel) {
+        <span class="chip">Budget {{ budgetLabel }}</span>
+      }
       <span class="chip">Total Qty: {{ totalQuantity }}</span>
     </div>
   </div>

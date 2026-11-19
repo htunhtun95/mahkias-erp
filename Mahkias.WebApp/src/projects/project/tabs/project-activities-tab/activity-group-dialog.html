@@ -30,6 +30,13 @@
       </label>
       <p class="error">@if (typeInvalid) { Act Type is required }</p>
     </div>
+    <div class="field" [class.invalid]="budgetInvalid">
+      <label class="control">
+        <span class="label">Budget</span>
+        <input formControlName="budget" type="number" min="0" step="0.01" inputmode="decimal" autocomplete="off" />
+      </label>
+      <p class="error">@if (budgetInvalid) { Budget must be zero or more }</p>
+    </div>
   }
   <div class="field">
     <label class="control">

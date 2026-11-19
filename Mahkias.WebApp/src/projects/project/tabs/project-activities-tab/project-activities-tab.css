@@ -701,6 +701,13 @@
   min-width: 0;
 }
 
+.group-budget {
+  color: #5f6368;
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
 .part-no {
   max-width: 100%;
   overflow: hidden;

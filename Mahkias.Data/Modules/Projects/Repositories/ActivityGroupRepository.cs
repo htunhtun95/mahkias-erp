@@ -16,7 +16,7 @@ namespace Mahkias.Data.Modules.Projects.Repositories
         {
             var groups = new List<ActivityGroupResult>();
             using var command = new SqlCommand(@"
-SELECT Id, ProjectId, Name, Description, ActivityTypeId, CreatedAt
+SELECT Id, ProjectId, Name, Description, ActivityTypeId, Budget, CreatedAt, ModifiedAt
 FROM projects.ActivityGroups
 WHERE ProjectId = @ProjectId
 ORDER BY Name, Id", _connection);
@@ -58,7 +58,7 @@ VALUES (@ProjectId, @Name, @Description)", _connection);
             }
         }
 
-        public async Task<bool> UpdateAsync(int id, int projectId, string name, string description, int? typeId)
+        public async Task<bool> UpdateAsync(int id, int projectId, string name, string description, int? typeId, decimal? budget)
         {
             _connection.Open();
             SqlTransaction transaction = null;
@@ -88,7 +88,9 @@ WHERE Id = @Id AND ProjectId = @ProjectId", _connection, transaction))
 UPDATE projects.ActivityGroups
 SET Name = @Name,
     Description = @Description,
-    ActivityTypeId = @TypeId
+    ActivityTypeId = @TypeId,
+    Budget = @Budget,
+    ModifiedAt = GETDATE()
 WHERE Id = @Id
   AND ProjectId = @ProjectId", _connection, transaction))
                 {
@@ -100,6 +102,7 @@ WHERE Id = @Id
                     {
                         Value = (object)nextType ?? DBNull.Value,
                     });
+                    update.Parameters.AddNullableDecimal("Budget", budget, 18, 2);
                     await update.ExecuteNonQueryAsync();
                 }
 
@@ -455,7 +458,9 @@ WHERE Id = @ActivityId
                 Name = reader.ReadStringValue("Name"),
                 Description = reader.ReadStringValue("Description"),
                 TypeId = reader.ReadNullableIntValue("ActivityTypeId"),
+                Budget = reader.ReadNullableDecimalValue("Budget"),
                 CreatedAt = reader.ReadDateTimeValue("CreatedAt"),
+                ModifiedAt = reader.ReadNullableDateTimeValue("ModifiedAt"),
             };
         }
 

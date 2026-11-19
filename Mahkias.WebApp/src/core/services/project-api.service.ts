@@ -108,7 +108,9 @@ export interface ActivityGroup {
   name: string;
   description?: string | null;
   typeId?: number | null;
+  budget?: number | null;
   createdAt?: string | null;
+  modifiedAt?: string | null;
 }
 
 export interface ActivityLabel {
@@ -800,8 +802,13 @@ export class ProjectApiService {
     );
   }
 
-  updateActivityGroup(projectId: number, id: number, name: string, description: string, typeId?: number | null) {
-    return this.http.put<ActivityGroup>(`${this.baseUrl}/projects/${projectId}/activity-groups/${id}`, { name, description, typeId: typeId ?? null }).pipe(
+  updateActivityGroup(projectId: number, id: number, name: string, description: string, typeId?: number | null, budget?: number | null) {
+    return this.http.put<ActivityGroup>(`${this.baseUrl}/projects/${projectId}/activity-groups/${id}`, {
+      name,
+      description,
+      typeId: typeId ?? null,
+      budget: budget ?? null,
+    }).pipe(
       tap(() => this.forgetProject(projectId)),
     );
   }

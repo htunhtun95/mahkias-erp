@@ -544,6 +544,10 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     draft.quantity = Number(value);
   }
 
+  groupBudget(group: ActivityGroup): string {
+    return formatMoney(group.budget, '$', 'USD');
+  }
+
   partTitle(activity: Activity): string {
     return partNumberPreview(this.draft(activity).partNo) || "Use 'or', or '/' between two full part numbers, for alternates. A size such as 1/2 stays in the part number.";
   }
@@ -1571,7 +1575,7 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
         return;
       }
       const request = group
-        ? this.api.updateActivityGroup(this.project.id, group.id, saved.name, saved.description ?? '', saved.typeId)
+        ? this.api.updateActivityGroup(this.project.id, group.id, saved.name, saved.description ?? '', saved.typeId, saved.budget)
         : this.api.createActivityGroup(this.project.id, saved.name, saved.description ?? '');
       request.subscribe({
         next: (savedGroup) => {

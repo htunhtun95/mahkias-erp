@@ -3,6 +3,7 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MaterialModule } from '../../../../app/material-module';
 import { closeOnEscape } from '../../../../core/close-on-escape';
 import { Activity, ActivityGroup } from '../../../../core/services/project-api.service';
+import { formatMoney } from '../../../money-format';
 
 @Component({
   selector: 'app-group-detail-dialog',
@@ -27,6 +28,10 @@ export class GroupDetailDialog {
 
   get itemCount(): number {
     return this.activities.length;
+  }
+
+  get budgetLabel(): string {
+    return this.data.group.budget == null ? '' : formatMoney(this.data.group.budget, '$', 'USD');
   }
 
   get itemLabel(): string {

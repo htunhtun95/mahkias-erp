@@ -1,5 +1,5 @@
 import { Component, inject } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MaterialModule } from '../../../../app/material-module';
 import { blockEnterSubmit } from '../../../../core/block-enter-submit';
@@ -22,6 +22,7 @@ export class ActivityGroupDialog {
     name: [this.data?.group?.name ?? '', requiredText],
     description: [this.data?.group?.description ?? ''],
     typeId: [this.data?.group?.typeId ?? null as number | null, this.data?.group ? Validators.required : []],
+    budget: [this.data?.group?.budget ?? null as number | null, ActivityGroupDialog.optionalBudget],
   });
 
   get types(): ActivityType[] {
@@ -42,6 +43,11 @@ export class ActivityGroupDialog {
     return this.editing && typeId.invalid && (typeId.touched || typeId.dirty);
   }
 
+  get budgetInvalid() {
+    const budget = this.form.controls.budget;
+    return this.editing && budget.invalid && (budget.touched || budget.dirty);
+  }
+
   onFieldEnter(event: Event) {
     blockEnterSubmit(event);
   }
@@ -59,6 +65,27 @@ export class ActivityGroupDialog {
       name: this.form.controls.name.value?.trim() ?? '',
       description: this.form.controls.description.value?.trim() ?? '',
       typeId: this.editing ? this.form.controls.typeId.value : null,
+      budget: this.editing ? this.budgetAmount() : null,
     });
+  }
+
+  private budgetAmount(): number | null {
+    const value = this.form.controls.budget.value;
+    if (value == null || (value as unknown) === '') {
+      return null;
+    }
+    return Number(value);
+  }
+
+  private static optionalBudget(control: AbstractControl): ValidationErrors | null {
+    const value = control.value;
+    if (value == null || value === '') {
+      return null;
+    }
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount < 0) {
+      return { budget: true };
+    }
+    return null;
   }
 }

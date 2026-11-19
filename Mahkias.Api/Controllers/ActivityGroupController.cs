@@ -64,7 +64,12 @@ namespace Mahkias.Api.Controllers
                 return BadRequest(new { message = "Act Type is required." });
             }
 
-            var updated = await _uow.ActivityGroups.UpdateAsync(id, projectId, request.Name, request.Description, request.TypeId);
+            if (request.Budget.HasValue && request.Budget.Value < 0)
+            {
+                return BadRequest(new { message = "Budget must be zero or more." });
+            }
+
+            var updated = await _uow.ActivityGroups.UpdateAsync(id, projectId, request.Name, request.Description, request.TypeId, request.Budget);
             if (!updated)
             {
                 return NotFound();
@@ -156,6 +161,8 @@ namespace Mahkias.Api.Controllers
         public string Description { get; set; }
 
         public int? TypeId { get; set; }
+
+        public decimal? Budget { get; set; }
     }
 
     public class AssignActivityGroupRequest
