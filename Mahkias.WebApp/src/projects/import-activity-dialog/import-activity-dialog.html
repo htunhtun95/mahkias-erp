@@ -14,7 +14,7 @@
       <div class="erp-modal-title">
         <div>
           <h2>Import Activities</h2>
-          <p class="erp-modal-note">DSN No, Part No, and Type are required. For each one, choose a column letter or a default. A filled cell is used first; a blank cell uses the default. Unit starts as EA and condition starts as NE. Label is optional and matched by name, ignoring case.</p>
+          <p class="erp-modal-note">DSN No, Part No, and Type are required. For each one, choose a column letter or a default. A filled cell is used first; a blank cell uses the default. Unit starts as EA and condition starts as NE. Label is optional and matched by name, ignoring case. Part numbers split on 'or', or on '/' only when both sides are full part numbers. A size such as 1/2, or a short revision such as / B, stays one part number.</p>
         </div>
         <button class="erp-modal-close" type="button" matTooltip="Close" aria-label="Close" [disabled]="isImporting || validating" (click)="cancel()">
           <mat-icon>close</mat-icon>
@@ -71,6 +71,9 @@
             <input formControlName="defaultPart" placeholder="Default part no" />
             @if (mapInvalid('part')) {
               <p class="field-warning">{{ requiredFieldWarning }}</p>
+            }
+            @if (defaultPartPreview) {
+              <p class="part-preview">{{ defaultPartPreview }}</p>
             }
           </div>
 

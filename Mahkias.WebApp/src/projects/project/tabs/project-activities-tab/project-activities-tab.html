@@ -191,7 +191,7 @@
                           <input matInput [(ngModel)]="draft(activity).dsnNo" [ngModelOptions]="{ standalone: true }" aria-label="DSN no" [disabled]="isSaving" />
                         </mat-form-field>
                         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'partNo')">
-                          <input matInput [(ngModel)]="draft(activity).partNo" [ngModelOptions]="{ standalone: true }" aria-label="Part no" title="Use 'or' or '/' for alternative parts" [disabled]="isSaving" />
+                          <input matInput [(ngModel)]="draft(activity).partNo" [ngModelOptions]="{ standalone: true }" aria-label="Part no" [title]="partTitle(activity)" [disabled]="isSaving" />
                         </mat-form-field>
                       } @else {
                         <span>{{ activity.dsnNo || '—' }}</span>
@@ -300,7 +300,7 @@
                     <input matInput [(ngModel)]="draft(activity).dsnNo" [ngModelOptions]="{ standalone: true }" aria-label="DSN no" [disabled]="isSaving" />
                   </mat-form-field>
                   <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'partNo')">
-                    <input matInput [(ngModel)]="draft(activity).partNo" [ngModelOptions]="{ standalone: true }" aria-label="Part no" title="Use 'or' or '/' for alternative parts" [disabled]="isSaving" />
+                    <input matInput [(ngModel)]="draft(activity).partNo" [ngModelOptions]="{ standalone: true }" aria-label="Part no" [title]="partTitle(activity)" [disabled]="isSaving" />
                   </mat-form-field>
                 } @else {
                   <span>{{ activity.dsnNo || '—' }}</span>

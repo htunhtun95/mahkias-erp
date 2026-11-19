@@ -10,6 +10,7 @@ import { closeOnEscape } from '../../core/close-on-escape';
 import { whileBusy } from '../../core/while-busy';
 import { ActivityType, LookupValue, ProjectApiService } from '../../core/services/project-api.service';
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
+import { partNumberPreview } from '../part-numbers';
 import { canonicalCondition, canonicalUnit } from '../quotation-lookups';
 import { ActivityItemDetailsDialog } from './activity-item-details-dialog';
 
@@ -149,6 +150,12 @@ export class AddActivityDialog implements AfterViewInit, OnDestroy {
     }
 
     return !String(row[field] ?? '').trim();
+  }
+
+  partTitle(index: number): string {
+    const hint = this.fieldHint(index, 'partNo');
+    const preview = partNumberPreview(String(this.rowValue(index).partNo ?? ''));
+    return [hint, preview].filter((value) => !!value).join(' ');
   }
 
   fieldHint(index: number, field: 'dsnNo' | 'partNo' | 'typeId') {

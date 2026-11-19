@@ -11,7 +11,7 @@
   <div class="erp-modal-title">
     <div>
       <h2>Edit Activity</h2>
-      <p class="erp-modal-note">Tip: Use 'or' or '/' for alternative parts (e.g., P001/P002/P003).</p>
+      <p class="erp-modal-note">Tip: Use 'or', or '/' between two full part numbers, for alternates (for example P001/P002). A size such as 1/2, or a short revision such as / B, stays in the part number.</p>
     </div>
     <button class="erp-modal-close" type="button" matTooltip="Close" aria-label="Close" [disabled]="isSaving" (click)="cancel()">
       <mat-icon>close</mat-icon>
@@ -55,6 +55,8 @@
         <textarea matInput appAutoGrow data-min-height="24" formControlName="partNo" rows="1"></textarea>
         @if (partInvalid) {
           <mat-error>Part number is required.</mat-error>
+        } @else if (partPreview) {
+          <mat-hint>{{ partPreview }}</mat-hint>
         }
       </mat-form-field>
 

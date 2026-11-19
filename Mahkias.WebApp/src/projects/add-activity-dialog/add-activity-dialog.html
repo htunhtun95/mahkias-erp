@@ -12,7 +12,7 @@
     <div class="erp-modal-title">
       <div>
         <h2>Add Activities</h2>
-        <p class="erp-modal-note">Empty rows are ignored. If you fill any field, DSN no, part number, and type are required. Unit starts as EA and condition starts as NE. Label, SerialNo, TSN, TSO, CSN, and CSO are in More. Label is optional and matched by name, ignoring case. Tip: Use 'or' or '/' for alternative parts (e.g., P001/P002/P003).</p>
+        <p class="erp-modal-note">Empty rows are ignored. If you fill any field, DSN no, part number, and type are required. Unit starts as EA and condition starts as NE. Label, SerialNo, TSN, TSO, CSN, and CSO are in More. Label is optional and matched by name, ignoring case. Tip: Use 'or', or '/' between two full part numbers, for alternates (for example P001/P002). A size such as 1/2, or a short revision such as / B, stays in the part number.</p>
       </div>
       <button class="erp-modal-close" type="button" matTooltip="Close" aria-label="Close" [disabled]="isSaving" (click)="cancel()">
         <mat-icon>close</mat-icon>
@@ -58,7 +58,7 @@
               <td class="cell col-text" [class.cell-invalid]="fieldInvalid($index, 'dsnNo')" [attr.data-hint]="fieldHint($index, 'dsnNo')" [attr.title]="fieldHint($index, 'dsnNo')">
                 <input formControlName="dsnNo" [attr.aria-invalid]="fieldInvalid($index, 'dsnNo')" />
               </td>
-              <td class="cell" [class.cell-invalid]="fieldInvalid($index, 'partNo')" [attr.data-hint]="fieldHint($index, 'partNo')" [attr.title]="fieldHint($index, 'partNo')">
+              <td class="cell" [class.cell-invalid]="fieldInvalid($index, 'partNo')" [attr.data-hint]="partTitle($index)" [attr.title]="partTitle($index)">
                 <textarea
                   class="grow-field"
                   appAutoGrow

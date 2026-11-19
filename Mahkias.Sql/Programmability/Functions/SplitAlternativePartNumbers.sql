@@ -57,7 +57,13 @@ BEGIN
     DECLARE @NextSlash INT;
     DECLARE @NextBar INT;
     DECLARE @Token NVARCHAR(MAX);
+    DECLARE @LeftBound INT;
+    DECLARE @Scan INT;
+    DECLARE @Found INT;
+    DECLARE @LeftToken NVARCHAR(MAX);
 
+    -- A slash separates alternate parts only when both sides are full part numbers.
+    -- Fractions such as 1/2 and short revision suffixes such as / B stay in one part.
     WHILE 1 = 1
     BEGIN
         SET @SlashPos = CHARINDEX(N'/', @Work, @SlashPos);
@@ -73,7 +79,30 @@ BEGIN
             SET @TokenEnd = @NextBar;
 
         SET @Token = LTRIM(RTRIM(SUBSTRING(@Work, @SlashPos + 1, @TokenEnd - @SlashPos - 1)));
-        IF LEN(@Token) > 3
+
+        SET @LeftBound = 0;
+        SET @Scan = 1;
+        WHILE 1 = 1
+        BEGIN
+            SET @Found = CHARINDEX(N'|', @Work, @Scan);
+            IF @Found = 0 OR @Found >= @SlashPos
+                BREAK;
+            SET @LeftBound = @Found;
+            SET @Scan = @Found + 1;
+        END
+
+        SET @LeftToken = LTRIM(RTRIM(SUBSTRING(@Work, @LeftBound + 1, @SlashPos - @LeftBound - 1)));
+
+        IF LEN(@LeftToken) > 3
+           AND CHARINDEX(N' ', @LeftToken) = 0
+           AND CHARINDEX(CHAR(9), @LeftToken) = 0
+           AND CHARINDEX(N'/', @LeftToken) = 0
+           AND @LeftToken LIKE N'%[^0-9]%'
+           AND LEN(@Token) > 3
+           AND CHARINDEX(N' ', @Token) = 0
+           AND CHARINDEX(CHAR(9), @Token) = 0
+           AND CHARINDEX(N'/', @Token) = 0
+           AND @Token LIKE N'%[^0-9]%'
         BEGIN
             SET @Work = STUFF(@Work, @SlashPos, 1, N'|');
         END

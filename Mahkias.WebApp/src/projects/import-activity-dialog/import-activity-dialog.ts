@@ -10,6 +10,7 @@ import { closeOnEscape } from '../../core/close-on-escape';
 import { whileBusy } from '../../core/while-busy';
 import { ActivityImportIssue, ActivityType, ExcelColumn, LookupValue, ProjectApiService } from '../../core/services/project-api.service';
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
+import { partNumberPreview } from '../part-numbers';
 import { canonicalCondition, canonicalUnit } from '../quotation-lookups';
 
 const requiredFieldWarning = 'Please select a Column Index or enter a Default Value for this required field.';
@@ -342,6 +343,10 @@ export class ImportActivityDialog {
     this.issues = [];
     this.readyCount = 0;
     this.errorCount = 0;
+  }
+
+  get defaultPartPreview(): string {
+    return partNumberPreview(String(this.form.controls.defaultPart.value ?? ''));
   }
 
   private hasText(value: string | null | undefined) {

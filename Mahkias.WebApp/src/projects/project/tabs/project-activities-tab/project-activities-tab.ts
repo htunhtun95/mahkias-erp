@@ -12,6 +12,7 @@ import { whileBusy } from '../../../../core/while-busy';
 import { Activity, ActivityGroup, ActivityLabel, ActivityQuotationLink, ActivityType, LookupValue, Project, ProjectApiService, PurchaseOrderTraceLine } from '../../../../core/services/project-api.service';
 import { QuotationDataDialog, QuotationDataRow, QuotationDataState } from './quotation-data-dialog';
 import { formatMoney } from '../../../money-format';
+import { partNumberPreview } from '../../../part-numbers';
 import { PurchaseOrderSync } from '../../../purchase-order-sync';
 import { QuotationSync } from '../../../quotation-sync';
 import { ActivityGroupDialog } from './activity-group-dialog';
@@ -541,6 +542,10 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       return;
     }
     draft.quantity = Number(value);
+  }
+
+  partTitle(activity: Activity): string {
+    return partNumberPreview(this.draft(activity).partNo) || "Use 'or', or '/' between two full part numbers, for alternates. A size such as 1/2 stays in the part number.";
   }
 
   fieldInvalid(activity: Activity, field: 'dsnNo' | 'partNo' | 'quantity'): boolean {

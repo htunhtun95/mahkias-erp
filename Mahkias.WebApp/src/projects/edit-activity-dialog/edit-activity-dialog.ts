@@ -10,6 +10,7 @@ import { closeOnEscape } from '../../core/close-on-escape';
 import { whileBusy } from '../../core/while-busy';
 import { Activity, ActivityType, LookupValue, ProjectApiService } from '../../core/services/project-api.service';
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
+import { partNumberPreview } from '../part-numbers';
 import { canonicalCondition, canonicalUnit } from '../quotation-lookups';
 
 class InvalidWhenInvalidMatcher implements ErrorStateMatcher {
@@ -87,6 +88,10 @@ export class EditActivityDialog {
 
   get partInvalid() {
     return this.showError(this.form.controls.partNo);
+  }
+
+  get partPreview(): string {
+    return partNumberPreview(String(this.form.controls.partNo.value ?? ''));
   }
 
   get quantityInvalid() {
