@@ -16,6 +16,7 @@ import { partNumberPreview } from '../../../part-numbers';
 import { PurchaseOrderSync } from '../../../purchase-order-sync';
 import { QuotationSync } from '../../../quotation-sync';
 import { ActivityGroupDialog } from './activity-group-dialog';
+import { RenameLabelDialog } from './rename-label-dialog';
 import { AssignGroupDialog } from './assign-group-dialog';
 import { AssignLabelDialog } from './assign-label-dialog';
 import { GroupDetailDialog } from './group-detail-dialog';
@@ -139,7 +140,30 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     });
   }
 
+  labelMenu: { label: ActivityLabel; x: number; y: number } | null = null;
+  private labelMenuListening = false;
+  private readonly closeLabelMenuFromPointer = (event: Event) => {
+    const target = event.target;
+    if (target instanceof Node && this.host.nativeElement.querySelector('.label-context-menu')?.contains(target)) {
+      return;
+    }
+    this.closeLabelMenu();
+  };
+  private readonly closeLabelMenuFromKey = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      this.closeLabelMenu();
+    }
+  };
+  private readonly closeLabelMenuFromContext = (event: Event) => {
+    const target = event.target;
+    if (target instanceof Element && target.closest('.label-pill')) {
+      return;
+    }
+    this.closeLabelMenu();
+  };
+
   ngOnDestroy() {
+    this.closeLabelMenu();
     this.syncSub.unsubscribe();
     this.poSyncSub.unsubscribe();
     this.unitSub.unsubscribe();
@@ -1124,6 +1148,110 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       return labelId == null;
     }
     return (this.labelSelection.get(typeId) ?? null) === labelId;
+  }
+
+  openLabelMenu(label: ActivityLabel, event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!this.project?.id || this.isSaving || this.deletingId != null) {
+      this.closeLabelMenu();
+      return;
+    }
+    const margin = 8;
+    this.labelMenu = {
+      label,
+      x: Math.max(margin, Math.min(event.clientX, window.innerWidth - 176 - margin)),
+      y: Math.max(margin, Math.min(event.clientY, window.innerHeight - 48 - margin)),
+    };
+    this.bindLabelMenu();
+    requestAnimationFrame(() => this.clampLabelMenu());
+  }
+
+  private bindLabelMenu() {
+    if (this.labelMenuListening) {
+      return;
+    }
+    this.labelMenuListening = true;
+    document.addEventListener('contextmenu', this.closeLabelMenuFromContext, true);
+    document.addEventListener('keydown', this.closeLabelMenuFromKey);
+    window.addEventListener('scroll', this.closeLabelMenuFromPointer, true);
+    setTimeout(() => {
+      if (!this.labelMenuListening) {
+        return;
+      }
+      document.addEventListener('click', this.closeLabelMenuFromPointer);
+    });
+  }
+
+  private clampLabelMenu() {
+    const menu = this.host.nativeElement.querySelector('.label-context-menu');
+    if (!(menu instanceof HTMLElement) || !this.labelMenu) {
+      return;
+    }
+    const rect = menu.getBoundingClientRect();
+    const margin = 8;
+    let x = this.labelMenu.x;
+    let y = this.labelMenu.y;
+    if (rect.right > window.innerWidth - margin) {
+      x -= rect.right - (window.innerWidth - margin);
+    }
+    if (rect.bottom > window.innerHeight - margin) {
+      y -= rect.bottom - (window.innerHeight - margin);
+    }
+    x = Math.max(margin, x);
+    y = Math.max(margin, y);
+    if (x !== this.labelMenu.x || y !== this.labelMenu.y) {
+      this.labelMenu = { ...this.labelMenu, x, y };
+    }
+  }
+
+  closeLabelMenu() {
+    this.labelMenu = null;
+    if (!this.labelMenuListening) {
+      return;
+    }
+    this.labelMenuListening = false;
+    document.removeEventListener('click', this.closeLabelMenuFromPointer);
+    document.removeEventListener('contextmenu', this.closeLabelMenuFromContext, true);
+    document.removeEventListener('keydown', this.closeLabelMenuFromKey);
+    window.removeEventListener('scroll', this.closeLabelMenuFromPointer, true);
+  }
+
+  renameLabel(label: ActivityLabel) {
+    this.closeLabelMenu();
+    if (!this.project?.id || this.isSaving || this.deletingId != null) {
+      return;
+    }
+    const previous = label.name;
+    const ref = this.dialog.open(RenameLabelDialog, {
+      disableClose: true,
+      width: '440px',
+      maxWidth: 'calc(100vw - 32px)',
+      panelClass: 'add-project-dialog-panel',
+      backdropClass: 'add-project-dialog-backdrop',
+      data: { label, labels: this.labels },
+    });
+    ref.afterClosed().subscribe((saved) => {
+      const name = String(saved?.name ?? '').trim();
+      if (!name || name === previous.trim()) {
+        return;
+      }
+      this.api.updateActivityLabel(this.project.id, label.id, name).subscribe({
+        next: (updated) => {
+          const nextName = updated?.name?.trim() || name;
+          this.labels = this.labels.map((item) => item.id === label.id ? { ...item, ...updated, name: nextName } : item);
+          for (const activity of this.project?.activities ?? []) {
+            const draft = this.drafts.get(activity.id);
+            if (draft && !draft.labelTouched) {
+              draft.label = this.labelText(activity);
+            }
+          }
+          this.listVersion++;
+          this.loadLabels();
+        },
+        error: (error: HttpErrorResponse) => this.failed.emit(error.error?.message || 'The label could not be renamed.'),
+      });
+    });
   }
 
   selectLabel(typeId: number | null, labelId: number | null) {

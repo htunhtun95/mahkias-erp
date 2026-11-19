@@ -842,6 +842,12 @@ export class ProjectApiService {
     );
   }
 
+  updateActivityLabel(projectId: number, id: number, name: string) {
+    return this.http.put<ActivityLabel>(`${this.baseUrl}/projects/${projectId}/activity-labels/${id}`, { name }).pipe(
+      tap(() => this.forgetProject(projectId)),
+    );
+  }
+
   deleteActivityLabel(projectId: number, id: number) {
     return this.http.delete<void>(`${this.baseUrl}/projects/${projectId}/activity-labels/${id}`).pipe(
       tap(() => this.forgetProject(projectId)),

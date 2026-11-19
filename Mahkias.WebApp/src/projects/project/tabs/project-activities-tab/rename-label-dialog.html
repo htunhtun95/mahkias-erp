@@ -1,0 +1,28 @@
+<header class="erp-modal-header">
+  <div class="erp-modal-title">
+    <div>
+      <h2>Rename Label</h2>
+      <p class="erp-modal-note">The new name is used everywhere this label is applied.</p>
+    </div>
+    <button class="erp-modal-close" type="button" matTooltip="Close" aria-label="Close" (click)="cancel()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+</header>
+<form [formGroup]="form" (ngSubmit)="save()" (keydown.enter)="onFieldEnter($event)">
+  <div class="field" [class.invalid]="nameInvalid">
+    <label class="name" for="rename-label-name">Name<span class="required" aria-hidden="true">*</span></label>
+    <input id="rename-label-name" #nameInput formControlName="name" maxlength="200" autocomplete="off" />
+    <p class="error">
+      @if (nameInvalid && duplicate) {
+        A label with this name already exists.
+      } @else if (nameInvalid) {
+        Name is required
+      }
+    </p>
+  </div>
+  <div class="actions erp-modal-footer">
+    <button type="button" class="btn ghost" (click)="cancel()">Cancel</button>
+    <button type="submit" class="btn primary" [disabled]="form.invalid">Save</button>
+  </div>
+</form>

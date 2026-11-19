@@ -65,6 +65,29 @@ namespace Mahkias.Api.Controllers
             });
         }
 
+        [HttpPut("/api/projects/{projectId}/activity-labels/{id}")]
+        public async Task<IActionResult> Update(int projectId, int id, [FromBody] ActivityLabelWrite request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.Name))
+            {
+                return BadRequest(new { message = "Label name is required." });
+            }
+
+            var updated = await _uow.ActivityLabels.RenameAsync(id, projectId, request.Name);
+            if (!string.IsNullOrEmpty(updated?.Error))
+            {
+                return BadRequest(new { message = updated.Error });
+            }
+
+            if (updated == null || updated.Missing || updated.Updated <= 0)
+            {
+                return NotFound();
+            }
+
+            var label = (await _uow.ActivityLabels.ListAsync(projectId)).FirstOrDefault(item => item.Id == id);
+            return label == null ? NotFound() : Ok(label);
+        }
+
         [HttpDelete("/api/projects/{projectId}/activity-labels/{id}")]
         public async Task<IActionResult> Delete(int projectId, int id)
         {

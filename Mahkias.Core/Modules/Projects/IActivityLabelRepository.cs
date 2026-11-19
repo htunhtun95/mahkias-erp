@@ -13,6 +13,8 @@ namespace Mahkias.Core.Modules.Projects
 
         Task<ActivityGroupAssignResult> CreateAsync(int projectId, string name, int typeId);
 
+        Task<ActivityGroupAssignResult> RenameAsync(int id, int projectId, string name);
+
         Task<ActivityGroupAssignResult> AssignActivityAsync(int projectId, int activityId, int typeId, string name);
 
         Task<bool> DeleteAsync(int id, int projectId);

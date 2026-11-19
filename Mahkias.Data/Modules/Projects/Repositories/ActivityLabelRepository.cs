@@ -120,6 +120,87 @@ WHERE AL.ProjectId = @ProjectId", _connection))
             }
         }
 
+        public async Task<ActivityGroupAssignResult> RenameAsync(int id, int projectId, string name)
+        {
+            var result = new ActivityGroupAssignResult();
+            var labelName = (name ?? string.Empty).Trim();
+            if (id <= 0 || string.IsNullOrEmpty(labelName))
+            {
+                result.Error = "Label name is required.";
+                return result;
+            }
+
+            if (labelName.Length > 200)
+            {
+                result.Error = "Label name must be 200 characters or fewer.";
+                return result;
+            }
+
+            _connection.Open();
+            try
+            {
+                int typeId;
+                string currentName;
+                using (var read = new SqlCommand(@"
+SELECT ActivityTypeId, Name
+FROM projects.ActivityLabels
+WHERE Id = @Id
+  AND ProjectId = @ProjectId", _connection))
+                {
+                    read.Parameters.AddInt("Id", id);
+                    read.Parameters.AddInt("ProjectId", projectId);
+                    using var reader = await read.ExecuteReaderAsync();
+                    if (!await reader.ReadAsync())
+                    {
+                        result.Missing = true;
+                        return result;
+                    }
+
+                    typeId = reader.ReadIntValue("ActivityTypeId");
+                    currentName = reader.ReadStringValue("Name");
+                }
+
+                if (string.Equals(currentName.Trim(), labelName, StringComparison.Ordinal))
+                {
+                    result.Updated = id;
+                    return result;
+                }
+
+                var existingId = await FindLabelIdAsync(projectId, typeId, labelName);
+                if (existingId > 0 && existingId != id)
+                {
+                    result.Error = "A label with this name already exists.";
+                    return result;
+                }
+
+                using var update = new SqlCommand(@"
+UPDATE projects.ActivityLabels
+SET Name = @Name
+WHERE Id = @Id
+  AND ProjectId = @ProjectId", _connection);
+                update.Parameters.AddNVarChar("Name", labelName, 200);
+                update.Parameters.AddInt("Id", id);
+                update.Parameters.AddInt("ProjectId", projectId);
+                if (await update.ExecuteNonQueryAsync() <= 0)
+                {
+                    result.Missing = true;
+                    return result;
+                }
+
+                result.Updated = id;
+                return result;
+            }
+            catch (SqlException ex) when (ex.Number == 2601 || ex.Number == 2627)
+            {
+                result.Error = "A label with this name already exists.";
+                return result;
+            }
+            finally
+            {
+                _connection.Close();
+            }
+        }
+
         public async Task<ActivityGroupAssignResult> AssignActivityAsync(int projectId, int activityId, int typeId, string name)
         {
             var result = new ActivityGroupAssignResult();
