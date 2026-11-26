@@ -5,6 +5,7 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
         public int Id { get; set; }
         public int ProjectId { get; set; }
         public string PartNo { get; set; }
+        public int? PartId { get; set; }
         public string MainPartNo { get; set; }
         public List<string> AlternativePartNos { get; set; } = new();
         public decimal? Budget { get; set; }

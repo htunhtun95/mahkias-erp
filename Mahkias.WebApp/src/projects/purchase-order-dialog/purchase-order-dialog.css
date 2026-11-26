@@ -137,9 +137,11 @@ h2 {
 
 .header-fields,
 .map-grid {
+  position: relative;
+  z-index: 20;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--form-row-gap) 12px;
   margin-top: 12px;
   align-items: start;
 }
@@ -218,6 +220,7 @@ h2 {
 .supplier-field,
 .supplier-control {
   position: relative;
+  z-index: 2;
 }
 
 .supplier-control {
@@ -259,7 +262,7 @@ h2 {
 
 .supplier-menu {
   position: absolute;
-  z-index: 5;
+  z-index: 30;
   top: calc(100% + 4px);
   left: 0;
   right: 0;
@@ -848,8 +851,10 @@ label.original-toggle input {
 }
 
 .po-import .header-fields {
+  position: relative;
+  z-index: 20;
   grid-template-columns: minmax(160px, 0.9fr) minmax(180px, 1fr) minmax(220px, 1.4fr);
-  gap: 12px;
+  gap: var(--form-row-gap) 12px;
   margin-top: 0;
   align-items: start;
 }

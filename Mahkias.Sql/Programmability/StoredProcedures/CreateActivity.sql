@@ -13,7 +13,8 @@ CREATE PROCEDURE [dbo].[CreateActivity]
     @TSN NVARCHAR(100) = NULL,
     @TSO NVARCHAR(100) = NULL,
     @CSN NVARCHAR(100) = NULL,
-    @CSO NVARCHAR(100) = NULL
+    @CSO NVARCHAR(100) = NULL,
+    @PartId INT = NULL
 )
 AS
 BEGIN
@@ -25,6 +26,13 @@ BEGIN
         SELECT Id = CAST(NULL AS INT);
         RETURN;
     END
+
+    DECLARE @ResolvedPartId INT;
+    EXEC dbo.ResolveActivityPart
+        @PartId = @PartId,
+        @PartNo = @PartNo,
+        @Description = @Description,
+        @ResolvedPartId = @ResolvedPartId OUTPUT;
 
     INSERT INTO projects.Activities
     (
@@ -42,6 +50,7 @@ BEGIN
         CSN,
         CSO,
         ActivityTypeId,
+        PartId,
         CreatedAt
     )
     VALUES
@@ -60,6 +69,7 @@ BEGIN
         NULLIF(LTRIM(RTRIM(@CSN)), N''),
         NULLIF(LTRIM(RTRIM(@CSO)), N''),
         @TypeId,
+        @ResolvedPartId,
         GETDATE()
     );
 

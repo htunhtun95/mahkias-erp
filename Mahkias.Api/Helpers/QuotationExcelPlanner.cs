@@ -17,6 +17,8 @@ namespace Mahkias.Api.Helpers
 
         public string Condition { get; set; }
 
+        public string ActivityType { get; set; }
+
         public string UnitName { get; set; }
 
         public int? LeadTime { get; set; }
@@ -66,6 +68,7 @@ namespace Mahkias.Api.Helpers
                 var part = CellOrDefault(source, form.PartNoColumn, form.DefaultPartNo);
                 var description = CellOrDefault(source, form.DescriptionColumn, form.DefaultDescription);
                 var condition = CellOrDefault(source, form.ConditionColumn, form.DefaultCondition);
+                var activityType = CellOrDefault(source, form.ActivityTypeColumn, form.DefaultActivityType);
                 var unitName = CellOrDefault(source, form.UnitColumn, form.DefaultUnit);
                 var leadTime = CellOrDefault(source, form.LeadTimeColumn, form.DefaultLeadTime);
                 var minimumText = Cell(source, form.MinimumQtyColumn);
@@ -225,6 +228,7 @@ namespace Mahkias.Api.Helpers
                     PartNo = part,
                     Description = description,
                     Condition = TrimTo(condition, 100),
+                    ActivityType = activityType?.Trim(),
                     UnitName = TrimTo(unitName, 100),
                     LeadTime = leadDays,
                     MinimumQty = minimumQty,

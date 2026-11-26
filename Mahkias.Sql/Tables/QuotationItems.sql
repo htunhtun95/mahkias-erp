@@ -29,6 +29,7 @@ CREATE TABLE [projects].[QuotationItems]
     [MinimumQty] INT NULL,
     [UnitId] INT NULL,
     [ConditionId] INT NULL,
+    [ActivityTypeId] INT NULL,
     CONSTRAINT [PK_QuotationItems] PRIMARY KEY CLUSTERED ([Id] ASC),
     CONSTRAINT [FK_QuotationItems_Quotations] FOREIGN KEY ([QuotationId]) REFERENCES [projects].[Quotations] ([Id]) ON DELETE CASCADE,
     CONSTRAINT [FK_QuotationItems_Activities] FOREIGN KEY ([ActivityId]) REFERENCES [projects].[Activities] ([Id]) ON DELETE SET NULL,
@@ -36,7 +37,8 @@ CREATE TABLE [projects].[QuotationItems]
     CONSTRAINT [FK_QuotationItems_ActivityAlternativeParts] FOREIGN KEY ([AlternativePartId]) REFERENCES [projects].[ActivityAlternativeParts] ([Id]),
     CONSTRAINT [FK_QuotationItems_Currencies] FOREIGN KEY ([CurrencyId]) REFERENCES [dbo].[Currencies] ([Id]),
     CONSTRAINT [FK_QuotationItems_Units] FOREIGN KEY ([UnitId]) REFERENCES [dbo].[Units] ([Id]),
-    CONSTRAINT [FK_QuotationItems_Conditions] FOREIGN KEY ([ConditionId]) REFERENCES [dbo].[Conditions] ([Id])
+    CONSTRAINT [FK_QuotationItems_Conditions] FOREIGN KEY ([ConditionId]) REFERENCES [dbo].[Conditions] ([Id]),
+    CONSTRAINT [FK_QuotationItems_ActivityTypes] FOREIGN KEY ([ActivityTypeId]) REFERENCES [projects].[ActivityTypes] ([Id])
 );
 
 CREATE INDEX [IX_QuotationItems_QuotationId]

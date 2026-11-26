@@ -11,7 +11,7 @@ namespace Mahkias.Core.Modules.Projects
         Task<ActivityIdentity> FindIdentityAsync(int id);
         Task<int> CreateAsync(CreateActivityArgs args);
         Task<IReadOnlyList<ActivityImportIssue>> ValidateImportAsync(int projectId, IEnumerable<ActivityImportCandidate> rows);
-        Task<int> BulkInsertAsync(int projectId, IEnumerable<CreateActivityArgs> activities);
+        Task<int> BulkInsertAsync(int projectId, IEnumerable<CreateActivityArgs> activities, bool linkParts = false);
         Task<int> UpdateAsync(int id, CreateActivityArgs args);
         Task<int> UpdateBatchAsync(IReadOnlyList<ActivityBatchUpdate> activities);
         Task<int> DeleteAsync(int id);

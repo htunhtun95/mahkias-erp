@@ -7,6 +7,7 @@ namespace Mahkias.Api.Modules.Projects
         public string Name { get; set; }
         public string Reference { get; set; }
         public string Description { get; set; }
+        public DateTime? Deadline { get; set; }
     }
 
     public class ProjectListResponse
@@ -21,6 +22,7 @@ namespace Mahkias.Api.Modules.Projects
         public string Name { get; set; }
         public string Reference { get; set; }
         public string Description { get; set; }
+        public DateTime? Deadline { get; set; }
         public DateTime? CreatedAt { get; set; }
         public DateTime? ModifiedAt { get; set; }
         public List<ActivityResponse> Activities { get; set; } = new();
@@ -29,6 +31,7 @@ namespace Mahkias.Api.Modules.Projects
     public class CreateActivityRequest
     {
         public string PartNo { get; set; }
+        public int? PartId { get; set; }
         public decimal? Budget { get; set; }
         public string Description { get; set; }
         [JsonPropertyName("dsnNo")]
@@ -102,6 +105,7 @@ namespace Mahkias.Api.Modules.Projects
         public int Id { get; set; }
         public int ProjectId { get; set; }
         public string PartNo { get; set; }
+        public int? PartId { get; set; }
         public string MainPartNo { get; set; }
         public List<string> AlternativePartNos { get; set; } = new();
         public decimal? Budget { get; set; }

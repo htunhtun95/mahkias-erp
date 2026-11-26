@@ -2,7 +2,7 @@
   <div class="erp-modal-title">
     <div>
       <h2>{{ data?.group ? 'Edit Group' : 'New Activity Group' }}</h2>
-      <p class="erp-modal-note">@if (editing) { Changing the Act Type updates every activity in this group. } @else { Group related activities into a kit or assembly. Activities can stay ungrouped. }</p>
+      <p class="erp-modal-note">@if (editing) { Changing the Activity Type updates every activity in this group. } @else { Group related activities into a kit or assembly. Activities can stay ungrouped. }</p>
     </div>
     <button class="erp-modal-close" type="button" matTooltip="Close" aria-label="Close" (click)="cancel()">
       <mat-icon>close</mat-icon>
@@ -20,15 +20,15 @@
   @if (editing) {
     <div class="field" [class.invalid]="typeInvalid">
       <label class="control">
-        <span class="label">Act Type<span class="required" aria-hidden="true">*</span></span>
+        <span class="label">Activity Type<span class="required" aria-hidden="true">*</span></span>
         <select formControlName="typeId">
-          <option [ngValue]="null" disabled>Select Act Type</option>
+          <option [ngValue]="null" disabled>Select Activity Type</option>
           @for (type of types; track type.id) {
             <option [ngValue]="type.id">{{ type.name }}</option>
           }
         </select>
       </label>
-      <p class="error">@if (typeInvalid) { Act Type is required }</p>
+      <p class="error">@if (typeInvalid) { Activity Type is required }</p>
     </div>
     <div class="field" [class.invalid]="budgetInvalid">
       <label class="control">

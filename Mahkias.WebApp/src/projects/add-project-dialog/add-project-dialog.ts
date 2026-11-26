@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject } from '@angular/core';
+import { Component, inject, viewChild } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MaterialModule } from '../../app/material-module';
@@ -7,11 +7,13 @@ import { blockEnterSubmit } from '../../core/block-enter-submit';
 import { requiredText } from '../../core/required-text';
 import { whileBusy } from '../../core/while-busy';
 import { Project, ProjectApiService } from '../../core/services/project-api.service';
+import { dateInputValue } from '../quotation-terms';
+import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-date-field';
 
 @Component({
   selector: 'app-add-project-dialog',
   standalone: true,
-  imports: [ReactiveFormsModule, MaterialModule],
+  imports: [ReactiveFormsModule, MaterialModule, QuotationDateFieldComponent],
   templateUrl: './add-project-dialog.html',
   styleUrl: './add-project-dialog.css',
 })
@@ -28,10 +30,13 @@ export class AddProjectDialog {
   referenceError = '';
   error = '';
 
+  private deadlineField = viewChild(QuotationDateFieldComponent);
+
   form = this.fb.group({
     name: [this.data?.project?.name ?? '', requiredText],
     reference: [this.data?.project?.reference ?? ''],
     description: [this.data?.project?.description ?? ''],
+    deadline: [dateInputValue(this.data?.project?.deadline)],
   });
 
   get isEdit() {
@@ -61,12 +66,17 @@ export class AddProjectDialog {
       this.form.markAllAsTouched();
       return;
     }
+    if (this.deadlineField()?.invalid) {
+      this.deadlineField()?.reveal();
+      return;
+    }
 
     const value = this.form.getRawValue();
     const body = {
       name: value.name?.trim() ?? '',
       reference: value.reference?.trim() ?? '',
       description: value.description?.trim() ?? '',
+      deadline: value.deadline || null,
     };
     this.dialogRef.disableClose = true;
     const request = this.isEdit

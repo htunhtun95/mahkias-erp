@@ -76,13 +76,15 @@
   cursor: pointer;
 }
 
-.po-row > a.cell-link {
-  justify-self: start;
-  width: fit-content;
-  max-width: 100%;
+.supplier-cell {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cell-link {
+  display: inline;
   color: #1a73e8;
   font-weight: 500;
   text-decoration: none;
@@ -248,84 +250,6 @@
   font-weight: 500;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-}
-
-.file-list {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-}
-
-.file-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  box-sizing: border-box;
-  max-width: 100%;
-  min-height: 48px;
-  padding: 8px 12px;
-  border: 1px solid #e0e0e0;
-  border-radius: 10px;
-  background: #fff;
-  color: #202124;
-  text-decoration: none;
-  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
-}
-
-.file-item:hover {
-  border-color: #1a73e8;
-  background: #f8fbff;
-  box-shadow: 0 1px 2px rgba(26, 115, 232, 0.12);
-}
-
-.file-icon {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: #e8f0fe;
-  color: #1a73e8;
-}
-
-.file-icon mat-icon,
-.file-open {
-  width: 18px;
-  height: 18px;
-  font-size: 18px;
-}
-
-.file-copy {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  line-height: 1.3;
-}
-
-.file-name {
-  overflow: hidden;
-  color: #202124;
-  font-size: 13px;
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.file-meta {
-  color: #80868b;
-  font-size: 12px;
-}
-
-.file-open {
-  flex: 0 0 auto;
-  color: #5f6368;
-}
-
-.file-item:hover .file-open {
-  color: #1a73e8;
 }
 
 .loading-row,

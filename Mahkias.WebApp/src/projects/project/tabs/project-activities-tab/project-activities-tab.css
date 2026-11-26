@@ -559,9 +559,6 @@
   cursor: default;
 }
 
-.price-empty {
-  color: #80868b;
-}
 
 .row {
   display: grid;

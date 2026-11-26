@@ -1,0 +1,34 @@
+.field app-part-suggest {
+  display: block;
+  border: 1px solid var(--field-border);
+  border-radius: var(--field-radius);
+  background: #fff;
+}
+
+.field app-part-suggest:hover {
+  border-color: var(--field-border-hover);
+}
+
+.field:focus-within app-part-suggest,
+.field.invalid app-part-suggest {
+  border-color: var(--field-focus);
+  box-shadow: var(--field-focus-ring);
+}
+
+.field.invalid app-part-suggest,
+.field.invalid:focus-within app-part-suggest {
+  border-color: var(--field-invalid);
+  box-shadow: var(--field-invalid-ring);
+}
+
+:host ::ng-deep .field app-part-suggest textarea,
+:host ::ng-deep .field app-part-suggest textarea:hover,
+:host ::ng-deep .field app-part-suggest textarea:focus {
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 0;
+  box-shadow: none;
+  outline: none;
+  font-size: 14px;
+}
+

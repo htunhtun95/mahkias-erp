@@ -10,7 +10,7 @@ import { blockEnterSubmit } from '../../core/block-enter-submit';
 import { closeOnEscape } from '../../core/close-on-escape';
 import { SheetCellFocusDirective } from '../sheet-cell-focus';
 import { whileBusy } from '../../core/while-busy';
-import { Activity, ActivityImportIssue, Currency, ProjectApiService, QuotationItemInput, Supplier } from '../../core/services/project-api.service';
+import { Activity, ActivityImportIssue, ActivityType, Currency, ProjectApiService, QuotationItemInput, Supplier } from '../../core/services/project-api.service';
 import { directActivityId } from '../quotation-map';
 import { duplicateSupplierReferenceMessage, hasDuplicateSupplierReference } from '../../suppliers/supplier-reference';
 import { leadTimeDays, leadTimeInvalid, leadTimeText, LeadTimeDaysDirective } from '../lead-time';
@@ -29,6 +29,7 @@ interface ImportLine {
   partNo: string;
   description: string;
   condition: string;
+  activityTypeId: number | null;
   unit: string;
   leadTime: string;
   minimumQty: string;
@@ -55,6 +56,7 @@ interface QuoteMapping {
   partNoColumn: string;
   descriptionColumn: string;
   conditionColumn: string;
+  activityTypeColumn: string;
   unitColumn: string;
   leadTimeColumn: string;
   minimumQtyColumn: string;
@@ -73,6 +75,7 @@ interface QuoteMapping {
   defaultPartNo: string;
   defaultDescription: string;
   defaultCondition: string;
+  defaultActivityType: string;
   defaultUnit: string;
   defaultLeadTime: string;
   defaultMinimumQty: string;
@@ -101,7 +104,7 @@ export class ImportQuotationDialogComponent {
   private api = inject(ProjectApiService);
   private dialog = inject(MatDialog);
   private dialogRef = inject(MatDialogRef<ImportQuotationDialogComponent, boolean>);
-  private data = inject<{ projectId: number; activities?: Activity[] }>(MAT_DIALOG_DATA);
+  private data = inject<{ projectId?: number | null; activities?: Activity[] }>(MAT_DIALOG_DATA);
 
   supplierQuotationRef = '';
   supplierQuery = '';
@@ -112,6 +115,7 @@ export class ImportQuotationDialogComponent {
   currencies: Currency[] = [];
   units: LookupValue[] = [];
   conditions: LookupValue[] = [];
+  activityTypes: ActivityType[] = [];
   currencyId: number | null = null;
   newSupplierName = '';
   newSupplierReference = '';
@@ -140,7 +144,7 @@ export class ImportQuotationDialogComponent {
   private mappingToken = 0;
 
   readonly fields = [
-    { key: 'dsnNoColumn', def: 'defaultDsnNo', label: 'DSN No', required: true },
+    { key: 'dsnNoColumn', def: 'defaultDsnNo', label: 'DSN No', required: (this.data.projectId ?? 0) > 0 },
     { key: 'partNoColumn', def: 'defaultPartNo', label: 'Part No', required: true },
     { key: 'descriptionColumn', def: 'defaultDescription', label: 'Description', required: false },
     { key: 'leadTimeColumn', def: 'defaultLeadTime', label: 'Lead Time (days)', required: false },
@@ -149,6 +153,7 @@ export class ImportQuotationDialogComponent {
     { key: 'minimumQtyColumn', def: 'defaultMinimumQty', label: 'MOQ', required: false },
     { key: 'unitColumn', def: 'defaultUnit', label: 'Unit', required: false },
     { key: 'conditionColumn', def: 'defaultCondition', label: 'Condition', required: false },
+    { key: 'activityTypeColumn', def: 'defaultActivityType', label: 'Activity type', required: false },
     { key: 'unitPriceColumn', def: 'defaultUnitPrice', label: 'Unit Price', required: false },
     { key: 'totalPriceColumn', def: 'defaultTotalPrice', label: 'Total Price', required: false },
     { key: 'serialNoColumn', def: '', label: 'SerialNo', required: false },
@@ -175,6 +180,11 @@ export class ImportQuotationDialogComponent {
       next: (conditions) => {
         this.conditions = conditions ?? [];
         this.mapping.defaultCondition = canonicalCondition(this.mapping.defaultCondition || 'NE', this.conditions) || 'NE';
+      },
+    });
+    this.api.activityTypes().subscribe({
+      next: (types) => {
+        this.activityTypes = types ?? [];
       },
     });
     this.api.currencies().subscribe({
@@ -300,7 +310,7 @@ export class ImportQuotationDialogComponent {
       return false;
     }
     if (field === 'dsn') {
-      return !line.dsnNo.trim();
+      return (this.data.projectId ?? 0) > 0 && !line.dsnNo.trim();
     }
     if (field === 'part') {
       return !line.partNo.trim();
@@ -412,7 +422,14 @@ export class ImportQuotationDialogComponent {
       .slice(0, 8);
   }
 
+  get hasProject(): boolean {
+    return (this.data.projectId ?? 0) > 0;
+  }
+
   get dsnMissing(): boolean {
+    if (!this.hasProject) {
+      return false;
+    }
     return !this.mapping.dsnNoColumn.trim() && !this.mapping.defaultDsnNo.trim();
   }
 
@@ -528,6 +545,7 @@ export class ImportQuotationDialogComponent {
           partNoColumn: mapping.suggested.partNo ?? '',
           descriptionColumn: mapping.suggested.description ?? '',
           conditionColumn: mapping.suggested.condition ?? '',
+          activityTypeColumn: mapping.suggested.activityType ?? '',
           unitColumn: mapping.suggested.unit ?? '',
           leadTimeColumn: mapping.suggested.leadTime ?? '',
           minimumQtyColumn: mapping.suggested.minimumQty ?? '',
@@ -703,7 +721,9 @@ export class ImportQuotationDialogComponent {
       return;
     }
     if (this.lines.some((line) => this.isPriced(line) && (this.lineInvalid(line, 'dsn') || this.lineInvalid(line, 'part') || this.lineInvalid(line, 'qty') || this.lineInvalid(line, 'moq') || this.lineInvalid(line, 'price')))) {
-      this.error = 'DSN number, part number, and quantity are required. Check the highlighted rows.';
+      this.error = this.hasProject
+        ? 'DSN number, part number, and quantity are required. Check the highlighted rows.'
+        : 'Part number and quantity are required. Check the highlighted rows.';
       return;
     }
     if (this.lines.some((line) => this.isPriced(line) && leadTimeInvalid(line.leadTime))) {
@@ -722,22 +742,27 @@ export class ImportQuotationDialogComponent {
     this.dialogRef.disableClose = true;
     this.withSupplier()
       .pipe(
-        switchMap(() => this.api.importQuotation(this.data.projectId, {
-          supplierId: this.supplierId!,
-          supplierReference: this.supplierQuotationRef.trim(),
-          currencyId: this.currencyId,
-          quotedDate: this.quotedDate || null,
-          validUntil: this.validUntil || null,
-          items,
-          charges: charges.charges,
-        }, this.storedFile())),
+        switchMap(() => {
+          const payload = {
+            supplierId: this.supplierId!,
+            supplierReference: this.supplierQuotationRef.trim(),
+            currencyId: this.currencyId,
+            quotedDate: this.quotedDate || null,
+            validUntil: this.validUntil || null,
+            items,
+            charges: charges.charges,
+          };
+          return this.hasProject
+            ? this.api.importQuotation(this.data.projectId!, payload, this.storedFile())
+            : this.api.createQuotation({ ...payload, projectIds: [] });
+        }),
         switchMap((saved) => {
           const id = saved?.id;
           const drafts = this.library?.capture() ?? [];
-          if (!id || !drafts.some((draft) => draft.pendingFile && !draft.removed)) {
+          if (!this.hasProject || !id || !drafts.some((draft) => draft.pendingFile && !draft.removed)) {
             return of(saved);
           }
-          return syncDocumentDrafts(this.api, 'quotation', this.data.projectId, id, drafts, true, 100);
+          return syncDocumentDrafts(this.api, 'quotation', this.data.projectId!, id, drafts, true, 100);
         }),
         whileBusy((busy) => (this.isImporting = busy)),
       )
@@ -853,7 +878,8 @@ export class ImportQuotationDialogComponent {
 
   private lineSearchText(line: ImportLine): string {
     const currency = this.currencies.find((item) => item.id === line.currencyId);
-    return [line.dsnNo, line.partNo, line.description, line.condition, line.unit, line.leadTime, line.quantity, line.unitPrice, line.totalPrice, currency?.code, currency?.symbol]
+    const activityType = this.activityTypes.find((type) => type.id === line.activityTypeId)?.name;
+    return [line.dsnNo, line.partNo, line.description, line.condition, activityType, line.unit, line.leadTime, line.quantity, line.unitPrice, line.totalPrice, currency?.code, currency?.symbol]
       .filter((value) => !!value)
       .join(' ')
       .toLowerCase();
@@ -865,6 +891,7 @@ export class ImportQuotationDialogComponent {
     partNo?: string | null;
     description?: string | null;
     condition?: string | null;
+    activityTypeId?: number | null;
     unit?: string | null;
     leadTime?: number | null;
     minimumQty?: number | null;
@@ -891,6 +918,7 @@ export class ImportQuotationDialogComponent {
       partNo: source.partNo ?? '',
       description: source.description ?? '',
       condition: canonicalCondition(source.condition ?? '', this.conditions),
+      activityTypeId: source.activityTypeId ?? null,
       unit: canonicalUnit(source.unit ?? '', this.units),
       leadTime: leadTimeText(source.leadTime),
       minimumQty: source.minimumQty ? String(source.minimumQty) : '',
@@ -910,11 +938,17 @@ export class ImportQuotationDialogComponent {
       currencyId: source.currencyId ?? this.currencyId,
       currencyExplicit: !!source.currencyExplicit,
     };
+    if (line.activityTypeId == null) {
+      line.activityTypeId = this.activities.find((activity) => activity.id === line.activityId)?.typeId ?? null;
+    }
     return line;
   }
 
   private linkLine(line: ImportLine) {
     line.activityId = directActivityId(line.dsnNo, line.partNo, this.activities);
+    if (line.activityTypeId == null) {
+      line.activityTypeId = this.activities.find((activity) => activity.id === line.activityId)?.typeId ?? null;
+    }
   }
 
   private recalculate(line: ImportLine) {
@@ -945,6 +979,7 @@ export class ImportQuotationDialogComponent {
         partNo: line.partNo.trim(),
         description: line.description.trim(),
         condition: line.condition.trim(),
+        activityTypeId: line.activityTypeId,
         serialNo: this.optionalText(line.serialNo),
         tsn: this.optionalText(line.tsn),
         tso: this.optionalText(line.tso),
@@ -1031,6 +1066,7 @@ export class ImportQuotationDialogComponent {
       partNoColumn: '',
       descriptionColumn: '',
       conditionColumn: '',
+      activityTypeColumn: '',
       unitColumn: '',
       leadTimeColumn: '',
       minimumQtyColumn: '',
@@ -1049,6 +1085,7 @@ export class ImportQuotationDialogComponent {
       defaultPartNo: '',
       defaultDescription: '',
       defaultCondition: 'NE',
+      defaultActivityType: '',
       defaultUnit: 'EA',
       defaultLeadTime: '',
       defaultMinimumQty: '',

@@ -53,6 +53,7 @@
           nulls (they are not coalesced to CreatedAt), so nulls sort first on
           ascending and last on descending in SQL Server.
         -->
+        <span class="col-date" mat-sort-header="deadline">Deadline</span>
         <span class="col-date" mat-sort-header="modifiedAt">Modified</span>
         <span class="col-actions" aria-hidden="true"></span>
       </div>
@@ -76,6 +77,7 @@
             </span>
           </span>
           <span class="description" [attr.title]="project.description || null">{{ project.description }}</span>
+          <span class="col-date">{{ deadlineText(project) }}</span>
           <span class="col-date">{{ listDate(project) }}</span>
           <span class="col-actions row-actions">
             <button

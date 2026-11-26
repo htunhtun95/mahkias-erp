@@ -31,6 +31,22 @@ export const routes: Routes = [
         path: 'suppliers/:id',
         loadComponent: () => import('../suppliers/supplier/supplier').then((m) => m.SupplierDetailsComponent),
       },
+      {
+        path: 'parts',
+        loadComponent: () => import('../parts/parts').then((m) => m.PartsComponent),
+      },
+      {
+        path: 'parts/:id',
+        loadComponent: () => import('../parts/part/part').then((m) => m.PartDetailsComponent),
+      },
+      {
+        path: 'quotations',
+        loadComponent: () => import('../quotations/quotations').then((m) => m.QuotationsComponent),
+      },
+      {
+        path: 'quotations/:id',
+        loadComponent: () => import('../quotations/quotation/quotation').then((m) => m.QuotationDetailsComponent),
+      },
     ],
   },
   { path: '**', redirectTo: 'dashboard' },

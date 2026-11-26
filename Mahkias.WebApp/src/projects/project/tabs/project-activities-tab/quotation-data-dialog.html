@@ -39,7 +39,66 @@
           </div>
         </div>
       }
-      @if (rows.length) {
+      @if (rows.length && data.kind === 'quotes') {
+        <div class="quote-table">
+          <div class="quote-line compact heading">
+            <label class="line-check">
+              <input type="checkbox" [checked]="allSelected" [indeterminate]="someSelected" (change)="toggleAll($any($event.target).checked)" aria-label="Select all quotation lines" [disabled]="!selectableRows.length" />
+            </label>
+            <span>Supplier name</span>
+            <span>Reference</span>
+            <span>Quoted part no</span>
+            <span>Description</span>
+            <span>Lead time</span>
+            <span>Qty</span>
+            <span>Condition</span>
+            <span>Unit price</span>
+            <span>Total price</span>
+          </div>
+          @for (row of rows; track (row.link?.itemId ?? row.dsnNo) + '-' + $index) {
+            <div class="quote-line compact" [class.lowest]="!!row.link?.lowest" [class.selectable]="!!row.link" (click)="onRowClick(row, $event)">
+              <label class="line-check">
+                @if (row.link) {
+                  <input type="checkbox" [checked]="isSelected(row)" (change)="toggleRow(row, $any($event.target).checked)" [attr.aria-label]="'Select ' + (row.link.quotationRef || 'quotation line')" />
+                }
+              </label>
+              <span>{{ row.link?.supplierName || '—' }}</span>
+              <span class="refs">
+                <span class="ref-tag">{{ referenceLabel(row.link?.quotationRef, row.link?.supplierQuotationRef) }}</span>
+              </span>
+              <span class="part">
+                {{ row.link?.partNo || '—' }}
+                @if (row.link?.alternativePart) {
+                  <span class="alt-badge" title="Alternative part">Alt</span>
+                }
+              </span>
+              <span class="description">
+                <span class="description-main">{{ row.link?.description || '—' }}</span>
+                @for (detail of currentUsage(row.link); track detail.label) {
+                  <span class="usage-line"><span class="usage-key">{{ detail.label }}:</span>{{ detail.value }}</span>
+                }
+              </span>
+              <span>{{ leadTimeLabel(row.link?.leadTime) }}</span>
+              <span class="qty-stack">
+                @if (qtyText(row.link?.quantity, row.link?.unit, row.link?.minimumQty); as shown) {
+                  <span class="qty-label" [class.moq-value]="!!shown.note">{{ shown.text }}</span>
+                  @if (shown.note) {
+                    <span class="moq-note" [class.short]="shown.short">{{ shown.note }}</span>
+                  }
+                }
+              </span>
+              <span>{{ row.link?.condition || '—' }}</span>
+              <span class="price">
+                {{ row.link ? quotedUnit(row.link) : '—' }}
+                @if (row.link?.lowest) {
+                  <span class="lowest-badge">Lowest price</span>
+                }
+              </span>
+              <span>{{ row.link ? quotedTotal(row.link) : '—' }}</span>
+            </div>
+          }
+        </div>
+      } @else if (rows.length) {
         <div class="quote-table">
           <div class="quote-line heading" [class.group]="isGroup">
             <label class="line-check">
@@ -119,6 +178,71 @@
         <p class="empty">{{ emptyMessage }}</p>
       }
     </section>
+
+    @if (data.kind === 'quotes') {
+      <section class="card">
+        <h3>Historical Quotes</h3>
+        @if (historyLoading) {
+          <div class="fetch-bar" role="status" aria-live="polite" aria-busy="true">
+            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            <mat-spinner diameter="28"></mat-spinner>
+          </div>
+        } @else if (historyError) {
+          <p class="empty">{{ historyError }}</p>
+        } @else if (!history.length) {
+          <p class="empty">No other quotations match this part number or an alternate.</p>
+        } @else {
+          <div class="quote-table">
+            <div class="history-line heading">
+              <span>Supplier name</span>
+              <span>Reference</span>
+              <span>Project</span>
+              <span>Quoted part no</span>
+              <span>Description</span>
+              <span>Lead time</span>
+              <span>Qty</span>
+              <span>Condition</span>
+              <span>Unit price</span>
+              <span>Total price</span>
+            </div>
+            @for (item of history; track item.id) {
+              <div class="history-line">
+                <span>{{ item.supplierName || '—' }}</span>
+                <span class="refs">
+                  <span class="ref-tag">{{ referenceLabel(item.quotationReference, item.supplierQuotationRef) }}</span>
+                </span>
+                <span>
+                  @if (projectLinks(item).length) {
+                    @for (project of projectLinks(item); track project.id; let last = $last) {
+                      <a class="cell-link" [routerLink]="['/projects', project.id]" (click)="openProject($event, project.id)">{{ project.label }}</a>@if (!last) {, }
+                    }
+                  } @else {
+                    —
+                  }
+                </span>
+                <span class="part">
+                  {{ item.partNo || '—' }}
+                  @if (item.alternative) {
+                    <span class="alt-badge" title="Matched an alternate part number">Alt</span>
+                  }
+                </span>
+                <span class="description">
+                  <span class="description-main">{{ item.partDescription || '—' }}</span>
+                  @for (detail of usageLines(item); track detail.label) {
+                    <span class="usage-line"><span class="usage-key">{{ detail.label }}:</span>{{ detail.value }}</span>
+                  }
+                </span>
+                <span>{{ leadTimeLabel(item.leadTime) }}</span>
+                <span class="qty-label">{{ qtyText(item.quantity, item.unit).text }}</span>
+                <span>{{ item.condition || '—' }}</span>
+                <span>{{ money(item.unitPrice, item.currencySymbol, item.currencyCode) }}</span>
+                <span>{{ money(item.totalPrice, item.currencySymbol, item.currencyCode) }}</span>
+              </div>
+            }
+          </div>
+        }
+      </section>
+    }
 
     @if (isGroup) {
       <section class="card">

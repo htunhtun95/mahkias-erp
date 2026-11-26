@@ -511,7 +511,15 @@ span.ref-tag {
   max-width: 100%;
 }
 
+.supplier-cell {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .supplier {
+  display: inline;
   color: #1a73e8;
   font-size: 14px;
   text-decoration: none;

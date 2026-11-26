@@ -3,7 +3,8 @@ CREATE PROCEDURE [dbo].[UpdateProject]
     @Id INT,
     @Name NVARCHAR(250),
     @Reference NVARCHAR(100),
-    @Description NVARCHAR(MAX)
+    @Description NVARCHAR(MAX),
+    @Deadline DATETIME2 = NULL
 )
 AS
 BEGIN
@@ -35,6 +36,7 @@ BEGIN
         Name = LTRIM(RTRIM(@Name)),
         Reference = @Ref,
         Description = @Description,
+        Deadline = @Deadline,
         ModifiedAt = GETDATE()
     WHERE Id = @Id
       AND IsDeleted = 0;

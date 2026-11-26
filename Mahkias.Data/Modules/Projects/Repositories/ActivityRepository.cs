@@ -45,6 +45,7 @@ namespace Mahkias.Data.Modules.Projects.Repositories
                                 Id = reader.ReadIntValue("Id"),
                                 ProjectId = reader.ReadIntValue("ProjectId"),
                                 PartNo = reader.ReadStringValue("PartNo"),
+                                PartId = reader.ReadNullableIntValue("PartId"),
                                 Budget = reader.ReadNullableDecimalValue("Budget"),
                                 Description = reader.ReadStringValue("Description"),
                                 DSNNo = reader.ReadStringValue("DSNNo"),
@@ -108,6 +109,7 @@ namespace Mahkias.Data.Modules.Projects.Repositories
                 command.CommandType = CommandType.StoredProcedure;
                 command.Parameters.AddInt("ProjectId", args.ProjectId);
                 command.Parameters.AddNVarCharMax("PartNo", args.PartNo, false);
+                command.Parameters.AddNullableInt("PartId", args.PartId);
                 command.Parameters.AddNullableDecimal("Budget", args.Budget, 18, 2);
                 command.Parameters.AddNVarCharMax("Description", string.IsNullOrWhiteSpace(args.Description) ? null : args.Description, false);
                 command.Parameters.AddNVarChar("DSNNo", string.IsNullOrWhiteSpace(args.DSNNo) ? null : args.DSNNo, 100, false);
@@ -178,7 +180,7 @@ namespace Mahkias.Data.Modules.Projects.Repositories
             return issues;
         }
 
-        public async Task<int> BulkInsertAsync(int projectId, IEnumerable<CreateActivityArgs> activities)
+        public async Task<int> BulkInsertAsync(int projectId, IEnumerable<CreateActivityArgs> activities, bool linkParts = false)
         {
             var source = (activities ?? Array.Empty<CreateActivityArgs>()).Where(activity => activity != null).ToList();
             var issues = await ValidateImportAsync(projectId, source.Select(activity => new ActivityImportCandidate
@@ -207,6 +209,7 @@ namespace Mahkias.Data.Modules.Projects.Repositories
                     DecimalValue1 = activity.Budget,
                     NumericValue1 = activity.Quantity,
                     NumericValue2 = activity.TypeId.HasValue && activity.TypeId.Value > 0 ? activity.TypeId : null,
+                    NumericValue3 = linkParts && activity.PartId.HasValue && activity.PartId.Value > 0 ? activity.PartId : null,
                     TextValue4 = string.IsNullOrWhiteSpace(activity.Label) ? null : activity.Label.Trim(),
                     TextValue5 = string.IsNullOrWhiteSpace(activity.Condition) ? null : activity.Condition.Trim(),
                     TextValue6 = string.IsNullOrWhiteSpace(activity.Unit) ? null : activity.Unit.Trim(),
@@ -223,6 +226,7 @@ namespace Mahkias.Data.Modules.Projects.Repositories
             {
                 command.CommandType = CommandType.StoredProcedure;
                 command.Parameters.AddInt("ProjectId", projectId);
+                command.Parameters.AddBit("LinkParts", linkParts);
                 command.Parameters.AddTable("Activities", rows.ToGenericDatatableNullableArgs(), "dbo.DefaultGenericTableType");
                 command.Connection = _connection;
                 _connection.Open();
@@ -428,6 +432,7 @@ WHERE Id = @Id
                 dsnNo.Value = DBNull.Value;
             }
             command.Parameters.AddNVarCharMax("PartNo", args.PartNo, false);
+            command.Parameters.AddNullableInt("PartId", args.PartId);
             var typeId = command.Parameters.AddNullableInt("TypeId", args.TypeId);
             if (typeId.Value == null)
             {

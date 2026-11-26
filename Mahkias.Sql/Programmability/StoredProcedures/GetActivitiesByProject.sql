@@ -42,6 +42,7 @@ BEGIN
         A.CreatedAt,
         A.ModifiedAt,
         A.ActivityGroupId,
+        A.PartId,
         ActivityGroupName = G.Name,
         TypeId = A.ActivityTypeId,
         [Type] = T.Name,

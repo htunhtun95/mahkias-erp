@@ -100,6 +100,8 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
 
         public int? ActivityGroupId { get; set; }
 
+        public int? ActivityTypeId { get; set; }
+
         public List<QuotationMapAlternative> Alternatives { get; set; } = new List<QuotationMapAlternative>();
     }
 
@@ -145,6 +147,10 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
         public decimal ExchangeRate { get; set; }
 
         public decimal BaseTotalAmount { get; set; }
+
+        public List<int> ProjectIds { get; set; } = new List<int>();
+
+        public string ProjectLabel { get; set; }
     }
 
     public class QuotationLineResult
@@ -198,6 +204,10 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
         public decimal? BaseUnitPrice { get; set; }
 
         public decimal? BaseTotalPrice { get; set; }
+
+        public int? ActivityTypeId { get; set; }
+
+        public string ActivityType { get; set; }
     }
 
     public class QuotationChargeResult
@@ -243,6 +253,16 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
         public string PartNo { get; set; }
 
         public string Description { get; set; }
+
+        public string SerialNo { get; set; }
+
+        public string TSN { get; set; }
+
+        public string TSO { get; set; }
+
+        public string CSN { get; set; }
+
+        public string CSO { get; set; }
 
         public string Condition { get; set; }
 
@@ -291,11 +311,43 @@ namespace Mahkias.Core.Modules.Projects.Data.Result
 
         public string PartDescription { get; set; }
 
+        public string SerialNo { get; set; }
+
+        public string TSN { get; set; }
+
+        public string TSO { get; set; }
+
+        public string CSN { get; set; }
+
+        public string CSO { get; set; }
+
+        public string SupplierQuotationRef { get; set; }
+
+        public string Condition { get; set; }
+
+        public string Unit { get; set; }
+
+        public int? LeadTime { get; set; }
+
+        public string CurrencyCode { get; set; }
+
+        public string CurrencySymbol { get; set; }
+
+        public string ProjectLabel { get; set; }
+
+        public List<int> ProjectIds { get; set; } = new List<int>();
+
+        public bool Alternative { get; set; }
+
         public decimal UnitPrice { get; set; }
 
         public int Quantity { get; set; }
 
         public decimal TotalPrice { get; set; }
+
+        public DateTime? QuotedDate { get; set; }
+
+        public DateTime? ValidUntil { get; set; }
 
         public DateTime CreatedAt { get; set; }
     }

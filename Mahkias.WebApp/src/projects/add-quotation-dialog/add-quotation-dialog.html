@@ -112,16 +112,18 @@
       <span>Search</span>
       <input [attr.disabled]="isSaving ? '' : null" [(ngModel)]="rowFilter" name="rowFilter" placeholder="Filter by DSN No or Part No" autocomplete="off" />
     </label>
-    <label class="row-search type-filter">
-      <span>Activity type</span>
-      <select [disabled]="isSaving" [(ngModel)]="typeFilter" name="typeFilter">
-        <option [ngValue]="null">All types</option>
-        @for (type of activityTypeOptions; track type.id) {
-          <option [ngValue]="type.id">{{ type.name }}</option>
-        }
-      </select>
-    </label>
-    @if (quoteLabels.length) {
+    @if (linkedProjectId) {
+      <label class="row-search type-filter">
+        <span>Activity type</span>
+        <select [disabled]="isSaving" [(ngModel)]="typeFilter" name="typeFilter">
+          <option [ngValue]="null">All types</option>
+          @for (type of activityTypeOptions; track type.id) {
+            <option [ngValue]="type.id">{{ type.name }}</option>
+          }
+        </select>
+      </label>
+    }
+    @if (linkedProjectId && quoteLabels.length) {
       <div class="label-switch" role="tablist" aria-label="Activity labels">
         <button class="segment-btn" type="button" role="tab" [class.active]="labelId == null" [attr.aria-selected]="labelId == null" [disabled]="isSaving" (click)="selectLabel(null)">
           All
@@ -135,7 +137,7 @@
         }
       </div>
     }
-    @if (!creating) {
+    @if (canAddItems) {
       <button class="add-line" type="button" [disabled]="isSaving" (click)="addItems()">Add Item</button>
     }
     </div>
@@ -146,22 +148,22 @@
           <col class="col-part" [style.width.px]="createColumnWidth(1)" />
           <col class="col-description" [style.width.px]="createColumnWidth(2)" />
           <col class="col-lead" [style.width.px]="createColumnWidth(3)" />
-          <col class="col-currency" [style.width.px]="createColumnWidth(4)" />
-          <col class="col-qty" [style.width.px]="createColumnWidth(5)" />
-          <col class="col-condition" [style.width.px]="createColumnWidth(6)" />
+          <col class="col-qty" [style.width.px]="createColumnWidth(4)" />
+          <col class="col-condition" [style.width.px]="createColumnWidth(5)" />
+          <col class="col-type" [style.width.px]="createColumnWidth(6)" />
           <col class="col-unit-price" [style.width.px]="createColumnWidth(7)" />
           <col class="col-price" [style.width.px]="createColumnWidth(8)" />
           <col class="col-action" [style.width.px]="createColumnWidth(9)" />
         </colgroup>
         <thead>
           <tr>
-            <th class="dsn">DSN No<span class="req" aria-hidden="true">*</span><span class="col-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Resize DSN No" (mousedown)="startColumnResize($event, 0)"></span></th>
+            <th class="dsn">DSN No@if (requiresDsn) {<span class="req" aria-hidden="true">*</span>}<span class="col-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Resize DSN No" (mousedown)="startColumnResize($event, 0)"></span></th>
             <th class="part">Part No<span class="req" aria-hidden="true">*</span><span class="col-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Resize Part No" (mousedown)="startColumnResize($event, 1)"></span></th>
             <th class="description">Description<span class="col-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Resize Description" (mousedown)="startColumnResize($event, 2)"></span></th>
-            <th>Lead Time (days)<span class="col-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Resize Lead Time" (mousedown)="startColumnResize($event, 3)"></span></th>
-            <th class="currency">Currency<span class="col-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Resize Currency" (mousedown)="startColumnResize($event, 4)"></span></th>
-            <th class="qty">Quantity<span class="req" aria-hidden="true">*</span><span class="col-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Resize Quantity" (mousedown)="startColumnResize($event, 5)"></span></th>
-            <th>Condition<span class="col-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Resize Condition" (mousedown)="startColumnResize($event, 6)"></span></th>
+            <th class="lead">Lead Time (days)<span class="col-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Resize Lead Time" (mousedown)="startColumnResize($event, 3)"></span></th>
+            <th class="qty">Quantity<span class="req" aria-hidden="true">*</span><span class="col-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Resize Quantity" (mousedown)="startColumnResize($event, 4)"></span></th>
+            <th>Condition<span class="col-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Resize Condition" (mousedown)="startColumnResize($event, 5)"></span></th>
+            <th>Activity type<span class="col-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Resize Activity type" (mousedown)="startColumnResize($event, 6)"></span></th>
             <th class="price">Unit Price<span class="req" aria-hidden="true">*</span><span class="col-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Resize Unit Price" (mousedown)="startColumnResize($event, 7)"></span></th>
             <th class="price">Total Price<span class="col-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Resize Total Price" (mousedown)="startColumnResize($event, 8)"></span></th>
             <th class="action">More<span class="col-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Resize More" (mousedown)="startColumnResize($event, 9)"></span></th>
@@ -186,14 +188,7 @@
                   [name]="'desc' + row.key"
                 ></textarea>
               </td>
-              <td [class.invalid]="leadBroken(row) && interacted(row, 'lead')"><input leadTimeDays [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.leadTime" (ngModelChange)="touch(row, 'lead')" (blur)="touch(row, 'lead')" [name]="'lead' + row.key" inputmode="numeric" /></td>
-              <td class="cell currency">
-                <select [disabled]="isSaving" [(ngModel)]="row.currencyId" (ngModelChange)="onRowCurrency(row)" [name]="'currency' + row.key">
-                  @for (currency of currencies; track currency.id) {
-                    <option [ngValue]="currency.id">{{ currency.code }}</option>
-                  }
-                </select>
-              </td>
+              <td class="cell lead" [class.invalid]="leadBroken(row) && interacted(row, 'lead')"><input leadTimeDays [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.leadTime" (ngModelChange)="touch(row, 'lead')" (blur)="touch(row, 'lead')" [name]="'lead' + row.key" inputmode="numeric" aria-label="Lead Time (days)" /></td>
               <td class="cell qty" [class.invalid]="invalid(row, 'qty') && interacted(row, 'qty')">
                 <div class="qty-edit qty-unit">
                   <input wholeQuantity [attr.disabled]="isSaving ? '' : null" [(ngModel)]="row.quantity" (ngModelChange)="onQuantity(row); touch(row, 'qty')" (blur)="onQuantityBlur(row); touch(row, 'qty')" [name]="'qty' + row.key" inputmode="numeric" autocomplete="off" aria-label="Quantity" />
@@ -220,6 +215,14 @@
                   (committed)="normalizeCondition(row)"
                 />
               </td>
+              <td>
+                <select [disabled]="isSaving" [(ngModel)]="row.activityTypeId" [name]="'activityType' + row.key" aria-label="Activity type">
+                  <option [ngValue]="null"></option>
+                  @for (type of activityTypes; track type.id) {
+                    <option [ngValue]="type.id">{{ type.name }}</option>
+                  }
+                </select>
+              </td>
               <td class="cell price" [class.invalid]="invalid(row, 'price') && interacted(row, 'unit')">
                 <span class="price-field">
                   <span class="price-mark">{{ currencyMark(row.currencyId) }}</span>
@@ -239,9 +242,11 @@
               </td>
             </tr>
           } @empty {
-            <tr>
-              <td class="filter-empty" colspan="10">{{ creating ? 'No activities match this filter.' : 'No quotation items match this filter.' }}</td>
-            </tr>
+            @if (!preparing) {
+              <tr>
+                <td class="filter-empty" colspan="10">{{ creating && lockProject ? 'No activities match this filter.' : (creating ? 'No lines match this filter.' : 'No quotation items match this filter.') }}</td>
+              </tr>
+            }
           }
         </tbody>
       </table>
@@ -261,6 +266,7 @@
         <strong>{{ totalsMoney(grandTotal) }}</strong>
       </div>
     </div>
+    @if (linkedProjectId) {
     <app-document-manager
       #library
       title="Documents"
@@ -269,6 +275,7 @@
       [accept]="documentAccept"
       [disabled]="isSaving"
     ></app-document-manager>
+    }
   </div>
 
   <footer class="app-dialog-actions quotation-dialog-footer">

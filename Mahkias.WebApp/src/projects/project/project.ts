@@ -8,6 +8,7 @@ import { ReturnNavigation } from '../../core/return-navigation';
 import { whileBusy } from '../../core/while-busy';
 import { ActivityType, Project, ProjectApiService } from '../../core/services/project-api.service';
 import { AddProjectDialog } from '../add-project-dialog/add-project-dialog';
+import { formatDeadline } from '../projects';
 import { CreateQuotationDialogComponent } from '../add-quotation-dialog/add-quotation-dialog';
 import { ImportPurchaseOrderDialogComponent } from '../import-purchase-order-dialog/import-purchase-order-dialog';
 import { ImportQuotationDialogComponent } from '../import-quotation-dialog/import-quotation-dialog';
@@ -61,6 +62,10 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
   private quotationsTab = viewChild(ProjectQuotationsTabComponent);
 
   project: Project | null = null;
+
+  get deadlineText() {
+    return formatDeadline(this.project?.deadline);
+  }
   types: ActivityType[] = [];
   tab: ProjectTab = 'activities';
   section: ProcurementSection = 'quotations';
@@ -478,6 +483,8 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
         autoFocus: 'first-tabbable',
         data: {
           projectId: this.project.id,
+          lockProject: true,
+          projectLabel: [this.project.reference, this.project.name].filter((part) => !!part?.trim()).join(' · '),
           activities: this.project.activities ?? [],
           groups: this.activitiesTab()?.groups ?? [],
         },

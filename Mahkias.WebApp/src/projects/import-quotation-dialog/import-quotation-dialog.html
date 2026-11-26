@@ -99,10 +99,12 @@
       <app-quotation-date-field label="Valid Until" [(ngModel)]="validUntil" name="validUntil" [disabled]="busy" [externalError]="dateOrderError"></app-quotation-date-field>
     </div>
     @if (!isVerifyStep) {
+    @if (hasProject) {
     <label class="original-toggle">
       <input type="checkbox" [disabled]="busy" [ngModel]="spreadsheetIsOriginal" (ngModelChange)="onOriginalChoice($event)" name="spreadsheetIsOriginal" />
       <span>Imported spreadsheet is the original quotation file</span>
     </label>
+    }
     <app-drive-upload-card
       [compact]="true"
       title="Quotation spreadsheet"
@@ -119,7 +121,7 @@
         <span>Reading spreadsheet...</span>
       </p>
     }
-    @if (!spreadsheetIsOriginal) {
+    @if (hasProject && !spreadsheetIsOriginal) {
       <div
         class="original-file"
         [class.dragging]="originalDragging"
@@ -167,6 +169,13 @@
                       <option [value]="condition.name">{{ condition.name }}</option>
                     }
                   </select>
+                } @else if (field.def === 'defaultActivityType') {
+                  <select [disabled]="busy" [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping(); noteMap(field.def)" aria-label="Default activity type">
+                    <option value="">Default</option>
+                    @for (type of activityTypes; track type.id) {
+                      <option [value]="type.name">{{ type.name }}</option>
+                    }
+                  </select>
                 } @else if (field.def === 'defaultUnit') {
                   <select [disabled]="busy" [name]="field.def" [(ngModel)]="mapping[field.def]" (ngModelChange)="dirtyMapping(); noteMap(field.def)" aria-label="Default unit">
                     <option value="">Default</option>
@@ -187,7 +196,7 @@
               </div>
             }
           </div>
-          <p class="hint">DSN No and Part No are required. Condition, unit, lead time, MOQ, and the technical fields are optional. SerialNo, TSN, TSO, CSN, and CSO have no default: an unmapped column or an empty cell is saved as blank. Quoted date and valid until belong to the quotation. A row with no unit price and no total price is skipped.</p>
+          <p class="hint">DSN No and Part No are required. Activity type, condition, unit, lead time, MOQ, and the technical fields are optional. An activity type must match an existing activity type. SerialNo, TSN, TSO, CSN, and CSO have no default: an unmapped column or an empty cell is saved as blank. Quoted date and valid until belong to the quotation. A row with no unit price and no total price is skipped.</p>
           @if (checkState === 'failed' && importErrors.length) {
             <p class="hint-error">⚠ Validation Failed ({{ importErrors.length }} Errors Found)</p>
             <ul class="errors">
@@ -221,6 +230,7 @@
               <col class="col-qty" />
               <col class="col-unit" />
               <col class="col-condition" />
+              <col class="col-type" />
               <col class="col-price" />
               <col class="col-price" />
               <col class="col-action" />
@@ -235,6 +245,7 @@
                 <th class="qty">Quantity<span class="req" aria-hidden="true">*</span></th>
                 <th>Unit</th>
                 <th>Condition</th>
+                <th>Activity type</th>
                 <th class="price">Unit Price<span class="req" aria-hidden="true">*</span></th>
                 <th class="price">Total Price</th>
                 <th class="action">More</th>
@@ -287,6 +298,14 @@
                       (committed)="normalizeCondition(line)"
                     />
                   </td>
+                  <td>
+                    <select [disabled]="busy" [(ngModel)]="line.activityTypeId" [name]="'activityType' + line.row" aria-label="Activity type">
+                      <option [ngValue]="null"></option>
+                      @for (type of activityTypes; track type.id) {
+                        <option [ngValue]="type.id">{{ type.name }}</option>
+                      }
+                    </select>
+                  </td>
                   <td class="price" [class.invalid]="lineInvalid(line, 'price') && lineSeen(line, 'unit')">
                     <span class="price-field">
                       <span class="price-mark">{{ currencyMark(line.currencyId) }}</span>
@@ -308,7 +327,7 @@
               }
               @if (!filteredLines.length) {
                 <tr>
-                  <td class="filter-empty" colspan="11">No preview rows match this search.</td>
+                  <td class="filter-empty" colspan="12">No preview rows match this search.</td>
                 </tr>
               }
             </tbody>
@@ -334,6 +353,7 @@
     @if (error) {
       <p class="hint-error">{{ error }}</p>
     }
+    @if (hasProject) {
     <app-document-manager
       #library
       title="Supporting documents"
@@ -343,6 +363,7 @@
       [accept]="documentAccept"
       [disabled]="busy"
     ></app-document-manager>
+    }
   </div>
 
   <footer class="app-dialog-actions quotation-dialog-footer">

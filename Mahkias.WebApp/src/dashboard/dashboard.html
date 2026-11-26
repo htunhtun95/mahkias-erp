@@ -151,11 +151,13 @@
                 <span class="ref-note">{{ row.supplierReference }}</span>
               }
             </span>
-            @if (canOpenSupplier(row)) {
-              <a class="supplier" [routerLink]="['/suppliers', row.supplierId]">{{ row.supplierName }}</a>
-            } @else {
-              <span class="supplier plain">{{ hasProjectName(row.supplierName) ? row.supplierName : '—' }}</span>
-            }
+            <span class="supplier-cell">
+              @if (canOpenSupplier(row)) {
+                <a class="supplier" [routerLink]="['/suppliers', row.supplierId]" (click)="$event.stopPropagation()">{{ row.supplierName }}</a>
+              } @else {
+                <span class="supplier plain">{{ hasProjectName(row.supplierName) ? row.supplierName : '—' }}</span>
+              }
+            </span>
             <span class="project">
               @if (!hasProjectName(row.projectName) && !row.projectReference) {
                 <span class="project-name">—</span>

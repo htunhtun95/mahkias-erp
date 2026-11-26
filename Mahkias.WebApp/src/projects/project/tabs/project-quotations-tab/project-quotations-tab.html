@@ -65,11 +65,13 @@
               <mat-icon>{{ isExpanded(quotation.id) ? 'expand_more' : 'chevron_right' }}</mat-icon>
             </button>
             <span class="ref">{{ quotation.code }}</span>
-            @if (quotation.supplierId) {
-              <a class="cell-link" [routerLink]="['/suppliers', quotation.supplierId]">{{ quotation.supplierName }}</a>
-            } @else {
-              <span>{{ quotation.supplierName }}</span>
-            }
+            <span class="supplier-cell">
+              @if (quotation.supplierId) {
+                <a class="cell-link" [routerLink]="['/suppliers', quotation.supplierId]" (click)="$event.stopPropagation()">{{ quotation.supplierName }}</a>
+              } @else {
+                {{ quotation.supplierName }}
+              }
+            </span>
             <span>{{ quotation.supplierReference }}</span>
             <span>{{ quotation.itemCount }}</span>
             <span class="when-cell">{{ quotation.quotedDate ? when(quotation.quotedDate) : '-' }}</span>

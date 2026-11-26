@@ -49,6 +49,8 @@ html, body {
   --field-focus-ring: 0 0 0 3px rgba(26, 115, 232, 0.16);
   --field-invalid: #d93025;
   --field-invalid-ring: 0 0 0 3px rgba(217, 48, 37, 0.16);
+  --form-row-gap: 20px;
+  --form-label-gap: 6px;
 }
 
 /* Shared text fields. Table cells and Material inputs keep their own chrome. */
@@ -179,24 +181,23 @@ html, body {
 
 :is(label.invalid, .field.invalid, .supplier-field.invalid) :is(input, select, textarea),
 :is(input, select, textarea).invalid,
-.field.invalid .control,
+.field.invalid .control :is(input, select, textarea),
 label.amount.invalid {
   border-color: var(--field-invalid);
 }
 
 :is(label.invalid, .field.invalid, .supplier-field.invalid) :is(input, select, textarea):hover,
 :is(input, select, textarea).invalid:hover,
-.field.invalid .control:hover,
+.field.invalid .control :is(input, select, textarea):hover,
 label.amount.invalid:hover,
 :is(label.invalid, .field.invalid, .invalid) :is(input, select, textarea):focus,
 :is(input, select, textarea).invalid:focus,
-.field.invalid .control:focus-within,
+.field.invalid .control :is(input, select, textarea):focus,
 label.amount.invalid:focus-within {
   border-color: var(--field-invalid);
   box-shadow: var(--field-invalid-ring);
 }
 
-.control :is(input, textarea, select),
 td :is(input, textarea, select),
 .mat-mdc-form-field :is(input, textarea, select) {
   border: none;
@@ -206,8 +207,6 @@ td :is(input, textarea, select),
   outline: none;
 }
 
-.control :is(input, textarea, select):hover,
-.control :is(input, textarea, select):focus,
 td :is(input, textarea, select):hover,
 td :is(input, textarea, select):focus,
 .mat-mdc-form-field :is(input, textarea, select):hover,
@@ -1195,6 +1194,37 @@ textarea.cdk-textarea-autosize-measuring-firefox {
   cursor: text;
 }
 
+.cdk-overlay-pane.po-new-panel app-create-quotation-dialog table.sheet,
+.cdk-overlay-pane.po-new-panel app-create-quotation-dialog table.sheet thead,
+.cdk-overlay-pane.po-new-panel app-create-quotation-dialog table.sheet tbody,
+.cdk-overlay-pane.po-new-panel app-create-quotation-dialog table.sheet tr {
+  height: auto;
+}
+
+.cdk-overlay-pane.po-new-panel app-create-quotation-dialog table.sheet thead th {
+  height: auto;
+}
+
+.cdk-overlay-pane.po-new-panel app-create-quotation-dialog table.sheet tbody td {
+  height: 44px;
+}
+
+.cdk-overlay-pane.po-new-panel app-create-quotation-dialog table.sheet tbody td.description {
+  height: auto;
+  min-height: 44px;
+}
+
+.cdk-overlay-pane.po-new-panel app-create-quotation-dialog table.sheet tbody td > textarea {
+  position: relative;
+  inset: auto;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  height: auto !important;
+  min-width: 0;
+  min-height: 26px;
+}
+
 .cdk-overlay-pane.po-new-panel table.sheet tbody td.qty:has(.moq-note),
 .cdk-overlay-pane.po-new-panel table.import-sheet tbody td.qty:has(.moq-note),
 .cdk-overlay-pane.po-new-panel table.app-grid-table tbody td.qty:has(.moq-note) {
@@ -1222,6 +1252,19 @@ textarea.cdk-textarea-autosize-measuring-firefox {
   align-items: stretch;
   height: 100%;
   padding: 0;
+}
+
+.cdk-overlay-pane.po-new-panel app-create-quotation-dialog table.sheet tbody td.qty > .qty-edit.qty-unit,
+.cdk-overlay-pane.po-new-panel app-create-quotation-dialog table.app-grid-table tbody td.qty > .qty-edit.qty-unit {
+  grid-template-columns: minmax(36px, 1fr) 48px;
+}
+
+.cdk-overlay-pane.po-new-panel app-create-quotation-dialog table .qty-edit.qty-unit app-lookup-combobox input {
+  padding: 0 16px 0 4px;
+}
+
+.cdk-overlay-pane.po-new-panel app-create-quotation-dialog table .qty-edit.qty-unit app-lookup-combobox .lookup-chevron {
+  width: 16px;
 }
 
 .cdk-overlay-pane.po-new-panel table.sheet tbody td.qty > .qty-edit input,

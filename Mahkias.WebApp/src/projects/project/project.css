@@ -107,8 +107,20 @@ h1 {
   font-weight: 500;
 }
 
-.summary {
+.deadline {
   margin: 8px 0 0;
+  color: #5f6368;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.deadline strong {
+  color: #202124;
+  font-weight: 500;
+}
+
+.summary {
+  margin: 4px 0 0;
   max-width: 720px;
   color: #5f6368;
   font-size: 14px;
@@ -249,7 +261,7 @@ h1 {
 .header-actions {
   display: flex;
   flex: 1 1 auto;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
@@ -260,8 +272,8 @@ h1 {
 .activity-filters {
   display: flex;
   align-items: center;
-  flex: 1 1 280px;
-  flex-wrap: wrap;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
   justify-content: flex-end;
   gap: 10px;
   min-width: 0;

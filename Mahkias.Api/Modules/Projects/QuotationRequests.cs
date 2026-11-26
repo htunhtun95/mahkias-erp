@@ -51,6 +51,8 @@ namespace Mahkias.Api.Modules.Projects
         public int? ActivityGroupId { get; set; }
 
         public int? CurrencyId { get; set; }
+
+        public int? ActivityTypeId { get; set; }
     }
 
     public class QuotationChargeRequest
@@ -116,6 +118,8 @@ namespace Mahkias.Api.Modules.Projects
 
         public string ConditionColumn { get; set; }
 
+        public string ActivityTypeColumn { get; set; }
+
         public string UnitColumn { get; set; }
 
         public string LeadTimeColumn { get; set; }
@@ -151,6 +155,8 @@ namespace Mahkias.Api.Modules.Projects
         public string DefaultDescription { get; set; }
 
         public string DefaultCondition { get; set; }
+
+        public string DefaultActivityType { get; set; }
 
         public string DefaultUnit { get; set; }
 

@@ -23,6 +23,8 @@ namespace Mahkias.Core.Modules.Projects
 
         Task<IReadOnlyList<QuotationListItem>> GetByProjectAsync(int projectId);
 
+        Task<IReadOnlyList<QuotationListItem>> ListAsync();
+
         Task<QuotationDetailResult> GetDetailAsync(int quotationId);
 
         Task<IReadOnlyList<ActivityQuotationLink>> GetActivityLinksAsync(int projectId);
@@ -31,6 +33,6 @@ namespace Mahkias.Core.Modules.Projects
 
         Task<bool> DeleteAsync(int quotationId);
 
-        Task<IReadOnlyList<PartPriceHistoryItem>> GetPriceHistoryAsync(string partNo);
+        Task<IReadOnlyList<PartPriceHistoryItem>> GetPriceHistoryAsync(IReadOnlyCollection<string> partNos, IReadOnlyCollection<string> alternatePartNos);
     }
 }

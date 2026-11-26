@@ -1,0 +1,106 @@
+<div class="parts-page">
+  <div class="page-bar">
+    <h1>Parts</h1>
+    <label class="search">
+      <mat-icon>search</mat-icon>
+      <input
+        type="search"
+        placeholder="Search part number"
+        [value]="searchTerm"
+        (input)="onSearch($any($event.target).value)"
+      />
+    </label>
+    <button class="new-button" type="button" (click)="openAdd()">
+      <mat-icon>add</mat-icon>
+      Add Part
+    </button>
+  </div>
+
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+
+  @if (loading) {
+    <div class="loading"><mat-spinner diameter="36"></mat-spinner></div>
+  } @else if (parts.length === 0) {
+    <div class="empty-list">
+      <mat-icon>inventory_2</mat-icon>
+      @if (searchTerm.trim()) {
+        <p>No parts match your search</p>
+      } @else {
+        <p>No parts yet</p>
+        <button class="new-button" type="button" (click)="openAdd()">
+          <mat-icon>add</mat-icon>
+          Add Part
+        </button>
+      }
+    </div>
+  } @else {
+    <div class="drive-table">
+      <div class="table-scroll">
+        <div
+          class="row heading"
+          matSort
+          [matSortActive]="sortBy"
+          [matSortDirection]="sortDirection"
+          matSortDisableClear
+          (matSortChange)="onSort($event)"
+        >
+          <span mat-sort-header="partNo">Part No</span>
+          <span>Descriptions</span>
+          <span class="col-date" mat-sort-header="createdAt">Created At</span>
+          <span class="col-actions" aria-hidden="true"></span>
+        </div>
+        @for (part of page; track part.id) {
+          <div
+            class="row"
+            role="link"
+            tabindex="0"
+            [class.is-deleting]="deletingId === part.id"
+            (click)="openDetails(part, $event)"
+            (keydown.enter)="openDetails(part, $event)"
+          >
+            <span class="part-cell">{{ part.partNo }}</span>
+            <span class="descriptions">{{ descriptionText(part) }}</span>
+            <span class="col-date">{{ listDate(part) }}</span>
+            <span class="col-actions row-actions">
+              <button
+                class="icon-btn"
+                type="button"
+                matTooltip="Edit part"
+                aria-label="Edit part"
+                [disabled]="isDeleting"
+                (click)="openEdit($event, part)"
+                (keydown)="$event.stopPropagation()"
+              >
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button
+                class="icon-btn delete"
+                type="button"
+                matTooltip="Delete part"
+                aria-label="Delete part"
+                [disabled]="isDeleting"
+                (click)="openDelete($event, part)"
+                (keydown)="$event.stopPropagation()"
+              >
+                @if (deletingId === part.id) {
+                  <mat-spinner diameter="18"></mat-spinner>
+                } @else {
+                  <mat-icon>delete</mat-icon>
+                }
+              </button>
+            </span>
+          </div>
+        }
+      </div>
+    </div>
+    <mat-paginator
+      [length]="parts.length"
+      [pageIndex]="pageIndex"
+      [pageSize]="pageSize"
+      [pageSizeOptions]="[10, 25, 50]"
+      (page)="onPage($event)"
+    />
+  }
+</div>

@@ -1,8 +1,9 @@
 import { Component, inject } from '@angular/core';
+import { Router, RouterModule } from '@angular/router';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { forkJoin } from 'rxjs';
 import { MaterialModule } from '../../../../app/material-module';
-import { Activity, ActivityQuotationLink, ProjectApiService, PurchaseOrderListItem, PurchaseOrderTraceLine, Supplier } from '../../../../core/services/project-api.service';
+import { Activity, ActivityQuotationLink, PartPriceHistory, ProjectApiService, PurchaseOrderListItem, PurchaseOrderTraceLine, Supplier } from '../../../../core/services/project-api.service';
 import { ProcurementTrace } from '../../../procurement-trace';
 import { closeOnEscape } from '../../../../core/close-on-escape';
 import { formatMoney } from '../../../money-format';
@@ -28,6 +29,9 @@ export interface QuotationDataState {
   title: string;
   subtitle: string;
   requiredQuantity?: number | null;
+  partNo?: string | null;
+  mainPartNo?: string | null;
+  alternativePartNos?: string[];
   serialNo?: string | null;
   tsn?: string | null;
   tso?: string | null;
@@ -42,13 +46,14 @@ export interface QuotationDataState {
 @Component({
   selector: 'app-quotation-data-dialog',
   standalone: true,
-  imports: [MaterialModule],
+  imports: [RouterModule, MaterialModule],
   templateUrl: './quotation-data-dialog.html',
   styleUrl: './quotation-data-dialog.css',
 })
 export class QuotationDataDialog {
   readonly leadTimeLabel = leadTimeLabel;
   private dialogRef = inject(MatDialogRef<QuotationDataDialog>);
+  private router = inject(Router);
   private dialog = inject(MatDialog);
   private api = inject(ProjectApiService);
   private purchaseSync = inject(PurchaseOrderSync);
@@ -57,10 +62,14 @@ export class QuotationDataDialog {
   private selectedKeys = new Set<string>();
   private suppliers: Supplier[] = [];
   orderChoices: PurchaseOrderListItem[] = [];
+  history: PartPriceHistory[] = [];
+  historyLoading = false;
+  historyError = '';
 
   constructor() {
     closeOnEscape(this.dialogRef, () => this.close());
     this.loadChoices();
+    this.loadHistory();
   }
 
   get isGroup(): boolean {
@@ -76,11 +85,17 @@ export class QuotationDataDialog {
   }
 
   get heading(): string {
-    return this.isGroup ? 'Quotes' : 'Quoted options';
+    if (this.isGroup) {
+      return 'Quotes';
+    }
+    return this.data.kind === 'quotes' ? 'Current quotes' : 'Quoted options';
   }
 
   get emptyMessage(): string {
-    return this.isGroup ? 'No activities in this group.' : 'No quotations for this activity.';
+    if (this.isGroup) {
+      return 'No activities in this group.';
+    }
+    return this.data.kind === 'quotes' ? 'No current quotes for this activity.' : 'No quotations for this activity.';
   }
 
   get quoteReceived(): number {
@@ -292,6 +307,38 @@ export class QuotationDataDialog {
     return quotationValidity(validUntil);
   }
 
+  projectLinks(item: PartPriceHistory) {
+    const ids = item.projectIds ?? [];
+    const label = (item.projectLabel ?? '').trim();
+    const labels = label.split(',').map((part) => part.trim()).filter((part) => part.length > 0);
+    if (!ids.length || !label) {
+      return [];
+    }
+    if (ids.length === 1) {
+      return [{ id: ids[0], label }];
+    }
+    return ids.map((id, index) => ({
+      id,
+      label: labels[index] || '',
+    })).filter((project) => project.label.length > 0);
+  }
+
+  openProject(event: Event, projectId: number) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.close();
+    void this.router.navigate(['/projects', projectId]);
+  }
+
+  referenceLabel(quotationRef?: string | null, supplierQuotationRef?: string | null) {
+    const quotation = (quotationRef ?? '').trim();
+    const supplier = (supplierQuotationRef ?? '').trim();
+    if (!quotation) {
+      return '—';
+    }
+    return supplier ? `${quotation} (${supplier})` : quotation;
+  }
+
   quantityDisplay(link: ActivityQuotationLink | null | undefined) {
     if (!link) {
       return quotationQuantity(null, null);
@@ -299,8 +346,65 @@ export class QuotationDataDialog {
     return quotationQuantity(link.quantity, link.minimumQty);
   }
 
+  qtyText(quantity?: number | null, unit?: string | null, minimumQty?: number | null) {
+    const shown = quotationQuantity(quantity, minimumQty);
+    const amount = shown.value === '—' ? '' : shown.value;
+    const unitText = (unit ?? '').trim();
+    return {
+      text: `${amount}${unitText}` || '—',
+      note: shown.note,
+      short: shown.short,
+    };
+  }
+
+  usageLines(source?: { serialNo?: string | null; tsn?: string | null; tso?: string | null; csn?: string | null; cso?: string | null } | null) {
+    return [
+      { label: 'SerialNo', value: source?.serialNo },
+      { label: 'TSN', value: source?.tsn },
+      { label: 'TSO', value: source?.tso },
+      { label: 'CSN', value: source?.csn },
+      { label: 'CSO', value: source?.cso },
+    ]
+      .map((field) => ({ label: field.label, value: (field.value ?? '').trim() }))
+      .filter((field) => field.value.length > 0);
+  }
+
+  currentUsage(link?: ActivityQuotationLink | null) {
+    return this.usageLines({
+      serialNo: link?.serialNo || this.data.serialNo,
+      tsn: link?.tsn || this.data.tsn,
+      tso: link?.tso || this.data.tso,
+      csn: link?.csn || this.data.csn,
+      cso: link?.cso || this.data.cso,
+    });
+  }
+
   private get selectedRows(): QuotationDataRow[] {
     return this.selectableRows.filter((row) => this.isSelected(row));
+  }
+
+  private loadHistory() {
+    if (this.data.kind !== 'quotes') {
+      return;
+    }
+    const primary = [this.data.partNo ?? '', this.data.mainPartNo ?? ''].map((value) => value.trim()).filter((value) => !!value);
+    const alternates = (this.data.alternativePartNos ?? []).map((value) => (value ?? '').trim()).filter((value) => !!value);
+    if (!primary.length && !alternates.length) {
+      return;
+    }
+    this.historyLoading = true;
+    this.historyError = '';
+    this.api.quotationPriceHistory(primary, alternates).subscribe({
+      next: (items) => {
+        const current = new Set(this.rows.map((row) => row.link?.itemId).filter((id): id is number => !!id));
+        this.history = (items ?? []).filter((item) => !current.has(item.id));
+        this.historyLoading = false;
+      },
+      error: () => {
+        this.historyError = 'Historical quotes could not be loaded.';
+        this.historyLoading = false;
+      },
+    });
   }
 
   private loadChoices() {

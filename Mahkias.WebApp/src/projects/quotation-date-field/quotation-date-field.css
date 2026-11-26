@@ -1,7 +1,7 @@
 :host {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--form-label-gap);
   min-width: 0;
   color: #5f6368;
   font-size: 12px;

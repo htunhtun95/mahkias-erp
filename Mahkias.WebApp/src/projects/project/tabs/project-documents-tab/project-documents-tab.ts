@@ -4,13 +4,14 @@ import { MaterialModule } from '../../../../app/material-module';
 import { Project, ProjectApiService, ProjectDocument } from '../../../../core/services/project-api.service';
 import { formatFileSize } from '../../../document-manager/document-manager';
 import { documentAccept, openDocumentLibrary } from '../../../document-library-dialog/document-library-dialog';
+import { attachmentIcon, attachmentTone } from '../../../attachment-file';
 
 @Component({
   selector: 'app-project-documents-tab',
   standalone: true,
   imports: [MaterialModule],
   templateUrl: './project-documents-tab.html',
-  styleUrl: './project-documents-tab.css',
+  styleUrls: ['./project-documents-tab.css', '../../../attachment-files.css'],
 })
 export class ProjectDocumentsTabComponent implements OnChanges {
   private api = inject(ProjectApiService);
@@ -33,6 +34,8 @@ export class ProjectDocumentsTabComponent implements OnChanges {
   }
 
   fileSize = formatFileSize;
+  readonly fileIcon = attachmentIcon;
+  readonly fileTone = attachmentTone;
 
   added(value?: string | null): string {
     if (!value) {

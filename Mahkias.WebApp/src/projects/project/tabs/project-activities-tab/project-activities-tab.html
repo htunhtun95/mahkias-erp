@@ -250,7 +250,7 @@
                           <span class="count-badge">{{ quoteCount(activity) }}</span>
                         }
                       } @else {
-                        <span class="price-empty">Unquoted</span>
+                        <button class="price-link" type="button" matTooltip="View quotes" (click)="onActivityQuotesClick(activity, group, $event)" [disabled]="isSaving || deletingId != null || isBatchEditing(group.typeId)" [attr.aria-label]="'View quotes for ' + (activity.dsnNo || activity.partNo)">View</button>
                       }
                     </span>
                     <span class="row-actions">
@@ -359,7 +359,7 @@
                     <span class="count-badge">{{ quoteCount(activity) }}</span>
                   }
                 } @else {
-                  <span class="price-empty">Unquoted</span>
+                  <button class="price-link" type="button" matTooltip="View quotes" (click)="onActivityQuotesClick(activity, group, $event)" [disabled]="isSaving || deletingId != null || isBatchEditing(group.typeId)" [attr.aria-label]="'View quotes for ' + (activity.dsnNo || activity.partNo)">View</button>
                 }
               </span>
               <span class="row-actions">

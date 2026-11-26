@@ -3,6 +3,11 @@ import { FormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MaterialModule } from '../../app/material-module';
 
+export interface QuotationCurrencyOption {
+  id: number;
+  code: string;
+}
+
 export interface QuotationItemDetails {
   dsnNo: string;
   partNo: string;
@@ -12,6 +17,8 @@ export interface QuotationItemDetails {
   tso: string;
   csn: string;
   cso: string;
+  currencyId?: number | null;
+  currencies?: QuotationCurrencyOption[];
   readOnly?: boolean;
 }
 
@@ -27,6 +34,8 @@ export class QuotationItemDetailsDialog {
   data = inject<QuotationItemDetails>(MAT_DIALOG_DATA);
 
   minimumQty = this.data.minimumQty ?? '';
+  currencyId = this.data.currencyId ?? null;
+  private readonly initialCurrencyId = this.currencyId;
   serialNo = this.data.serialNo ?? '';
   tsn = this.data.tsn ?? '';
   tso = this.data.tso ?? '';
@@ -34,6 +43,10 @@ export class QuotationItemDetailsDialog {
   cso = this.data.cso ?? '';
   readonly readOnly = !!this.data.readOnly;
   error = '';
+
+  get showLineTerms(): boolean {
+    return this.data.currencies != null;
+  }
 
   get heading(): string {
     const dsn = this.data.dsnNo.trim();
@@ -66,6 +79,7 @@ export class QuotationItemDetailsDialog {
       tso: this.tso.trim(),
       csn: this.csn.trim(),
       cso: this.cso.trim(),
+      ...(this.showLineTerms && this.currencyId !== this.initialCurrencyId ? { currencyId: this.currencyId } : {}),
     });
   }
 }

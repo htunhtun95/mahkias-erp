@@ -405,6 +405,8 @@ export class ProjectQuotationsTabComponent implements OnChanges, OnDestroy {
           autoFocus: 'first-tabbable',
           data: {
             projectId: this.project!.id,
+            lockProject: true,
+            projectLabel: [this.project?.reference, this.project?.name].filter((part) => !!part?.trim()).join(' · '),
             activities: this.project!.activities ?? [],
             quotation: detail,
           },

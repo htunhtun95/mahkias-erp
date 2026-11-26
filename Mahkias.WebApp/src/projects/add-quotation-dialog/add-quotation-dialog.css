@@ -21,7 +21,7 @@
 }
 
 .import-overlay.prepare-cover {
-  z-index: 1;
+  z-index: 10;
   background: rgba(255, 255, 255, 0.72);
 }
 
@@ -74,7 +74,7 @@
 .quotation-dialog-container:has(.prepare-cover) .quotation-dialog-header,
 .quotation-dialog-container:has(.prepare-cover) .quotation-dialog-footer {
   position: relative;
-  z-index: 2;
+  z-index: 11;
 }
 
 .quotation-dialog-header {
@@ -179,9 +179,11 @@ h2 {
 }
 
 .header-fields {
+  position: relative;
+  z-index: 20;
   display: grid;
   grid-template-columns: minmax(160px, 0.9fr) minmax(180px, 1fr) minmax(220px, 1.4fr);
-  gap: 12px;
+  gap: var(--form-row-gap) 12px;
 }
 
 .header-fields.creating-supplier {
@@ -202,7 +204,7 @@ h2 {
 label {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--form-label-gap);
   min-width: 0;
   color: #5f6368;
   font-size: 12px;
@@ -232,6 +234,7 @@ label.invalid input:focus {
 
 .supplier-field {
   position: relative;
+  z-index: 2;
 }
 
 .supplier-control {
@@ -280,7 +283,7 @@ label.invalid input:focus {
 .new-supplier {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: var(--form-row-gap) 12px;
   align-items: start;
 }
 
@@ -311,7 +314,7 @@ label.invalid input:focus {
 
 .supplier-menu {
   position: absolute;
-  z-index: 3;
+  z-index: 30;
   top: calc(100% + 4px);
   left: 0;
   right: 0;
@@ -358,6 +361,8 @@ label.invalid input:focus {
 }
 
 .supplier-menu .add-supplier {
+  position: relative;
+  z-index: 1;
   flex: 0 0 auto;
   width: 100%;
   border-top: 1px solid #e0e0e0;
@@ -373,17 +378,15 @@ label.invalid input:focus {
 
 .sheet-wrap {
   flex: 0 0 auto;
+  align-self: stretch;
+  width: 100%;
+  height: auto;
   min-height: 0;
+  max-height: none;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
   overflow-x: auto;
   overflow-y: visible;
-}
-
-@media (min-width: 1200px) {
-  .sheet-wrap:not(:has(table.is-resized)) {
-    overflow-x: hidden;
-  }
 }
 
 .sheet-filters {
@@ -406,10 +409,6 @@ label.invalid input:focus {
   font-weight: 500;
 }
 
-.sheet-filters:not(:has(.label-switch)):not(:has(.type-filter)) .row-search {
-  flex-basis: 100%;
-  max-width: none;
-}
 
 .type-filter {
   flex: 0 1 220px;
@@ -516,18 +515,30 @@ label.invalid input:focus {
 .sheet {
   width: 100%;
   min-width: 0;
+  max-width: 100%;
+  height: auto;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
 }
 
+.sheet.is-resized {
+  max-width: none;
+}
+
+.sheet thead,
+.sheet tbody,
+.sheet tr {
+  height: auto;
+}
+
 .col-resizer {
   position: absolute;
   top: 0;
-  right: -4px;
+  right: 0;
   z-index: 5;
   width: 8px;
-  height: 100%;
+  height: 40px;
   cursor: col-resize;
   touch-action: none;
 }
@@ -546,16 +557,16 @@ label.invalid input:focus {
   background: #1a73e8;
 }
 
-.col-dsn { width: 120px; }
-.col-part { width: 200px; }
-.col-description { width: auto; }
-.col-condition { width: 84px; }
-.col-lead { width: 120px; }
-.col-currency { width: 92px; }
-.col-unit-price { width: 112px; }
-.col-price { width: 148px; }
-.col-qty { width: 176px; }
-.col-action { width: 64px; }
+.col-dsn { width: 72px; }
+.col-part { width: 148px; }
+.col-description { width: 200px; }
+.col-lead { width: 108px; }
+.col-condition { width: 80px; }
+.col-type { width: 108px; }
+.col-unit-price { width: 100px; }
+.col-price { width: 116px; }
+.col-qty { width: 104px; }
+.col-action { width: 56px; }
 
 .add-line {
   height: 36px;
@@ -635,14 +646,19 @@ label.invalid input:focus {
   inset: 0;
   box-sizing: border-box;
   width: 100%;
-  height: 100%;
+  height: auto;
   min-height: 0;
   margin: 0;
 }
 
 .sheet th.part,
 .sheet td.part {
-  min-width: 150px;
+  min-width: 0;
+}
+
+.sheet th.lead {
+  line-height: 1.2;
+  white-space: normal;
 }
 
 .sheet td.part {
@@ -670,14 +686,16 @@ label.invalid input:focus {
 
 .sheet th.description,
 .sheet td.description {
-  min-width: 220px;
+  width: auto;
+  min-width: 0;
+  overflow: hidden;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .sheet th.action,
 .sheet td.action {
-  width: 96px;
+  width: 56px;
   padding: 0;
   text-align: center;
 }
@@ -733,6 +751,7 @@ label.invalid input:focus {
   position: sticky;
   top: 0;
   z-index: 3;
+  height: auto;
   border-top: 1px solid #e0e0e0;
   background: #f8f9fa;
   background-clip: padding-box;

@@ -7,6 +7,16 @@
     </button>
   </header>
   <div class="fields">
+    @if (showLineTerms) {
+      <label>
+        <span>Currency</span>
+        <select [(ngModel)]="currencyId" name="currencyId" [disabled]="readOnly">
+          @for (currency of data.currencies; track currency.id) {
+            <option [ngValue]="currency.id">{{ currency.code }}</option>
+          }
+        </select>
+      </label>
+    }
     <label>
       <span>MOQ</span>
       <input [(ngModel)]="minimumQty" name="minimumQty" inputmode="numeric" autocomplete="off" [readonly]="readOnly" (input)="error = ''" />

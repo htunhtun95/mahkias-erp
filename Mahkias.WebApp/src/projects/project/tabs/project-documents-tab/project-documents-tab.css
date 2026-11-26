@@ -77,10 +77,28 @@
   text-align: left;
 }
 
+.row:not(.heading) .col-file {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.col-file a,
+.file-label {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .col-file a {
   color: #1a73e8;
-  font-weight: 500;
   text-decoration: none;
+}
+
+.file-label {
+  color: #202124;
 }
 
 .col-file a:hover {

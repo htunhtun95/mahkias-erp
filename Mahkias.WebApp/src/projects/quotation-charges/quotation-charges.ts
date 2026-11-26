@@ -224,6 +224,7 @@ function chargeAmount(text: string): number | null {
 
     .amount:focus-within {
       border-color: #1a73e8;
+      box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.16);
     }
 
     .amount.invalid,
@@ -234,15 +235,47 @@ function chargeAmount(text: string): number | null {
     }
 
     .amount span {
+      position: relative;
+      z-index: 1;
+      flex: 0 0 auto;
       padding-left: 12px;
+      background: #fff;
       color: #5f6368;
       font-size: 13px;
+      user-select: none;
     }
 
     .amount input {
+      flex: 1 1 auto;
+      width: auto;
+      min-width: 0;
+      height: 100%;
       border: 0;
-      height: 34px;
-      padding-left: 6px;
+      border-radius: 0;
+      padding: 0 8px 0 6px;
+      background: transparent;
+      box-shadow: none;
+      outline: none;
+    }
+
+    .amount input:hover,
+    .amount input:focus,
+    .amount input:focus-visible {
+      border: 0;
+      border-color: transparent;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      outline: none;
+    }
+
+    .amount input:-webkit-autofill,
+    .amount input:-webkit-autofill:hover,
+    .amount input:-webkit-autofill:focus {
+      -webkit-text-fill-color: #202124;
+      caret-color: #202124;
+      box-shadow: none;
+      transition: background-color 9999s ease-out;
     }
 
     .remove {

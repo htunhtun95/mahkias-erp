@@ -8,15 +8,18 @@ import { AutoGrowDirective } from '../../core/auto-grow';
 import { blockEnterSubmit } from '../../core/block-enter-submit';
 import { closeOnEscape } from '../../core/close-on-escape';
 import { whileBusy } from '../../core/while-busy';
-import { ActivityType, LookupValue, ProjectApiService } from '../../core/services/project-api.service';
+import { ActivityType, LookupValue, PartSuggestion, ProjectApiService } from '../../core/services/project-api.service';
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
-import { partNumberPreview } from '../part-numbers';
+import { partNumberPreview, retainsSelectedPart } from '../part-numbers';
 import { canonicalCondition, canonicalUnit } from '../quotation-lookups';
 import { ActivityItemDetailsDialog } from './activity-item-details-dialog';
+import { PartSuggestComponent } from '../part-suggest/part-suggest';
 
 interface ActivityRowValue {
   dsnNo: string | null;
   partNo: string | null;
+  partId: number | null;
+  pickedPartNo: string | null;
   typeId: number | null;
   quantity: number | string | null;
   budget: number | string | null;
@@ -34,7 +37,7 @@ interface ActivityRowValue {
 @Component({
   selector: 'app-add-activity-dialog',
   standalone: true,
-  imports: [FormsModule, ReactiveFormsModule, MaterialModule, AutoGrowDirective, LookupComboboxComponent],
+  imports: [FormsModule, ReactiveFormsModule, MaterialModule, AutoGrowDirective, LookupComboboxComponent, PartSuggestComponent],
   templateUrl: './add-activity-dialog.html',
   styleUrl: './add-activity-dialog.css',
 })
@@ -174,6 +177,32 @@ export class AddActivityDialog implements AfterViewInit, OnDestroy {
     return 'Type is required';
   }
 
+  setPart(index: number, value: string) {
+    const row = this.rows.at(index);
+    row.get('partNo')?.setValue(value);
+    row.get('partNo')?.markAsDirty();
+    const picked = row.get('pickedPartNo')?.value as string | null;
+    if (!retainsSelectedPart(value, picked)) {
+      row.patchValue({ partId: null, pickedPartNo: null });
+    }
+  }
+
+  pickPart(index: number, suggestion: PartSuggestion) {
+    const row = this.rows.at(index);
+    const partNo = suggestion.partNo ?? '';
+    row.patchValue({
+      partNo,
+      partId: suggestion.partId,
+      pickedPartNo: partNo,
+    });
+    const description = suggestion.description?.trim();
+    if (description) {
+      row.get('description')?.setValue(description);
+      row.get('description')?.markAsDirty();
+    }
+    row.markAsDirty();
+  }
+
   openDetails(index: number) {
     if (this.isSaving) {
       return;
@@ -256,6 +285,7 @@ export class AddActivityDialog implements AfterViewInit, OnDestroy {
 
     const activities = filled.map((row) => ({
       partNo: String(row.partNo ?? ''),
+      partId: row.partId ?? null,
       budget: row.budget === null || row.budget === '' ? null : Number(row.budget),
       description: String(row.description ?? '').trim(),
       dsnNo: String(row.dsnNo ?? '').trim(),
@@ -352,6 +382,8 @@ export class AddActivityDialog implements AfterViewInit, OnDestroy {
     return this.fb.group({
       dsnNo: [''],
       partNo: [''],
+      partId: [null as number | null],
+      pickedPartNo: [null as string | null],
       typeId: [null as number | null],
       quantity: [1],
       budget: [null as number | null],

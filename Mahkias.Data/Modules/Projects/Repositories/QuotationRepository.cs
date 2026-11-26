@@ -33,7 +33,7 @@ namespace Mahkias.Data.Modules.Projects.Repositories
             }
 
             command.CommandText = $@"
-SELECT A.Id, A.ProjectId, A.DSNNo, A.PartNo, A.Description, A.Quantity, A.ActivityGroupId
+SELECT A.Id, A.ProjectId, A.DSNNo, A.PartNo, A.Description, A.Quantity, A.ActivityGroupId, A.ActivityTypeId
 FROM projects.Activities A
 WHERE A.IsDeleted = 0
   AND A.ProjectId IN ({string.Join(", ", parameters)});
@@ -59,6 +59,7 @@ ORDER BY AP.ActivityId, AP.SortOrder, AP.Id;";
                         Description = reader.ReadStringValue("Description"),
                         Quantity = reader.ReadNullableDecimalValue("Quantity"),
                         ActivityGroupId = reader.ReadNullableIntValue("ActivityGroupId"),
+                        ActivityTypeId = reader.ReadNullableIntValue("ActivityTypeId"),
                     });
                 }
 
@@ -277,6 +278,100 @@ ORDER BY Q.CreatedAt DESC, Q.Id DESC");
             return items;
         }
 
+        private static QuotationListItem ReadListItem(SqlDataReader reader)
+        {
+            return new QuotationListItem
+            {
+                Id = reader.ReadIntValue("Id"),
+                SupplierId = reader.ReadIntValue("SupplierId"),
+                SupplierName = reader.ReadStringValue("SupplierName"),
+                Code = reader.ReadStringValue("Code"),
+                SupplierReference = reader.ReadStringValue("SupplierReference"),
+                CreatedAt = reader.ReadDateTimeValue("CreatedAt"),
+                ModifiedAt = reader.ReadNullableDateTimeValue("ModifiedAt"),
+                QuotedDate = reader.ReadNullableDateTimeValue("QuotedDate"),
+                ValidUntil = reader.ReadNullableDateTimeValue("ValidUntil"),
+                ItemCount = reader.ReadIntValue("ItemCount"),
+                TotalPrice = reader.GetDecimal(reader.GetOrdinal("TotalPrice")),
+                CurrencyId = reader.ReadIntValue("CurrencyId"),
+                CurrencyCode = reader.ReadStringValue("CurrencyCode"),
+                CurrencySymbol = reader.ReadStringValue("CurrencySymbol"),
+                ExchangeRate = reader.GetDecimal(reader.GetOrdinal("ExchangeRate")),
+                BaseTotalAmount = reader.GetDecimal(reader.GetOrdinal("BaseTotalAmount")),
+                ProjectIds = ParseIds(reader.ReadStringValue("ProjectIds")),
+                ProjectLabel = reader.ReadNullableStringValue("ProjectLabel"),
+            };
+        }
+
+        private static List<int> ParseIds(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return new List<int>();
+            }
+
+            return value.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(part => int.Parse(part.Trim()))
+                .ToList();
+        }
+
+        public async Task<IReadOnlyList<QuotationListItem>> ListAsync()
+        {
+            var items = new List<QuotationListItem>();
+            using var command = new SqlCommand(@"
+SELECT Q.Id, Q.SupplierId, S.Name AS SupplierName, Q.Code, Q.SupplierReference, Q.CreatedAt, Q.ModifiedAt,
+       Q.QuotedDate, Q.ValidUntil,
+       Q.CurrencyId, C.Code AS CurrencyCode, C.Symbol AS CurrencySymbol, Q.ExchangeRate,
+       COUNT(I.Id) AS ItemCount, Q.BaseTotalAmount AS TotalPrice, Q.BaseTotalAmount,
+       ProjectIds = (
+           SELECT STRING_AGG(CAST(P.Id AS nvarchar(20)), ',')
+           FROM projects.QuotationProjects QP
+           INNER JOIN projects.Projects P ON P.Id = QP.ProjectId AND P.IsDeleted = 0
+           WHERE QP.QuotationId = Q.Id
+       ),
+       ProjectLabel = (
+           SELECT STRING_AGG(COALESCE(NULLIF(LTRIM(RTRIM(P.Reference)), N''), P.Name), N', ')
+           FROM projects.QuotationProjects QP
+           INNER JOIN projects.Projects P ON P.Id = QP.ProjectId AND P.IsDeleted = 0
+           WHERE QP.QuotationId = Q.Id
+       )
+FROM projects.Quotations Q
+INNER JOIN projects.Suppliers S ON S.Id = Q.SupplierId
+INNER JOIN dbo.Currencies C ON C.Id = Q.CurrencyId
+LEFT JOIN projects.QuotationItems I ON I.QuotationId = Q.Id
+WHERE Q.IsDeleted = 0
+  AND S.IsDeleted = 0
+  AND (
+      NOT EXISTS (SELECT 1 FROM projects.QuotationProjects QP WHERE QP.QuotationId = Q.Id)
+      OR EXISTS (
+          SELECT 1
+          FROM projects.QuotationProjects QP
+          INNER JOIN projects.Projects P ON P.Id = QP.ProjectId AND P.IsDeleted = 0
+          WHERE QP.QuotationId = Q.Id
+      )
+  )
+GROUP BY Q.Id, Q.SupplierId, S.Name, Q.Code, Q.SupplierReference, Q.CreatedAt, Q.ModifiedAt,
+         Q.QuotedDate, Q.ValidUntil,
+         Q.CurrencyId, C.Code, C.Symbol, Q.ExchangeRate, Q.BaseTotalAmount
+ORDER BY TRY_CONVERT(bigint, SUBSTRING(Q.Code, NULLIF(PATINDEX(N'%[0-9]%', Q.Code), 0), 20)) DESC,
+         Q.Code DESC, Q.Id DESC", _connection);
+            _connection.Open();
+            try
+            {
+                using var reader = await command.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    items.Add(ReadListItem(reader));
+                }
+            }
+            finally
+            {
+                _connection.Close();
+            }
+
+            return items;
+        }
+
         public async Task<QuotationDetailResult> GetDetailAsync(int quotationId)
         {
             QuotationDetailResult detail = null;
@@ -298,12 +393,14 @@ SELECT I.Id, COALESCE(NULLIF(LTRIM(RTRIM(I.DsnNo)), N''), A.DSNNo) AS DsnNo,
        I.IsAlternativePart, I.PartDescription,
        I.Condition, I.SerialNo, I.TSN, I.TSO, I.CSN, I.CSO, U.Name AS Unit, I.LeadTime, I.MinimumQty,
        I.UnitPrice, I.Quantity, I.TotalPrice, I.CurrencyId, C.Code AS CurrencyCode, C.Symbol AS CurrencySymbol,
-       I.ExchangeRate, I.BaseUnitPrice, I.BaseTotalPrice, I.ActivityId, A.DSNNo AS ActivityDsn, A.PartNo AS ActivityPart
+       I.ExchangeRate, I.BaseUnitPrice, I.BaseTotalPrice, I.ActivityId, A.DSNNo AS ActivityDsn, A.PartNo AS ActivityPart,
+       I.ActivityTypeId, AT.Name AS ActivityType
 FROM projects.QuotationItems I
 LEFT JOIN projects.Activities A ON A.Id = I.ActivityId
 LEFT JOIN projects.ActivityAlternativeParts AP ON AP.Id = I.AlternativePartId
 LEFT JOIN dbo.Currencies C ON C.Id = I.CurrencyId
 LEFT JOIN dbo.Units U ON U.Id = I.UnitId
+LEFT JOIN projects.ActivityTypes AT ON AT.Id = I.ActivityTypeId
 WHERE I.QuotationId = @Id
 ORDER BY I.Id;
 
@@ -315,7 +412,8 @@ ORDER BY SortOrder, Id;", _connection);
             _connection.Open();
             try
             {
-                using var reader = await command.ExecuteReaderAsync();
+                using (var reader = await command.ExecuteReaderAsync())
+                {
                 if (await reader.ReadAsync())
                 {
                     detail = new QuotationDetailResult
@@ -371,6 +469,8 @@ ORDER BY SortOrder, Id;", _connection);
                             ExchangeRate = reader.GetDecimal(reader.GetOrdinal("ExchangeRate")),
                             BaseUnitPrice = reader.ReadNullableDecimalValue("BaseUnitPrice"),
                             BaseTotalPrice = reader.ReadNullableDecimalValue("BaseTotalPrice"),
+                            ActivityTypeId = reader.ReadNullableIntValue("ActivityTypeId"),
+                            ActivityType = reader.ReadStringValue("ActivityType"),
                         });
                     }
 
@@ -393,6 +493,32 @@ ORDER BY SortOrder, Id;", _connection);
 
                     detail.ItemCount = detail.Items.Count;
                     detail.TotalPrice = detail.BaseTotalAmount;
+                }
+                }
+
+                if (detail != null)
+            {
+                using var links = new SqlCommand(@"
+SELECT P.Id,
+       Label = COALESCE(NULLIF(LTRIM(RTRIM(P.Reference)), N''), P.Name)
+FROM projects.QuotationProjects QP
+INNER JOIN projects.Projects P ON P.Id = QP.ProjectId AND P.IsDeleted = 0
+WHERE QP.QuotationId = @Id
+ORDER BY Label, P.Id", _connection);
+                links.Parameters.AddInt("Id", quotationId);
+                using var linkReader = await links.ExecuteReaderAsync();
+                var labels = new List<string>();
+                while (await linkReader.ReadAsync())
+                {
+                    detail.ProjectIds.Add(linkReader.ReadIntValue("Id"));
+                    var label = linkReader.ReadStringValue("Label");
+                    if (!string.IsNullOrWhiteSpace(label))
+                    {
+                        labels.Add(label);
+                    }
+                }
+
+                detail.ProjectLabel = labels.Count == 0 ? null : string.Join(", ", labels);
                 }
             }
             finally
@@ -444,6 +570,7 @@ AltOnlyKeys AS (
 ProjectItems AS (
     SELECT Q.SupplierId, Q.Id AS QuotationId, I.Id AS ItemId, Q.Code AS QuotationRef, S.Name AS SupplierName,
            Q.SupplierReference AS SupplierQuotationRef, I.PartNo, I.PartDescription AS Description,
+           I.SerialNo, I.TSN, I.TSO, I.CSN, I.CSO,
            I.Condition, U.Name AS Unit, I.LeadTime, I.MinimumQty, I.Quantity, Q.QuotedDate, Q.ValidUntil,
            I.UnitPrice, I.TotalPrice,
            COALESCE(I.BaseUnitPrice, I.UnitPrice) AS BaseUnitPrice,
@@ -465,7 +592,7 @@ ProjectItems AS (
 ),
 DsnMatched AS (
     SELECT A.Id AS ActivityId, I.SupplierId, I.QuotationId, I.ItemId, I.QuotationRef, I.SupplierName, I.SupplierQuotationRef,
-           I.PartNo, I.Description, I.Condition, I.Unit, I.LeadTime, I.MinimumQty, I.Quantity, I.QuotedDate, I.ValidUntil,
+           I.PartNo, I.Description, I.SerialNo, I.TSN, I.TSO, I.CSN, I.CSO, I.Condition, I.Unit, I.LeadTime, I.MinimumQty, I.Quantity, I.QuotedDate, I.ValidUntil,
            I.UnitPrice, I.TotalPrice, I.BaseUnitPrice, I.BaseTotalPrice, I.CurrencyCode, I.CurrencySymbol, I.RecordedAt,
            CASE WHEN AF.ActivityId IS NOT NULL THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS AlternativePart
     FROM ProjectActivities A
@@ -482,7 +609,7 @@ DsnMatched AS (
 ),
 AltMatched AS (
     SELECT A.Id AS ActivityId, I.SupplierId, I.QuotationId, I.ItemId, I.QuotationRef, I.SupplierName, I.SupplierQuotationRef,
-           I.PartNo, I.Description, I.Condition, I.Unit, I.LeadTime, I.MinimumQty, I.Quantity, I.QuotedDate, I.ValidUntil,
+           I.PartNo, I.Description, I.SerialNo, I.TSN, I.TSO, I.CSN, I.CSO, I.Condition, I.Unit, I.LeadTime, I.MinimumQty, I.Quantity, I.QuotedDate, I.ValidUntil,
            I.UnitPrice, I.TotalPrice, I.BaseUnitPrice, I.BaseTotalPrice, I.CurrencyCode, I.CurrencySymbol, I.RecordedAt,
            CASE WHEN AF.ActivityId IS NOT NULL THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS AlternativePart
     FROM ProjectActivities A
@@ -504,7 +631,7 @@ Ranked AS (
            ROW_NUMBER() OVER (PARTITION BY ActivityId ORDER BY BaseUnitPrice ASC, QuotationId ASC, ItemId ASC) AS QuoteRank
     FROM Matched
 )
-SELECT ActivityId, SupplierId, ItemId, QuotationId, QuotationRef, SupplierName, SupplierQuotationRef, PartNo, Description, Condition, Unit, LeadTime, MinimumQty, Quantity, QuotedDate, ValidUntil, AlternativePart,
+SELECT ActivityId, SupplierId, ItemId, QuotationId, QuotationRef, SupplierName, SupplierQuotationRef, PartNo, Description, SerialNo, TSN, TSO, CSN, CSO, Condition, Unit, LeadTime, MinimumQty, Quantity, QuotedDate, ValidUntil, AlternativePart,
        UnitPrice, TotalPrice, CurrencyCode, CurrencySymbol, BaseUnitPrice, BaseTotalPrice, RecordedAt,
        CASE WHEN QuoteRank = 1 THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END AS Lowest
 FROM Ranked
@@ -527,6 +654,11 @@ ORDER BY ActivityId, QuoteRank, QuotationId", _connection);
                         SupplierQuotationRef = reader.ReadStringValue("SupplierQuotationRef"),
                         PartNo = reader.ReadStringValue("PartNo"),
                         Description = reader.ReadStringValue("Description"),
+                        SerialNo = reader.ReadStringValue("SerialNo"),
+                        TSN = reader.ReadStringValue("TSN"),
+                        TSO = reader.ReadStringValue("TSO"),
+                        CSN = reader.ReadStringValue("CSN"),
+                        CSO = reader.ReadStringValue("CSO"),
                         Condition = reader.ReadStringValue("Condition"),
                         Unit = reader.ReadStringValue("Unit"),
                         LeadTime = reader.ReadNullableIntValue("LeadTime"),
@@ -574,6 +706,7 @@ ORDER BY ActivityId, QuoteRank, QuotationId", _connection);
                 }
 
                 await ReplaceChargesAsync(quotationId, args.Charges, transaction, CancellationToken.None);
+                await ReplaceProjectLinksAsync(quotationId, args.ProjectIds, transaction, CancellationToken.None);
                 await transaction.CommitAsync();
                 return true;
             }
@@ -611,38 +744,93 @@ WHERE Id = @Id AND IsDeleted = 0", _connection);
             }
         }
 
-        public async Task<IReadOnlyList<PartPriceHistoryItem>> GetPriceHistoryAsync(string partNo)
+        public async Task<IReadOnlyList<PartPriceHistoryItem>> GetPriceHistoryAsync(IReadOnlyCollection<string> partNos, IReadOnlyCollection<string> alternatePartNos)
         {
+            var primary = DistinctPartKeys(partNos);
+            var alternates = DistinctPartKeys(alternatePartNos).Where(part => !primary.Contains(part)).ToList();
+            var keys = primary.Concat(alternates).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            if (keys.Length == 0)
+            {
+                return Array.Empty<PartPriceHistoryItem>();
+            }
+
+            var alternateKeys = new HashSet<string>(alternates, StringComparer.OrdinalIgnoreCase);
             var items = new List<PartPriceHistoryItem>();
             using var command = new SqlCommand(@"
 SELECT I.Id, I.QuotationId, Q.Code AS QuotationReference, S.Name AS SupplierName,
-       I.PartNo, I.PartDescription, I.UnitPrice, I.Quantity, I.TotalPrice, I.CreatedAt
+       Q.SupplierReference AS SupplierQuotationRef,
+       I.PartNo, I.PartDescription, I.SerialNo, I.TSN, I.TSO, I.CSN, I.CSO, I.Condition, U.Name AS Unit, I.LeadTime,
+       C.Code AS CurrencyCode, C.Symbol AS CurrencySymbol,
+       I.UnitPrice, I.Quantity, I.TotalPrice, Q.QuotedDate, Q.ValidUntil, I.CreatedAt,
+       ProjectIds = (
+           SELECT STRING_AGG(CAST(P.Id AS nvarchar(20)), ',') WITHIN GROUP (ORDER BY P.Id)
+           FROM projects.QuotationProjects QP
+           INNER JOIN projects.Projects P ON P.Id = QP.ProjectId AND P.IsDeleted = 0
+           WHERE QP.QuotationId = Q.Id
+       ),
+       ProjectLabel = (
+           SELECT STRING_AGG(COALESCE(NULLIF(LTRIM(RTRIM(P.Reference)), N''), P.Name), N', ') WITHIN GROUP (ORDER BY P.Id)
+           FROM projects.QuotationProjects QP
+           INNER JOIN projects.Projects P ON P.Id = QP.ProjectId AND P.IsDeleted = 0
+           WHERE QP.QuotationId = Q.Id
+       )
 FROM projects.QuotationItems I
 INNER JOIN projects.Quotations Q ON Q.Id = I.QuotationId
 INNER JOIN projects.Suppliers S ON S.Id = Q.SupplierId
-WHERE I.PartNo = @PartNo
-  AND Q.IsDeleted = 0
+INNER JOIN (
+    SELECT DISTINCT PartKey = LOWER(LTRIM(RTRIM(TextValue)))
+    FROM @PartNos
+) Parts ON Parts.PartKey = LOWER(LTRIM(RTRIM(I.PartNo)))
+LEFT JOIN dbo.Currencies C ON C.Id = I.CurrencyId
+LEFT JOIN dbo.Units U ON U.Id = I.UnitId
+WHERE Q.IsDeleted = 0
   AND S.IsDeleted = 0
-ORDER BY I.CreatedAt DESC, I.Id DESC");
-            command.Parameters.AddNVarChar("PartNo", partNo?.Trim(), 100);
-            command.Connection = _connection;
+  AND I.UnitPrice IS NOT NULL
+  AND (
+      NOT EXISTS (SELECT 1 FROM projects.QuotationProjects QP WHERE QP.QuotationId = Q.Id)
+      OR EXISTS (
+          SELECT 1
+          FROM projects.QuotationProjects QP
+          INNER JOIN projects.Projects P ON P.Id = QP.ProjectId AND P.IsDeleted = 0
+          WHERE QP.QuotationId = Q.Id
+      )
+  )
+ORDER BY COALESCE(Q.QuotedDate, I.CreatedAt) DESC, I.Id DESC", _connection);
+            command.Parameters.AddTable("PartNos", keys.ToTextDatatableArgs(), "dbo.TextTableType");
             _connection.Open();
             try
             {
                 using var reader = await command.ExecuteReaderAsync();
                 while (await reader.ReadAsync())
                 {
+                    var partNo = reader.ReadStringValue("PartNo");
                     items.Add(new PartPriceHistoryItem
                     {
                         Id = reader.ReadIntValue("Id"),
                         QuotationId = reader.ReadIntValue("QuotationId"),
                         QuotationReference = reader.ReadStringValue("QuotationReference"),
                         SupplierName = reader.ReadStringValue("SupplierName"),
-                        PartNo = reader.ReadStringValue("PartNo"),
+                        SupplierQuotationRef = reader.ReadStringValue("SupplierQuotationRef"),
+                        PartNo = partNo,
                         PartDescription = reader.ReadStringValue("PartDescription"),
+                        SerialNo = reader.ReadStringValue("SerialNo"),
+                        TSN = reader.ReadStringValue("TSN"),
+                        TSO = reader.ReadStringValue("TSO"),
+                        CSN = reader.ReadStringValue("CSN"),
+                        CSO = reader.ReadStringValue("CSO"),
+                        Condition = reader.ReadStringValue("Condition"),
+                        Unit = reader.ReadStringValue("Unit"),
+                        LeadTime = reader.ReadNullableIntValue("LeadTime"),
+                        CurrencyCode = reader.ReadStringValue("CurrencyCode"),
+                        CurrencySymbol = reader.ReadStringValue("CurrencySymbol"),
+                        ProjectIds = ParseIds(reader.ReadStringValue("ProjectIds")),
+                        ProjectLabel = reader.ReadStringValue("ProjectLabel"),
+                        Alternative = alternateKeys.Contains(partNo?.Trim() ?? string.Empty),
                         UnitPrice = reader.GetDecimal(reader.GetOrdinal("UnitPrice")),
                         Quantity = reader.ReadIntValue("Quantity"),
-                        TotalPrice = reader.GetDecimal(reader.GetOrdinal("TotalPrice")),
+                        TotalPrice = reader.ReadNullableDecimalValue("TotalPrice") ?? 0m,
+                        QuotedDate = reader.ReadNullableDateTimeValue("QuotedDate"),
+                        ValidUntil = reader.ReadNullableDateTimeValue("ValidUntil"),
                         CreatedAt = reader.ReadDateTimeValue("CreatedAt"),
                     });
                 }
@@ -653,6 +841,29 @@ ORDER BY I.CreatedAt DESC, I.Id DESC");
             }
 
             return items;
+        }
+
+        private static List<string> DistinctPartKeys(IReadOnlyCollection<string> values)
+        {
+            var keys = new List<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (values == null)
+            {
+                return keys;
+            }
+
+            foreach (var value in values)
+            {
+                var key = value?.Trim();
+                if (string.IsNullOrWhiteSpace(key) || !seen.Add(key))
+                {
+                    continue;
+                }
+
+                keys.Add(key);
+            }
+
+            return keys;
         }
 
         public override QuotationEntity PopulateRecord(SqlDataReader reader)
@@ -799,6 +1010,22 @@ WHERE Id = @QuotationId;", _connection, transaction);
             return await reader.ReadAsync(cancellationToken);
         }
 
+        private async Task ReplaceProjectLinksAsync(int quotationId, IReadOnlyList<int> projectIds, SqlTransaction transaction, CancellationToken cancellationToken)
+        {
+            using var command = new SqlCommand(@"
+DELETE FROM projects.QuotationProjects
+WHERE QuotationId = @Id;
+
+INSERT INTO projects.QuotationProjects (QuotationId, ProjectId)
+SELECT @Id, P.Id
+FROM projects.Projects AS P
+INNER JOIN @ProjectIds AS Ids ON Ids.NumericID = P.Id
+WHERE P.IsDeleted = 0;", _connection, transaction);
+            command.Parameters.AddInt("Id", quotationId);
+            command.Parameters.AddTable("ProjectIds", ProjectIdTable(projectIds), "dbo.NumberTableType");
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+
         private static void BindCreate(SqlCommand command, CreateQuotationArgs args)
         {
             command.Parameters.AddInt("SupplierId", args.SupplierId);
@@ -852,6 +1079,7 @@ WHERE Id = @QuotationId;", _connection, transaction);
                     TextValue7 = UsageJson(item),
                     NumericValue5 = item.CurrencyId,
                     NumericValue6 = item.MinimumQty,
+                    NumericValue7 = item.ActivityTypeId,
                     DecimalValue1 = item.UnitPrice,
                     DecimalValue2 = item.TotalPrice
                 })

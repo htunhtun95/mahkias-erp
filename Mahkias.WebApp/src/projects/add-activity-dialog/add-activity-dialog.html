@@ -59,14 +59,15 @@
                 <input formControlName="dsnNo" [attr.aria-invalid]="fieldInvalid($index, 'dsnNo')" />
               </td>
               <td class="cell" [class.cell-invalid]="fieldInvalid($index, 'partNo')" [attr.data-hint]="partTitle($index)" [attr.title]="partTitle($index)">
-                <textarea
-                  class="grow-field"
-                  appAutoGrow
-                  data-min-height="38"
-                  formControlName="partNo"
-                  rows="1"
-                  [attr.aria-invalid]="fieldInvalid($index, 'partNo')"
-                ></textarea>
+                <app-part-suggest
+                  [value]="row.get('partNo')?.value || ''"
+                  [disabled]="isSaving"
+                  [invalid]="fieldInvalid($index, 'partNo')"
+                  [minHeight]="38"
+                  ariaLabel="Part No"
+                  (valueChange)="setPart($index, $event)"
+                  (picked)="pickPart($index, $event)"
+                />
               </td>
               <td class="cell" [class.cell-invalid]="fieldInvalid($index, 'typeId')" [attr.data-hint]="fieldHint($index, 'typeId')" [attr.title]="fieldHint($index, 'typeId')">
                 <select formControlName="typeId" [attr.aria-invalid]="fieldInvalid($index, 'typeId')">

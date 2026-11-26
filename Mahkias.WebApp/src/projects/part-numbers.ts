@@ -59,6 +59,15 @@ export function splitAlternativePartNumbers(partNo: string | null | undefined): 
     .map((value, index) => ({ value, main: index === 0 }));
 }
 
+export function retainsSelectedPart(value: string | null | undefined, selectedPartNo: string | null | undefined): boolean {
+  const selected = (selectedPartNo ?? '').trim();
+  if (!selected) {
+    return false;
+  }
+  const pieces = splitAlternativePartNumbers(value);
+  return pieces.length > 0 && pieces[0].value.trim().toLowerCase() === selected.toLowerCase();
+}
+
 export function partNumberPreview(partNo: string | null | undefined): string {
   const raw = partNo ?? '';
   if (!/\bor\b|\//i.test(raw)) {

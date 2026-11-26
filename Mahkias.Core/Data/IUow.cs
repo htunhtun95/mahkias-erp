@@ -7,6 +7,7 @@ namespace Mahkias.Core.Data
         IProjectRepository Projects { get; }
         IProjectHistoryRepository ProjectHistory { get; }
         IActivityRepository Activities { get; }
+        IPartRepository Parts { get; }
         ISupplierRepository Suppliers { get; }
         IQuotationRepository Quotations { get; }
         IPurchaseOrderRepository PurchaseOrders { get; }

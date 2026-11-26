@@ -22,101 +22,104 @@
 <form [formGroup]="form" (ngSubmit)="save()" (keydown.enter)="onFieldEnter($event)">
   <div class="form-panel">
     <div class="field-grid">
-      <mat-form-field appearance="outline" subscriptSizing="dynamic" hideRequiredMarker>
-        <mat-label>DSN No<span class="req" aria-hidden="true">*</span></mat-label>
-        <input matInput formControlName="dsnNo" autocomplete="off" />
+      <label class="field" [class.invalid]="dsnInvalid">
+        <span>DSN No<span class="req" aria-hidden="true">*</span></span>
+        <input formControlName="dsnNo" autocomplete="off" />
         @if (dsnInvalid) {
-          <mat-error>DSN no is required.</mat-error>
+          <p class="hint">DSN no is required.</p>
         }
-      </mat-form-field>
+      </label>
 
-      <mat-form-field appearance="outline" subscriptSizing="dynamic" hideRequiredMarker>
-        <mat-label>Type<span class="req" aria-hidden="true">*</span></mat-label>
-        <mat-select formControlName="typeId">
+      <label class="field" [class.invalid]="typeInvalid">
+        <span>Type<span class="req" aria-hidden="true">*</span></span>
+        <select formControlName="typeId">
           @for (type of data.types; track type.id) {
-            <mat-option [value]="type.id">{{ type.name }}</mat-option>
+            <option [ngValue]="type.id">{{ type.name }}</option>
           }
-        </mat-select>
+        </select>
         @if (typeInvalid) {
-          <mat-error>Type is required.</mat-error>
+          <p class="hint">Type is required.</p>
         }
-      </mat-form-field>
+      </label>
 
-      <mat-form-field appearance="outline" subscriptSizing="dynamic" hideRequiredMarker>
-        <mat-label>Quantity<span class="req" aria-hidden="true">*</span></mat-label>
-        <input matInput type="number" min="0" step="1" formControlName="quantity" />
+      <label class="field" [class.invalid]="quantityInvalid">
+        <span>Quantity<span class="req" aria-hidden="true">*</span></span>
+        <input type="number" min="0" step="1" formControlName="quantity" />
         @if (quantityInvalid) {
-          <mat-error>Quantity must be a whole number.</mat-error>
+          <p class="hint">Quantity must be a whole number.</p>
         }
-      </mat-form-field>
+      </label>
 
-      <mat-form-field class="wide" appearance="outline" subscriptSizing="dynamic" hideRequiredMarker>
-        <mat-label>Part No<span class="req" aria-hidden="true">*</span></mat-label>
-        <textarea matInput appAutoGrow data-min-height="24" formControlName="partNo" rows="1"></textarea>
+      <label class="field wide" [class.invalid]="partInvalid">
+        <span>Part No<span class="req" aria-hidden="true">*</span></span>
+        <app-part-suggest
+          [value]="form.controls.partNo.value || ''"
+          [disabled]="isSaving"
+          [invalid]="partInvalid"
+          ariaLabel="Part No"
+          (valueChange)="setPartNo($event)"
+          (picked)="pickPart($event)"
+        />
         @if (partInvalid) {
-          <mat-error>Part number is required.</mat-error>
+          <p class="hint">Part number is required.</p>
         } @else if (partPreview) {
-          <mat-hint>{{ partPreview }}</mat-hint>
+          <p class="hint preview">{{ partPreview }}</p>
         }
-      </mat-form-field>
+      </label>
 
-      <label class="lookup-field half" [class.filled]="!!(form.controls.condition.value || '').trim()">
+      <label class="field half">
         <span>Condition</span>
-        <div class="lookup-box">
-          <app-lookup-combobox
-            ariaLabel="Condition"
-            [value]="form.controls.condition.value || ''"
-            [options]="conditionOptions"
-            [disabled]="isSaving"
-            (valueChange)="setLookup('condition', $event)"
-            (committed)="normalizeCondition()"
-          />
-        </div>
+        <app-lookup-combobox
+          ariaLabel="Condition"
+          [value]="form.controls.condition.value || ''"
+          [options]="conditionOptions"
+          [disabled]="isSaving"
+          (valueChange)="setLookup('condition', $event)"
+          (committed)="normalizeCondition()"
+        />
       </label>
 
-      <label class="lookup-field half" [class.filled]="!!(form.controls.unit.value || '').trim()">
+      <label class="field half">
         <span>Unit</span>
-        <div class="lookup-box">
-          <app-lookup-combobox
-            ariaLabel="Unit"
-            [value]="form.controls.unit.value || ''"
-            [options]="unitOptions"
-            [disabled]="isSaving"
-            (valueChange)="setLookup('unit', $event)"
-            (committed)="normalizeUnit()"
-          />
-        </div>
+        <app-lookup-combobox
+          ariaLabel="Unit"
+          [value]="form.controls.unit.value || ''"
+          [options]="unitOptions"
+          [disabled]="isSaving"
+          (valueChange)="setLookup('unit', $event)"
+          (committed)="normalizeUnit()"
+        />
       </label>
 
-      <mat-form-field class="wide" appearance="outline" subscriptSizing="dynamic">
-        <mat-label>SerialNo</mat-label>
-        <input matInput formControlName="serialNo" maxlength="100" autocomplete="off" />
-      </mat-form-field>
+      <label class="field wide">
+        <span>SerialNo</span>
+        <input formControlName="serialNo" maxlength="100" autocomplete="off" />
+      </label>
 
-      <mat-form-field class="half" appearance="outline" subscriptSizing="dynamic">
-        <mat-label>TSN</mat-label>
-        <input matInput formControlName="tsn" maxlength="100" autocomplete="off" />
-      </mat-form-field>
+      <label class="field half">
+        <span>TSN</span>
+        <input formControlName="tsn" maxlength="100" autocomplete="off" />
+      </label>
 
-      <mat-form-field class="half" appearance="outline" subscriptSizing="dynamic">
-        <mat-label>TSO</mat-label>
-        <input matInput formControlName="tso" maxlength="100" autocomplete="off" />
-      </mat-form-field>
+      <label class="field half">
+        <span>TSO</span>
+        <input formControlName="tso" maxlength="100" autocomplete="off" />
+      </label>
 
-      <mat-form-field class="half" appearance="outline" subscriptSizing="dynamic">
-        <mat-label>CSN</mat-label>
-        <input matInput formControlName="csn" maxlength="100" autocomplete="off" />
-      </mat-form-field>
+      <label class="field half">
+        <span>CSN</span>
+        <input formControlName="csn" maxlength="100" autocomplete="off" />
+      </label>
 
-      <mat-form-field class="half" appearance="outline" subscriptSizing="dynamic">
-        <mat-label>CSO</mat-label>
-        <input matInput formControlName="cso" maxlength="100" autocomplete="off" />
-      </mat-form-field>
+      <label class="field half">
+        <span>CSO</span>
+        <input formControlName="cso" maxlength="100" autocomplete="off" />
+      </label>
 
-      <mat-form-field class="wide" appearance="outline" subscriptSizing="dynamic">
-        <mat-label>Description</mat-label>
-        <textarea matInput appAutoGrow data-min-height="24" formControlName="description" rows="1"></textarea>
-      </mat-form-field>
+      <label class="field wide">
+        <span>Description</span>
+        <textarea appAutoGrow data-min-height="36" formControlName="description" rows="1"></textarea>
+      </label>
     </div>
 
     @if (error) {

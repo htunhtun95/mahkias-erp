@@ -36,6 +36,7 @@ namespace Mahkias.Data
                 e.Property(x => x.Name).HasMaxLength(250).IsRequired();
                 e.Property(x => x.Reference).HasMaxLength(100);
                 e.Property(x => x.Description).HasColumnType("nvarchar(max)");
+                e.Property(x => x.Deadline).HasColumnType("datetime2");
                 e.Property(x => x.CreatedAt).HasColumnType("datetime").HasDefaultValueSql("GETDATE()").ValueGeneratedOnAdd();
                 e.Property(x => x.ModifiedAt).HasColumnType("datetime");
                 e.Property(x => x.IsDeleted).HasDefaultValue(false);

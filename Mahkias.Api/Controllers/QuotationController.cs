@@ -4,6 +4,7 @@ using Mahkias.Api.Modules.Projects;
 using Mahkias.Api.Services;
 using Mahkias.Core.Data;
 using Mahkias.Core.Modules.Projects;
+using Mahkias.Core.Modules.Projects.Data;
 using Mahkias.Core.Modules.Projects.Data.Args;
 using Mahkias.Core.Modules.Projects.Data.Result;
 using Mahkias.Data;
@@ -34,6 +35,12 @@ namespace Mahkias.Api.Controllers
             _folders = folders;
         }
 
+        [HttpGet("/api/quotations")]
+        public async Task<IActionResult> List()
+        {
+            return Ok(await _uow.Quotations.ListAsync());
+        }
+
         [HttpGet("/api/projects/{projectId}/quotations")]
         public async Task<IActionResult> ListForProject(int projectId)
         {
@@ -52,14 +59,16 @@ namespace Mahkias.Api.Controllers
         }
 
         [HttpGet("/api/quotations/prices")]
-        public async Task<IActionResult> PriceHistory([FromQuery] string partNo)
+        public async Task<IActionResult> PriceHistory([FromQuery] string[] partNo, [FromQuery] string[] alternate)
         {
-            if (string.IsNullOrWhiteSpace(partNo))
+            var parts = DistinctParts(partNo);
+            var alternates = DistinctParts(alternate);
+            if (parts.Count == 0 && alternates.Count == 0)
             {
                 return BadRequest(new { message = "Part number is required." });
             }
 
-            return Ok(await _uow.Quotations.GetPriceHistoryAsync(partNo.Trim()));
+            return Ok(await _uow.Quotations.GetPriceHistoryAsync(parts, alternates));
         }
 
         [HttpGet("/api/quotations/{id:int}")]
@@ -133,9 +142,8 @@ namespace Mahkias.Api.Controllers
                 return prepared.Error;
             }
 
-            var projectId = prepared.Args.ProjectIds.First();
             var id = await _uow.Quotations.ImportAsync(prepared.Args, null, HttpContext.RequestAborted);
-            var saved = (await _uow.Quotations.GetByProjectAsync(projectId)).FirstOrDefault(item => item.Id == id);
+            var saved = await _uow.Quotations.GetDetailAsync(id);
             await this.WriteAll(_uow, prepared.Args.ProjectIds, "QuotationCreated", ProjectHistoryText.QuotationCreated(saved?.Code, saved?.SupplierName));
             return Ok(saved);
         }
@@ -376,9 +384,14 @@ namespace Mahkias.Api.Controllers
         }
 
         [HttpPost("/api/projects/{projectId}/quotations/excel/mapping")]
-        public async Task<IActionResult> ExcelMapping(int projectId, IFormFile file)
+        public Task<IActionResult> ExcelMapping(int projectId, IFormFile file) => ReadExcelMapping(projectId, file);
+
+        [HttpPost("/api/quotations/excel/mapping")]
+        public Task<IActionResult> ExcelMappingStandalone(IFormFile file) => ReadExcelMapping(null, file);
+
+        private async Task<IActionResult> ReadExcelMapping(int? projectId, IFormFile file)
         {
-            if (!await ProjectExists(projectId))
+            if (projectId.HasValue && !await ProjectExists(projectId.Value))
             {
                 return NotFound();
             }
@@ -400,6 +413,7 @@ namespace Mahkias.Api.Controllers
                     partNo = Suggest(sheet.Columns, "partno", "partnumber", "part"),
                     description = Suggest(sheet.Columns, "description", "desc"),
                     condition = Suggest(sheet.Columns, "condition", "itemcondition", "cond"),
+                    activityType = Suggest(sheet.Columns, "activitytype", "type", "acttype"),
                     unit = Suggest(sheet.Columns, "uom", "unitofmeasure", "unitcode", "unit"),
                     leadTime = Suggest(sheet.Columns, "leadtime", "lead", "deliveryleadtime"),
                     minimumQty = Suggest(sheet.Columns, "minimumqty", "moq", "minqty", "minimumorderqty", "minimumquantity"),
@@ -420,9 +434,14 @@ namespace Mahkias.Api.Controllers
         }
 
         [HttpPost("/api/projects/{projectId}/quotations/excel/validate")]
-        public async Task<IActionResult> ExcelValidate(int projectId, [FromForm] QuotationExcelUploadForm form)
+        public Task<IActionResult> ExcelValidate(int projectId, [FromForm] QuotationExcelUploadForm form) => ValidateExcel(projectId, form);
+
+        [HttpPost("/api/quotations/excel/validate")]
+        public Task<IActionResult> ExcelValidateStandalone([FromForm] QuotationExcelUploadForm form) => ValidateExcel(null, form);
+
+        private async Task<IActionResult> ValidateExcel(int? projectId, [FromForm] QuotationExcelUploadForm form)
         {
-            if (!await ProjectExists(projectId))
+            if (projectId.HasValue && !await ProjectExists(projectId.Value))
             {
                 return NotFound();
             }
@@ -433,7 +452,7 @@ namespace Mahkias.Api.Controllers
             }
 
             var missingFields = new List<string>();
-            if (string.IsNullOrWhiteSpace(form.DsnNoColumn) && string.IsNullOrWhiteSpace(form.DefaultDsnNo))
+            if (projectId.HasValue && string.IsNullOrWhiteSpace(form.DsnNoColumn) && string.IsNullOrWhiteSpace(form.DefaultDsnNo))
             {
                 missingFields.Add("DSN No");
             }
@@ -455,10 +474,13 @@ namespace Mahkias.Api.Controllers
             }
 
             var plan = QuotationExcelPlanner.Plan(sheet, form);
-            var activities = await _uow.Quotations.GetActivitiesForMappingAsync(new[] { projectId });
+            var activities = projectId.HasValue
+                ? await _uow.Quotations.GetActivitiesForMappingAsync(new[] { projectId.Value })
+                : Array.Empty<QuotationMapActivity>();
             var currencies = await _uow.Currencies.ListActiveAsync();
             var units = await _uow.Lookups.ListUnitsAsync();
             var conditions = await _uow.Lookups.ListConditionsAsync();
+            var activityTypes = await _context.ActivityTypes.AsNoTracking().ToListAsync();
             var errors = plan.Errors.ToList();
             var items = new List<object>();
             var choices = new List<object>();
@@ -481,6 +503,15 @@ namespace Mahkias.Api.Controllers
                     var quantity = row.Quantity < 1 ? 1 : row.Quantity;
                     TryPrice(row.UnitPrice, row.TotalPrice, EffectiveQuantity(row.MinimumQty, quantity), out var unit, out var total);
                     var match = QuotationAllocator.Direct(row.DsnNo, row.PartNo, activities);
+                    var activityTypeId = MatchActivityType(row.ActivityType, activityTypes);
+                    if (!string.IsNullOrWhiteSpace(row.ActivityType) && activityTypeId == null)
+                    {
+                        errors.Add(new ActivityImportIssue { Row = row.Row, Field = "Activity Type", Message = "'" + row.ActivityType.Trim() + "' is not a valid activity type." });
+                    }
+                    else if (activityTypeId == null && match?.ActivityTypeId is int linkedTypeId)
+                    {
+                        activityTypeId = linkedTypeId;
+                    }
                     items.Add(new
                     {
                         row = row.Row,
@@ -488,6 +519,7 @@ namespace Mahkias.Api.Controllers
                         partNo = row.PartNo,
                         description = row.Description,
                         condition = LookupText.Canonical(row.Condition, null, conditions),
+                        activityTypeId,
                         unit = LookupText.Canonical(row.UnitName, null, units),
                         leadTime = row.LeadTime,
                         minimumQty = row.MinimumQty,
@@ -548,15 +580,13 @@ namespace Mahkias.Api.Controllers
             }
 
             var projectIds = (request.ProjectIds ?? new List<int>()).Where(id => id > 0).Distinct().ToList();
-            if (projectIds.Count == 0)
+            if (projectIds.Count > 0)
             {
-                return (BadRequest(new { message = "At least one project is required." }), null);
-            }
-
-            var existingProjects = await _context.Projects.AsNoTracking().Where(project => projectIds.Contains(project.Id)).Select(project => project.Id).ToListAsync();
-            if (existingProjects.Count != projectIds.Count)
-            {
-                return (BadRequest(new { message = "One of the selected projects could not be found." }), null);
+                var existingProjects = await _context.Projects.AsNoTracking().Where(project => projectIds.Contains(project.Id)).Select(project => project.Id).ToListAsync();
+                if (existingProjects.Count != projectIds.Count)
+                {
+                    return (BadRequest(new { message = "One of the selected projects could not be found." }), null);
+                }
             }
 
             var filled = (request.Items ?? new List<QuotationItemRequest>())
@@ -571,13 +601,14 @@ namespace Mahkias.Api.Controllers
             var activities = await _uow.Quotations.GetActivitiesForMappingAsync(projectIds);
             var groups = await GroupsForAsync(projectIds);
             var currencies = await _uow.Currencies.ListActiveAsync();
+            var activityTypeIds = (await _context.ActivityTypes.AsNoTracking().Select(type => type.Id).ToListAsync()).ToHashSet();
             var headerCurrencyId = ResolveCurrencyId(request.CurrencyId, null, currencies);
             var handling = QuotationItemMapper.NormalizeHandling(request.DuplicateHandling);
             var errors = new List<ActivityImportIssue>();
             var writes = new List<QuotationItemWrite>();
             foreach (var entry in filled)
             {
-                if (string.IsNullOrWhiteSpace(entry.item.DsnNo))
+                if (projectIds.Count > 0 && string.IsNullOrWhiteSpace(entry.item.DsnNo))
                 {
                     errors.Add(new ActivityImportIssue { Row = entry.row, Field = "DSN No", Message = "DSN number is required." });
                 }
@@ -622,11 +653,18 @@ namespace Mahkias.Api.Controllers
                     errors.Add(new ActivityImportIssue { Row = entry.row, Field = "MOQ", Message = "Minimum quantity must be a positive number." });
                 }
 
-                if (string.IsNullOrWhiteSpace(entry.item.DsnNo) || string.IsNullOrWhiteSpace(entry.item.PartNo)
+                if (entry.item.ActivityTypeId is > 0 && !activityTypeIds.Contains(entry.item.ActivityTypeId.Value))
+                {
+                    errors.Add(new ActivityImportIssue { Row = entry.row, Field = "Activity Type", Message = "Activity type is not valid." });
+                }
+
+                if ((projectIds.Count > 0 && string.IsNullOrWhiteSpace(entry.item.DsnNo))
+                    || string.IsNullOrWhiteSpace(entry.item.PartNo)
                     || (!string.IsNullOrWhiteSpace(entry.item.Condition) && entry.item.Condition.Trim().Length > 100)
                     || (!string.IsNullOrWhiteSpace(entry.item.Unit) && entry.item.Unit.Trim().Length > 100)
                     || entry.item.LeadTime is < 0
-                    || entry.item.MinimumQty is < 1)
+                    || entry.item.MinimumQty is < 1
+                    || (entry.item.ActivityTypeId is > 0 && !activityTypeIds.Contains(entry.item.ActivityTypeId.Value)))
                 {
                     continue;
                 }
@@ -663,6 +701,11 @@ namespace Mahkias.Api.Controllers
                     message = "Some quotation items need attention before they can be saved.",
                     errors,
                 }), null);
+            }
+
+            if (writes.Count == 0)
+            {
+                return (BadRequest(new { message = "Enter at least one quotation item." }), null);
             }
 
             var charges = NormalizeCharges(request.Charges);
@@ -839,11 +882,32 @@ namespace Mahkias.Api.Controllers
                 Unit = TrimOptional(item.Unit),
                 LeadTime = item.LeadTime is < 0 ? null : item.LeadTime,
                 MinimumQty = item.MinimumQty is > 0 ? item.MinimumQty : null,
+                ActivityTypeId = item.ActivityTypeId is > 0 ? item.ActivityTypeId : null,
                 UnitPrice = unit,
                 Quantity = quantity,
                 TotalPrice = total,
                 CurrencyId = currencyId,
             };
+        }
+
+        private static int? MatchActivityType(string raw, IReadOnlyList<ActivityType> types)
+        {
+            if (string.IsNullOrWhiteSpace(raw) || types == null || types.Count == 0)
+            {
+                return null;
+            }
+
+            var text = LookupText.Fold(raw);
+            if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
+            {
+                var byId = types.FirstOrDefault(type => type.Id == id);
+                if (byId != null)
+                {
+                    return byId.Id;
+                }
+            }
+
+            return types.FirstOrDefault(type => LookupText.Equals(type.Name, text) || LookupText.Equals(type.Slug, text))?.Id;
         }
 
         private static List<QuotationMapLink> ResolveLinks(
@@ -922,8 +986,9 @@ namespace Mahkias.Api.Controllers
                         CSN = first.CSN,
                         CSO = first.CSO,
                         Unit = first.Unit,
-                LeadTime = first.LeadTime,
+                        LeadTime = first.LeadTime,
                         MinimumQty = first.MinimumQty,
+                        ActivityTypeId = first.ActivityTypeId,
                         UnitPrice = unit,
                         Quantity = quantity,
                         TotalPrice = total,
@@ -1137,6 +1202,15 @@ namespace Mahkias.Api.Controllers
         private static string Normalize(string value)
         {
             return new string((value ?? string.Empty).Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
+        }
+
+        private static List<string> DistinctParts(IEnumerable<string> values)
+        {
+            return (values ?? Array.Empty<string>())
+                .Select(value => value?.Trim())
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
     }
 }

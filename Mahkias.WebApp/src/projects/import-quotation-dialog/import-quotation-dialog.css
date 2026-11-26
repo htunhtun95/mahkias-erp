@@ -241,9 +241,11 @@ h2 {
 
 .header-fields,
 .header-dates {
+  position: relative;
+  z-index: 20;
   display: grid;
   grid-template-columns: minmax(160px, 0.9fr) minmax(180px, 1fr) minmax(220px, 1.4fr);
-  gap: 12px;
+  gap: var(--form-row-gap) 12px;
 }
 
 .header-fields.creating-supplier,
@@ -274,7 +276,7 @@ h2 {
 label {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--form-label-gap);
   min-width: 0;
   color: #5f6368;
   font-size: 12px;
@@ -304,6 +306,7 @@ label.invalid input:focus {
 
 .supplier-field {
   position: relative;
+  z-index: 2;
 }
 
 .supplier-control {
@@ -383,7 +386,7 @@ label.invalid input:focus {
 
 .supplier-menu {
   position: absolute;
-  z-index: 3;
+  z-index: 30;
   top: calc(100% + 4px);
   left: 0;
   right: 0;
@@ -430,6 +433,8 @@ label.invalid input:focus {
 }
 
 .supplier-menu .add-supplier {
+  position: relative;
+  z-index: 1;
   flex: 0 0 auto;
   width: 100%;
   border-top: 1px solid #e0e0e0;
@@ -723,7 +728,7 @@ label.invalid input:focus {
 
 .sheet {
   width: 100%;
-  min-width: 1400px;
+  min-width: 1520px;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
@@ -733,6 +738,7 @@ label.invalid input:focus {
 .col-part { width: 180px; }
 .col-description { width: auto; }
 .col-condition { width: 110px; }
+.col-type { width: 120px; }
 .col-unit { width: 100px; }
 .col-lead { width: 120px; }
 .col-currency { width: 110px; }

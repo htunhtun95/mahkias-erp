@@ -4,6 +4,7 @@ CREATE TABLE [projects].[Projects]
     [Name] NVARCHAR(250) NOT NULL,
     [Reference] NVARCHAR(100) NULL,
     [Description] NVARCHAR(MAX) NULL,
+    [Deadline] DATETIME2 NULL,
     [CreatedAt] DATETIME CONSTRAINT [DF_Projects_CreatedAt] DEFAULT (GETDATE()) NOT NULL,
     [ModifiedAt] DATETIME NULL,
     [IsDeleted] BIT CONSTRAINT [DF_Projects_IsDeleted] DEFAULT (0) NOT NULL,

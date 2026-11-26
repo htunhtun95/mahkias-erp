@@ -27,6 +27,8 @@ export class LayoutComponent {
     { id: 'dashboard', label: 'Dashboard', icon: 'space_dashboard', link: '/dashboard', exact: true },
     { id: 'projects', label: 'Projects', icon: 'folder', link: '/projects' },
     { id: 'suppliers', label: 'Suppliers', icon: 'local_shipping', link: '/suppliers' },
+    { id: 'parts', label: 'Parts', icon: 'inventory_2', link: '/parts' },
+    { id: 'quotations', label: 'Quotations', icon: 'request_quote', link: '/quotations' },
   ];
 
   constructor(

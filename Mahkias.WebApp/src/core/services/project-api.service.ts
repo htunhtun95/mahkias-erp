@@ -8,6 +8,7 @@ export interface Project {
   name: string;
   reference: string;
   description: string;
+  deadline?: string | null;
   createdAt?: string | null;
   modifiedAt?: string | null;
   activities?: Activity[];
@@ -79,6 +80,7 @@ export interface Activity {
   id: number;
   projectId: number;
   partNo: string;
+  partId?: number | null;
   mainPartNo?: string | null;
   alternativePartNos?: string[];
   budget: number | null;
@@ -133,10 +135,69 @@ export interface CreateProjectRequest {
   name: string;
   reference: string;
   description: string;
+  deadline?: string | null;
+}
+
+export interface PartSuggestion {
+  partId: number;
+  partNo: string;
+  description?: string | null;
+}
+
+export interface PartDescriptionRecord {
+  id: number;
+  description: string;
+}
+
+export interface PartRecord {
+  id: number;
+  partNo: string;
+  createdAt?: string | null;
+  descriptions: PartDescriptionRecord[];
+}
+
+export interface PartWrite {
+  partNo: string;
+  descriptions: { id?: number | null; description: string }[];
+}
+
+export interface PartAlternate {
+  id: number;
+  partId: number;
+  partNo: string;
+  descriptions: PartDescriptionRecord[];
+}
+
+export interface PartAlternateWrite {
+  partNo: string;
+  description?: string | null;
+  partId?: number | null;
+}
+
+export interface PartQuotationLine {
+  quotationItemId: number;
+  quotationId: number;
+  code: string;
+  supplierId: number;
+  supplierName: string;
+  supplierReference?: string | null;
+  partNo: string;
+  quantity: number;
+  unit?: string | null;
+  condition?: string | null;
+  unitPrice?: number | null;
+  totalPrice?: number | null;
+  currencyCode?: string | null;
+  currencySymbol?: string | null;
+  quotedDate?: string | null;
+  validUntil?: string | null;
+  match: string;
+  projects: { id: number; label: string }[];
 }
 
 export interface CreateActivityRequest {
   partNo: string;
+  partId?: number | null;
   budget: number | null;
   description: string;
   dsnNo: string;
@@ -258,6 +319,8 @@ export interface QuotationListItem {
   currencySymbol?: string | null;
   exchangeRate?: number | null;
   baseTotalAmount?: number | null;
+  projectIds?: number[];
+  projectLabel?: string | null;
 }
 
 export interface ProjectHistoryEntry {
@@ -298,6 +361,8 @@ export interface QuotationLine {
   exchangeRate?: number | null;
   baseUnitPrice?: number | null;
   baseTotalPrice?: number | null;
+  activityTypeId?: number | null;
+  activityType?: string | null;
 }
 
 export interface QuotationCharge {
@@ -320,6 +385,35 @@ export interface QuotationDetail extends QuotationListItem {
   charges?: QuotationCharge[];
 }
 
+export interface PartPriceHistory {
+  id: number;
+  quotationId: number;
+  quotationReference: string;
+  supplierName: string;
+  supplierQuotationRef?: string | null;
+  partNo?: string | null;
+  partDescription?: string | null;
+  serialNo?: string | null;
+  tsn?: string | null;
+  tso?: string | null;
+  csn?: string | null;
+  cso?: string | null;
+  condition?: string | null;
+  unit?: string | null;
+  leadTime?: number | null;
+  currencyCode?: string | null;
+  currencySymbol?: string | null;
+  projectLabel?: string | null;
+  projectIds?: number[];
+  alternative?: boolean;
+  unitPrice?: number | null;
+  quantity?: number | null;
+  totalPrice?: number | null;
+  quotedDate?: string | null;
+  validUntil?: string | null;
+  createdAt?: string | null;
+}
+
 export interface ActivityQuotationLink {
   activityId: number;
   supplierId?: number;
@@ -330,6 +424,11 @@ export interface ActivityQuotationLink {
   supplierQuotationRef?: string | null;
   partNo?: string | null;
   description?: string | null;
+  serialNo?: string | null;
+  tsn?: string | null;
+  tso?: string | null;
+  csn?: string | null;
+  cso?: string | null;
   condition?: string | null;
   unit?: string | null;
   leadTime?: number | null;
@@ -368,6 +467,7 @@ export interface QuotationItemInput {
   activityGroupId?: number | null;
   currencyId?: number | null;
   currencyExplicit?: boolean;
+  activityTypeId?: number | null;
   row?: number;
   priceWarning?: boolean;
 }
@@ -399,6 +499,7 @@ export interface QuotationExcelMapping {
     partNo?: string;
     description?: string;
     condition?: string;
+    activityType?: string;
     unit?: string;
     leadTime?: string;
     minimumQty?: string;
@@ -776,6 +877,50 @@ export class ProjectApiService {
     return this.http.delete<void>(`${this.baseUrl}/projects/${id}`);
   }
 
+  searchParts(query: string) {
+    return this.http.get<PartSuggestion[]>(`${this.baseUrl}/parts/suggestions`, { params: { q: query } });
+  }
+
+  parts(search = '') {
+    return this.http.get<PartRecord[]>(`${this.baseUrl}/parts`, { params: search.trim() ? { search } : {} });
+  }
+
+  part(id: number) {
+    return this.http.get<PartRecord>(`${this.baseUrl}/parts/${id}`);
+  }
+
+  createPart(body: PartWrite) {
+    return this.http.post<PartRecord>(`${this.baseUrl}/parts`, body);
+  }
+
+  updatePart(id: number, body: PartWrite) {
+    return this.http.put<PartRecord>(`${this.baseUrl}/parts/${id}`, body);
+  }
+
+  deletePart(id: number) {
+    return this.http.delete<void>(`${this.baseUrl}/parts/${id}`);
+  }
+
+  partAlternates(id: number) {
+    return this.http.get<PartAlternate[]>(`${this.baseUrl}/parts/${id}/alternates`);
+  }
+
+  addPartAlternate(id: number, body: PartAlternateWrite) {
+    return this.http.post<PartAlternate[]>(`${this.baseUrl}/parts/${id}/alternates`, body);
+  }
+
+  updatePartAlternate(id: number, linkId: number, body: PartAlternateWrite) {
+    return this.http.put<PartAlternate[]>(`${this.baseUrl}/parts/${id}/alternates/${linkId}`, body);
+  }
+
+  removePartAlternate(id: number, linkId: number) {
+    return this.http.delete<void>(`${this.baseUrl}/parts/${id}/alternates/${linkId}`);
+  }
+
+  partQuotations(id: number) {
+    return this.http.get<PartQuotationLine[]>(`${this.baseUrl}/parts/${id}/quotations`);
+  }
+
   updateActivity(id: number, body: CreateActivityRequest & { projectId: number }) {
     return this.http.put<Activity>(`${this.baseUrl}/activities/${id}`, body).pipe(
       tap(() => this.forgetProject(body.projectId)),
@@ -991,6 +1136,10 @@ export class ProjectApiService {
     return this.cached(`${projectId}:quotations`, () => this.http.get<QuotationListItem[]>(`${this.baseUrl}/projects/${projectId}/quotations`));
   }
 
+  allQuotations() {
+    return this.http.get<QuotationListItem[]>(`${this.baseUrl}/quotations`);
+  }
+
   currencies() {
     return this.cached('currencies', () => this.http.get<Currency[]>(`${this.baseUrl}/currencies`));
   }
@@ -1013,6 +1162,23 @@ export class ProjectApiService {
 
   quotationLinks(projectId: number) {
     return this.cached(`${projectId}:links`, () => this.http.get<ActivityQuotationLink[]>(`${this.baseUrl}/projects/${projectId}/quotation-links`));
+  }
+
+  quotationPriceHistory(partNos: string[], alternatePartNos: string[] = []) {
+    const query = new URLSearchParams();
+    for (const partNo of partNos) {
+      const value = partNo?.trim();
+      if (value) {
+        query.append('partNo', value);
+      }
+    }
+    for (const partNo of alternatePartNos) {
+      const value = partNo?.trim();
+      if (value) {
+        query.append('alternate', value);
+      }
+    }
+    return this.http.get<PartPriceHistory[]>(`${this.baseUrl}/quotations/prices?${query.toString()}`);
   }
 
   updateQuotation(id: number, body: {
@@ -1041,7 +1207,10 @@ export class ProjectApiService {
     supplierReference: string;
     projectIds: number[];
     currencyId?: number | null;
+    quotedDate?: string | null;
+    validUntil?: string | null;
     items: QuotationItemInput[];
+    charges?: QuotationChargeInput[];
     duplicateHandling?: 'merge' | 'choose' | 'separate';
   }) {
     return this.http.post<QuotationListItem>(`${this.baseUrl}/quotations`, body);
@@ -1108,23 +1277,24 @@ export class ProjectApiService {
     return this.http.post<QuotationDetail>(`${this.baseUrl}/projects/${projectId}/quotations/${quotationId}/save`, form);
   }
 
-  quotationExcelMapping(projectId: number, file: File) {
+  quotationExcelMapping(projectId: number | null | undefined, file: File) {
     const body = new FormData();
     body.append('file', file);
-    return this.http.post<QuotationExcelMapping>(
-      `${this.baseUrl}/projects/${projectId}/quotations/excel/mapping`,
-      body,
-    );
+    const url = projectId
+      ? `${this.baseUrl}/projects/${projectId}/quotations/excel/mapping`
+      : `${this.baseUrl}/quotations/excel/mapping`;
+    return this.http.post<QuotationExcelMapping>(url, body);
   }
 
   quotationExcelValidate(
-    projectId: number,
+    projectId: number | null | undefined,
     file: File,
     mapping: {
       dsnNoColumn: string;
       partNoColumn: string;
       descriptionColumn: string;
       conditionColumn?: string;
+      activityTypeColumn?: string;
       unitColumn?: string;
       leadTimeColumn?: string;
       minimumQtyColumn?: string;
@@ -1142,6 +1312,7 @@ export class ProjectApiService {
       defaultPartNo: string;
       defaultDescription: string;
       defaultCondition?: string;
+      defaultActivityType?: string;
       defaultUnit?: string;
       defaultLeadTime?: string;
       defaultMinimumQty?: string;
@@ -1161,6 +1332,7 @@ export class ProjectApiService {
     body.append('partNoColumn', mapping.partNoColumn ?? '');
     body.append('descriptionColumn', mapping.descriptionColumn ?? '');
     body.append('conditionColumn', mapping.conditionColumn ?? '');
+    body.append('activityTypeColumn', mapping.activityTypeColumn ?? '');
     body.append('unitColumn', mapping.unitColumn ?? '');
     body.append('leadTimeColumn', mapping.leadTimeColumn ?? '');
     body.append('minimumQtyColumn', mapping.minimumQtyColumn ?? '');
@@ -1179,6 +1351,7 @@ export class ProjectApiService {
     body.append('defaultPartNo', mapping.defaultPartNo ?? '');
     body.append('defaultDescription', mapping.defaultDescription ?? '');
     body.append('defaultCondition', mapping.defaultCondition ?? '');
+    body.append('defaultActivityType', mapping.defaultActivityType ?? '');
     body.append('defaultUnit', mapping.defaultUnit ?? '');
     body.append('defaultLeadTime', mapping.defaultLeadTime ?? '');
     body.append('defaultMinimumQty', mapping.defaultMinimumQty ?? '');
@@ -1191,10 +1364,10 @@ export class ProjectApiService {
       body.append('currencyId', String(mapping.currencyId));
     }
     body.append('duplicateHandling', mapping.duplicateHandling ?? 'choose');
-    return this.http.post<QuotationImportValidation>(
-      `${this.baseUrl}/projects/${projectId}/quotations/excel/validate`,
-      body,
-    );
+    const url = projectId
+      ? `${this.baseUrl}/projects/${projectId}/quotations/excel/validate`
+      : `${this.baseUrl}/quotations/excel/validate`;
+    return this.http.post<QuotationImportValidation>(url, body);
   }
 
   purchaseOrders(projectId: number) {

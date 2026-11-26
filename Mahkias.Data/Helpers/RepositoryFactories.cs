@@ -17,6 +17,7 @@ namespace Mahkias.Data.Helpers
                 { typeof(IProjectRepository), connectionString => new ProjectRepository(connectionString) },
                 { typeof(IProjectHistoryRepository), connectionString => new ProjectHistoryRepository(connectionString) },
                 { typeof(IActivityRepository), connectionString => new ActivityRepository(connectionString) },
+                { typeof(IPartRepository), connectionString => new PartRepository(connectionString) },
                 { typeof(ISupplierRepository), connectionString => new SupplierRepository(connectionString) },
                 { typeof(IQuotationRepository), connectionString => new QuotationRepository(connectionString) },
                 { typeof(IPurchaseOrderRepository), connectionString => new PurchaseOrderRepository(connectionString) },

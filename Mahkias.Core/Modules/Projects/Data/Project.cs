@@ -10,6 +10,8 @@ namespace Mahkias.Core.Modules.Projects.Data
 
         public string Description { get; set; }
 
+        public DateTime? Deadline { get; set; }
+
         public DateTime CreatedAt { get; set; }
 
         public DateTime? ModifiedAt { get; set; }

@@ -1,0 +1,132 @@
+<div class="quotations-page">
+  <div class="page-bar">
+    <h1>Quotations</h1>
+    <label class="search">
+      <mat-icon>search</mat-icon>
+      <input
+        type="search"
+        placeholder="Search code, supplier, reference, or project"
+        [value]="searchTerm"
+        (input)="onSearch($any($event.target).value)"
+      />
+    </label>
+    <button class="new-button" type="button" (click)="openImport()">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="#107c41" d="M4 3h10l6 6v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
+        <path fill="#fff" d="M14 3v6h6" />
+        <path fill="#fff" d="M7 12h10v1.4H7zm0 2.6h10V16H7zm0 2.6h7v1.4H7z" />
+      </svg>
+      Import
+    </button>
+    <button class="new-button" type="button" (click)="openAdd()">
+      <mat-icon>add</mat-icon>
+      Add Quotation
+    </button>
+  </div>
+
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+
+  @if (loading) {
+    <div class="loading"><mat-spinner diameter="36"></mat-spinner></div>
+  } @else if (filtered.length === 0) {
+    <div class="empty-list">
+      <mat-icon>request_quote</mat-icon>
+      @if (searchTerm.trim()) {
+        <p>No quotations match your search</p>
+      } @else {
+        <p>No quotations yet</p>
+        <button class="new-button" type="button" (click)="openAdd()">
+          <mat-icon>add</mat-icon>
+          Add Quotation
+        </button>
+      }
+    </div>
+  } @else {
+    <div class="drive-table">
+      <div class="table-scroll">
+        <div
+          class="row heading"
+          matSort
+          [matSortActive]="sortBy"
+          [matSortDirection]="sortDirection"
+          matSortDisableClear
+          (matSortChange)="onSort($event)"
+        >
+          <span mat-sort-header="code">Quotation</span>
+          <span mat-sort-header="supplier">Supplier</span>
+          <span>Project</span>
+          <span>Supplier quotation ref</span>
+          <span>Items</span>
+          <span mat-sort-header="quotedDate">Quoted date</span>
+          <span>Valid until</span>
+          <span mat-sort-header="total">Total</span>
+          <span class="col-actions" aria-hidden="true"></span>
+        </div>
+        @for (quotation of page; track quotation.id) {
+          <div
+            class="row"
+            role="link"
+            tabindex="0"
+            [class.is-deleting]="deletingId === quotation.id"
+            (click)="openDetails(quotation, $event)"
+            (keydown.enter)="openDetails(quotation, $event)"
+          >
+            <span class="code">{{ quotation.code }}</span>
+            <span class="supplier-cell">
+              @if (quotation.supplierId) {
+                <a class="cell-link" [routerLink]="['/suppliers', quotation.supplierId]" (click)="$event.stopPropagation()">{{ quotation.supplierName }}</a>
+              } @else {
+                {{ quotation.supplierName || '—' }}
+              }
+            </span>
+            <span class="project" [class.standalone]="!linked(quotation)">
+              @if (linked(quotation)) {
+                @for (project of projectLinks(quotation); track project.id; let last = $last) {
+                  <a class="cell-link" [routerLink]="['/projects', project.id]" (click)="$event.stopPropagation()">{{ project.label }}</a>@if (!last) {, }
+                }
+              } @else {
+                —
+              }
+            </span>
+            <span>{{ quotation.supplierReference || '—' }}</span>
+            <span class="count">{{ quotation.itemCount || 0 }}</span>
+            <span>{{ when(quotation.quotedDate) }}</span>
+            <span>
+              {{ when(quotation.validUntil) }}
+              @if (validity(quotation); as term) {
+                <span class="validity" [class.expired]="term.expired">{{ term.label }}</span>
+              }
+            </span>
+            <span class="money">{{ money(quotation) }}</span>
+            <span class="col-actions row-actions">
+              <button
+                class="icon-btn delete"
+                type="button"
+                matTooltip="Delete quotation"
+                aria-label="Delete quotation"
+                [disabled]="isDeleting"
+                (click)="remove($event, quotation)"
+                (keydown)="$event.stopPropagation()"
+              >
+                @if (deletingId === quotation.id) {
+                  <mat-spinner diameter="18"></mat-spinner>
+                } @else {
+                  <mat-icon>delete</mat-icon>
+                }
+              </button>
+            </span>
+          </div>
+        }
+      </div>
+    </div>
+    <mat-paginator
+      [length]="filtered.length"
+      [pageIndex]="pageIndex"
+      [pageSize]="pageSize"
+      [pageSizeOptions]="[10, 25, 50]"
+      (page)="onPage($event)"
+    />
+  }
+</div>

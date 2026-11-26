@@ -15,16 +15,19 @@ import { documentAccept, openDocumentLibrary } from '../../../document-library-d
 import { PurchaseOrderDetailDialog } from './purchase-order-detail-dialog';
 import { ProcurementTrace } from '../../../procurement-trace';
 import { PurchaseOrderSync } from '../../../purchase-order-sync';
+import { attachmentIcon, attachmentTone } from '../../../attachment-file';
 
 @Component({
   selector: 'app-project-purchases-tab',
   standalone: true,
   imports: [MaterialModule, RouterModule],
   templateUrl: './project-purchases-tab.html',
-  styleUrl: './project-purchases-tab.css',
+  styleUrls: ['./project-purchases-tab.css', '../../../attachment-files.css'],
 })
 export class ProjectPurchasesTabComponent implements OnChanges, OnDestroy {
   readonly leadTimeLabel = leadTimeLabel;
+  readonly fileIcon = attachmentIcon;
+  readonly fileTone = attachmentTone;
   private api = inject(ProjectApiService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
@@ -154,23 +157,6 @@ export class ProjectPurchasesTabComponent implements OnChanges, OnDestroy {
 
   filesFor(id: number): PurchaseOrderDocument[] {
     return this.documents.get(id) ?? [];
-  }
-
-  fileIcon(fileName: string): string {
-    const kind = extension(fileName);
-    if (kind === 'pdf') {
-      return 'picture_as_pdf';
-    }
-    if (kind === 'xls' || kind === 'xlsx' || kind === 'csv') {
-      return 'table_chart';
-    }
-    if (kind === 'png' || kind === 'jpg' || kind === 'jpeg' || kind === 'gif' || kind === 'webp') {
-      return 'image';
-    }
-    if (kind === 'doc' || kind === 'docx') {
-      return 'description';
-    }
-    return 'draft';
   }
 
   fileSize = formatFileSize;

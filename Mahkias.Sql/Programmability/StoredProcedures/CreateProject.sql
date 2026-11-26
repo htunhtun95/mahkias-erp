@@ -2,7 +2,8 @@ CREATE PROCEDURE [dbo].[CreateProject]
 (
     @Name NVARCHAR(250),
     @Reference NVARCHAR(100),
-    @Description NVARCHAR(MAX)
+    @Description NVARCHAR(MAX),
+    @Deadline DATETIME2 = NULL
 )
 AS
 BEGIN
@@ -27,6 +28,7 @@ BEGIN
         Name,
         Reference,
         Description,
+        Deadline,
         CreatedAt
     )
     VALUES
@@ -34,6 +36,7 @@ BEGIN
         LTRIM(RTRIM(@Name)),
         @Ref,
         @Description,
+        @Deadline,
         GETDATE()
     );
 

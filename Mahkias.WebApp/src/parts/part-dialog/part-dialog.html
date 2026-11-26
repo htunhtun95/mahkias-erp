@@ -1,0 +1,59 @@
+@if (isSaving) {
+  <div class="import-overlay" role="status" aria-live="polite" aria-busy="true">
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    <div class="import-overlay-body">
+      <mat-spinner diameter="40"></mat-spinner>
+      <p>Saving...</p>
+    </div>
+  </div>
+}
+<header class="erp-modal-header">
+  <div class="erp-modal-title">
+    <div>
+      <h2>{{ isEdit ? 'Edit Part' : 'Add Part' }}</h2>
+      <p class="erp-modal-note">A part number can be used on more than one part. Each part keeps its own descriptions.</p>
+    </div>
+    <button class="erp-modal-close" type="button" matTooltip="Close" aria-label="Close" [disabled]="isSaving" (click)="cancel()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+</header>
+
+<form [formGroup]="form" (ngSubmit)="save()" (keydown.enter)="onFieldEnter($event)">
+  <div class="field" [class.invalid]="partNoInvalid">
+    <label class="control">
+      <span class="label">Part No<span class="required" aria-hidden="true">*</span></span>
+      <input formControlName="partNo" autocomplete="off" />
+    </label>
+    <p class="error">@if (partNoInvalid) { Part number is required }</p>
+  </div>
+
+  <div class="descriptions" formArrayName="descriptions">
+    <div class="desc-head">
+      <span class="label">Descriptions</span>
+      <button class="add-desc" type="button" (click)="addDescription()" [disabled]="isSaving">Add description</button>
+    </div>
+    @for (row of descriptions.controls; track $index) {
+      <div class="desc-row" [formGroupName]="$index">
+        <input formControlName="description" autocomplete="off" placeholder="Description" />
+        <button class="remove-desc" type="button" aria-label="Remove description" (click)="removeDescription($index)" [disabled]="isSaving">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+    }
+  </div>
+
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+
+  <div class="actions erp-modal-footer">
+    <button type="button" class="btn ghost" (click)="cancel()" [disabled]="isSaving">Cancel</button>
+    <button type="submit" class="btn primary" [disabled]="isSaving">
+      @if (isSaving) {
+        <mat-spinner diameter="18"></mat-spinner>
+      }
+      {{ isSaving ? 'Saving...' : 'Save' }}
+    </button>
+  </div>
+</form>

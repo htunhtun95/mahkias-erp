@@ -4,6 +4,7 @@ namespace Mahkias.Core.Modules.Projects.Data.Args
     {
         public int ProjectId { get; set; }
         public string PartNo { get; set; }
+        public int? PartId { get; set; }
         public decimal? Budget { get; set; }
         public string Description { get; set; }
         public string DSNNo { get; set; }

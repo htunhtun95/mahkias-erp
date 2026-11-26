@@ -10,6 +10,7 @@ import { formatMoney } from '../../../money-format';
 import { leadTimeLabel } from '../../../lead-time';
 import { quotationQuantity, quotationValidity } from '../../../quotation-terms';
 import { usageDetails } from '../../../usage-fields';
+import { attachmentIcon, attachmentTone } from '../../../attachment-file';
 
 export interface QuotationDetailDialogData {
   projectId: number;
@@ -21,11 +22,13 @@ export interface QuotationDetailDialogData {
   standalone: true,
   imports: [MaterialModule],
   templateUrl: './quotation-detail-dialog.html',
-  styleUrl: './quotation-detail-dialog.css',
+  styleUrls: ['./quotation-detail-dialog.css', '../../../attachment-files.css'],
 })
 export class QuotationDetailDialog implements OnInit {
   readonly leadTimeLabel = leadTimeLabel;
   readonly usageDetails = usageDetails;
+  readonly fileIcon = attachmentIcon;
+  readonly fileTone = attachmentTone;
   private api = inject(ProjectApiService);
   private dialog = inject(MatDialog);
   private dialogRef = inject(MatDialogRef<QuotationDetailDialog>);
@@ -109,23 +112,6 @@ export class QuotationDetailDialog implements OnInit {
 
   quantity(line: QuotationLine) {
     return quotationQuantity(line.quantity, line.minimumQty);
-  }
-
-  fileIcon(fileName: string): string {
-    const kind = extension(fileName);
-    if (kind === 'pdf') {
-      return 'picture_as_pdf';
-    }
-    if (kind === 'xls' || kind === 'xlsx' || kind === 'csv') {
-      return 'table_chart';
-    }
-    if (kind === 'png' || kind === 'jpg' || kind === 'jpeg' || kind === 'gif' || kind === 'webp') {
-      return 'image';
-    }
-    if (kind === 'doc' || kind === 'docx') {
-      return 'description';
-    }
-    return 'draft';
   }
 
   fileSize = formatFileSize;

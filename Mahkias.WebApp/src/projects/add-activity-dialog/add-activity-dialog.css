@@ -241,6 +241,29 @@ td.lookup app-lookup-combobox {
   border: 2px solid #1a73e8;
 }
 
+.sheet td.cell app-part-suggest {
+  display: block;
+}
+
+:host ::ng-deep .sheet td.cell app-part-suggest textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 38px;
+  min-height: 38px;
+  margin: 0;
+  padding: 6px 8px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #111827;
+  font: inherit;
+  font-size: 13px;
+  line-height: 26px;
+  box-shadow: none;
+  white-space: pre;
+}
+
 .sheet input,
 .sheet select,
 .sheet textarea.grow-field {

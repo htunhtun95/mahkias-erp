@@ -120,6 +120,10 @@ export class ProjectsComponent implements OnInit {
     return formatProjectListDate(project.modifiedAt || project.createdAt);
   }
 
+  deadlineText(project: Project) {
+    return formatDeadline(project.deadline);
+  }
+
   get isDeleting() {
     return this.deletingId != null;
   }
@@ -219,6 +223,23 @@ export function formatAuditDate(value: string | null | undefined) {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+  }).format(date);
+}
+
+/** Calendar date from an ISO date, without shifting the day across time zones. */
+export function formatDeadline(value?: string | null) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value ?? '');
+  if (!match) {
+    return '—';
+  }
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
   }).format(date);
 }
 

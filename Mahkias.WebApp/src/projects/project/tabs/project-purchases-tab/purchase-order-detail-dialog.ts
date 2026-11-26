@@ -8,6 +8,7 @@ import { documentAccept, openDocumentLibrary } from '../../../document-library-d
 import { closeOnEscape } from '../../../../core/close-on-escape';
 import { formatMoney } from '../../../money-format';
 import { leadTimeLabel } from '../../../lead-time';
+import { attachmentIcon, attachmentTone } from '../../../attachment-file';
 
 export interface PurchaseOrderDetailDialogData {
   projectId: number;
@@ -19,10 +20,12 @@ export interface PurchaseOrderDetailDialogData {
   standalone: true,
   imports: [MaterialModule],
   templateUrl: './purchase-order-detail-dialog.html',
-  styleUrl: './purchase-order-detail-dialog.css',
+  styleUrls: ['./purchase-order-detail-dialog.css', '../../../attachment-files.css'],
 })
 export class PurchaseOrderDetailDialog implements OnInit {
   readonly leadTimeLabel = leadTimeLabel;
+  readonly fileIcon = attachmentIcon;
+  readonly fileTone = attachmentTone;
   private api = inject(ProjectApiService);
   private dialog = inject(MatDialog);
   private dialogRef = inject(MatDialogRef<PurchaseOrderDetailDialog>);
@@ -135,23 +138,6 @@ export class PurchaseOrderDetailDialog implements OnInit {
 
   statusClass(code?: string | null): string {
     return (code || 'Draft').toLowerCase();
-  }
-
-  fileIcon(fileName: string): string {
-    const kind = extension(fileName);
-    if (kind === 'pdf') {
-      return 'picture_as_pdf';
-    }
-    if (kind === 'xls' || kind === 'xlsx' || kind === 'csv') {
-      return 'table_chart';
-    }
-    if (kind === 'png' || kind === 'jpg' || kind === 'jpeg' || kind === 'gif' || kind === 'webp') {
-      return 'image';
-    }
-    if (kind === 'doc' || kind === 'docx') {
-      return 'description';
-    }
-    return 'draft';
   }
 
   fileSize = formatFileSize;

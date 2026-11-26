@@ -48,6 +48,8 @@ namespace Mahkias.Core.Modules.Projects.Data.Args
         public decimal? TotalPrice { get; set; }
 
         public int? CurrencyId { get; set; }
+
+        public int? ActivityTypeId { get; set; }
     }
 
     public class QuotationChargeWrite

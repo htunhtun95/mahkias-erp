@@ -61,7 +61,7 @@ namespace Mahkias.Api.Controllers
 
             if (request.TypeId.HasValue && (request.TypeId.Value <= 0 || !await ActivityTypeExists(request.TypeId.Value)))
             {
-                return BadRequest(new { message = "Act Type is required." });
+                return BadRequest(new { message = "Activity Type is required." });
             }
 
             if (request.Budget.HasValue && request.Budget.Value < 0)

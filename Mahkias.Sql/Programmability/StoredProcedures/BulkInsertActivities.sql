@@ -5,7 +5,9 @@ CREATE PROCEDURE [dbo].[BulkInsertActivities]
     -- TextValue5 = Condition, TextValue6 = Unit
     -- TextValue7 = JSON {"SerialNo","TSN","TSO","CSN","CSO"}
     -- DecimalValue1 = Budget, NumericValue1 = Quantity, NumericValue2 = TypeId
-    @Activities [dbo].[DefaultGenericTableType] READONLY
+    -- NumericValue3 = selected PartId. Null creates a new Part when @LinkParts = 1.
+    @Activities [dbo].[DefaultGenericTableType] READONLY,
+    @LinkParts BIT = 0
 )
 AS
 BEGIN
@@ -21,7 +23,9 @@ BEGIN
             ProjectId INT NOT NULL,
             PartNo NVARCHAR(MAX) NULL,
             TypeId INT NULL,
-            LabelName NVARCHAR(200) NULL
+            LabelName NVARCHAR(200) NULL,
+            Description NVARCHAR(MAX) NULL,
+            RequestedPartId INT NULL
         );
 
         MERGE projects.Activities AS Target
@@ -42,7 +46,9 @@ BEGIN
                 LEFT(NULLIF(LTRIM(RTRIM(JSON_VALUE(A.TextValue7, '$.TSN'))), N''), 100) AS TSN,
                 LEFT(NULLIF(LTRIM(RTRIM(JSON_VALUE(A.TextValue7, '$.TSO'))), N''), 100) AS TSO,
                 LEFT(NULLIF(LTRIM(RTRIM(JSON_VALUE(A.TextValue7, '$.CSN'))), N''), 100) AS CSN,
-                LEFT(NULLIF(LTRIM(RTRIM(JSON_VALUE(A.TextValue7, '$.CSO'))), N''), 100) AS CSO
+                LEFT(NULLIF(LTRIM(RTRIM(JSON_VALUE(A.TextValue7, '$.CSO'))), N''), 100) AS CSO,
+                A.TextValue2 AS RawDescription,
+                NULLIF(A.NumericValue3, 0) AS RequestedPartId
             FROM @Activities AS A
             WHERE NULLIF(LTRIM(RTRIM(REPLACE(REPLACE(A.TextValue1, CHAR(13), N' '), CHAR(10), N' '))), N'') IS NOT NULL
         ) AS Source
@@ -89,8 +95,39 @@ BEGIN
             inserted.ProjectId,
             inserted.PartNo,
             inserted.ActivityTypeId,
-            Source.LabelName
-        INTO @Inserted (ActivityId, ProjectId, PartNo, TypeId, LabelName);
+            Source.LabelName,
+            Source.RawDescription,
+            Source.RequestedPartId
+        INTO @Inserted (ActivityId, ProjectId, PartNo, TypeId, LabelName, Description, RequestedPartId);
+
+        IF @LinkParts = 1
+        BEGIN
+            DECLARE @ActivityId INT;
+            DECLARE @RowPartNo NVARCHAR(MAX);
+            DECLARE @RowDescription NVARCHAR(MAX);
+            DECLARE @RequestedPartId INT;
+            DECLARE @ResolvedPartId INT;
+            DECLARE part_rows CURSOR LOCAL FAST_FORWARD FOR
+                SELECT ActivityId, PartNo, Description, RequestedPartId
+                FROM @Inserted;
+            OPEN part_rows;
+            FETCH NEXT FROM part_rows INTO @ActivityId, @RowPartNo, @RowDescription, @RequestedPartId;
+            WHILE @@FETCH_STATUS = 0
+            BEGIN
+                SET @ResolvedPartId = NULL;
+                EXEC dbo.ResolveActivityPart
+                    @PartId = @RequestedPartId,
+                    @PartNo = @RowPartNo,
+                    @Description = @RowDescription,
+                    @ResolvedPartId = @ResolvedPartId OUTPUT;
+                UPDATE projects.Activities
+                SET PartId = @ResolvedPartId
+                WHERE Id = @ActivityId;
+                FETCH NEXT FROM part_rows INTO @ActivityId, @RowPartNo, @RowDescription, @RequestedPartId;
+            END
+            CLOSE part_rows;
+            DEALLOCATE part_rows;
+        END
 
         INSERT INTO projects.ActivityAlternativeParts
         (

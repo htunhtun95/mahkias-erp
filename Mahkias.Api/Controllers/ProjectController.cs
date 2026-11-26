@@ -51,6 +51,7 @@ namespace Mahkias.Api.Controllers
                 Name = p.Name,
                 Reference = p.Reference,
                 Description = p.Description,
+                Deadline = p.Deadline,
                 CreatedAt = p.CreatedAt,
                 ModifiedAt = p.ModifiedAt
             }).ToList();
@@ -74,7 +75,8 @@ namespace Mahkias.Api.Controllers
             {
                 Name = request.Name.Trim(),
                 Reference = request.Reference?.Trim(),
-                Description = request.Description?.Trim()
+                Description = request.Description?.Trim(),
+                Deadline = request.Deadline
             });
 
             if (id < 0)
@@ -116,7 +118,8 @@ namespace Mahkias.Api.Controllers
             {
                 Name = name,
                 Reference = reference,
-                Description = request.Description?.Trim()
+                Description = request.Description?.Trim(),
+                Deadline = request.Deadline
             });
 
             if (status < 0)
@@ -143,6 +146,10 @@ namespace Mahkias.Api.Controllers
                 if (!string.Equals(before.Description?.Trim() ?? string.Empty, request.Description?.Trim() ?? string.Empty, StringComparison.Ordinal))
                 {
                     fields.Add("description");
+                }
+                if (before.Deadline?.Date != request.Deadline?.Date)
+                {
+                    fields.Add("deadline");
                 }
                 await RecordAsync(id, "Updated", ProjectHistoryText.Updated(fields));
             }
@@ -221,6 +228,7 @@ namespace Mahkias.Api.Controllers
                 Name = project.Name,
                 Reference = project.Reference,
                 Description = project.Description,
+                Deadline = project.Deadline,
                 CreatedAt = project.CreatedAt,
                 ModifiedAt = project.ModifiedAt,
                 Activities = activities.Select(ToResponse).ToList()
@@ -276,7 +284,7 @@ namespace Mahkias.Api.Controllers
             }
 
             var activities = (request?.Activities ?? new List<CreateActivityRequest>()).Select(activity => ToArgs(id, activity)).ToList();
-            var inserted = await _uow.Activities.BulkInsertAsync(id, activities);
+            var inserted = await _uow.Activities.BulkInsertAsync(id, activities, linkParts: true);
             if (inserted > 0)
             {
                 await RecordAsync(id, "ActivityAdded", ProjectHistoryText.Added(activities));
@@ -472,6 +480,7 @@ namespace Mahkias.Api.Controllers
             {
                 ProjectId = projectId,
                 PartNo = request?.PartNo,
+                PartId = request?.PartId > 0 ? request.PartId : null,
                 Budget = request?.Budget,
                 Description = request?.Description,
                 DSNNo = request?.DSNNo,
@@ -495,6 +504,7 @@ namespace Mahkias.Api.Controllers
                 Id = activity.Id,
                 ProjectId = activity.ProjectId,
                 PartNo = activity.PartNo,
+                PartId = activity.PartId,
                 MainPartNo = activity.MainPartNo,
                 AlternativePartNos = activity.AlternativePartNos ?? new List<string>(),
                 Budget = activity.Budget,
@@ -528,6 +538,7 @@ namespace Mahkias.Api.Controllers
                 Name = project?.Name,
                 Reference = project?.Reference,
                 Description = project?.Description,
+                Deadline = project?.Deadline,
                 CreatedAt = project?.CreatedAt,
                 ModifiedAt = project?.ModifiedAt
             };

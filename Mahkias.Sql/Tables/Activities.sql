@@ -16,6 +16,7 @@ CREATE TABLE [projects].[Activities]
     [CSO] NVARCHAR(100) NULL,
     [ActivityTypeId] INT NULL,
     [ActivityGroupId] INT NULL,
+    [PartId] INT NULL,
     [CreatedAt] DATETIME CONSTRAINT [DF_Activities_CreatedAt] DEFAULT (GETDATE()) NOT NULL,
     [ModifiedAt] DATETIME NULL,
     [IsDeleted] BIT CONSTRAINT [DF_Activities_IsDeleted] DEFAULT (0) NOT NULL,
@@ -24,5 +25,6 @@ CREATE TABLE [projects].[Activities]
     CONSTRAINT [PK_Activities] PRIMARY KEY CLUSTERED ([Id] ASC),
     CONSTRAINT [FK_Activities_Projects] FOREIGN KEY ([ProjectId]) REFERENCES [projects].[Projects] ([Id]) ON DELETE CASCADE,
     CONSTRAINT [FK_Activities_ActivityTypes] FOREIGN KEY ([ActivityTypeId]) REFERENCES [projects].[ActivityTypes] ([Id]),
-    CONSTRAINT [FK_Activities_ActivityGroups] FOREIGN KEY ([ActivityGroupId]) REFERENCES [projects].[ActivityGroups] ([Id])
+    CONSTRAINT [FK_Activities_ActivityGroups] FOREIGN KEY ([ActivityGroupId]) REFERENCES [projects].[ActivityGroups] ([Id]),
+    CONSTRAINT [FK_Activities_Parts] FOREIGN KEY ([PartId]) REFERENCES [projects].[Parts] ([Id]) ON DELETE SET NULL
 );

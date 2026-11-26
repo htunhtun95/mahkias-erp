@@ -12,7 +12,7 @@
     <div>
       <h2 id="add-project-title">{{ isEdit ? 'Edit Project' : "Let's Create a New Project" }}</h2>
       <p class="erp-modal-note" id="add-project-subtitle">
-        {{ isEdit ? 'Update the project name, reference, and description.' : 'Store the project name, reference, and description in one place.' }}
+        {{ isEdit ? 'Update the project name, reference, deadline, and description.' : 'Store the project name, reference, deadline, and description in one place.' }}
       </p>
     </div>
     <button class="erp-modal-close" type="button" matTooltip="Close" aria-label="Close" [disabled]="isSaving" (click)="cancel()">
@@ -37,6 +37,8 @@
     </label>
     <p class="error">@if (referenceError) { {{ referenceError }} }</p>
   </div>
+
+  <app-quotation-date-field formControlName="deadline" label="Deadline" [disabled]="isSaving"></app-quotation-date-field>
 
   <div class="field">
     <label class="control">

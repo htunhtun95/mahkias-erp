@@ -1,0 +1,182 @@
+@if (loading) {
+  <div class="loading"><mat-spinner diameter="36"></mat-spinner></div>
+} @else if (part) {
+  <button class="back" type="button" (click)="goBack()">
+    <mat-icon>arrow_back</mat-icon>
+    Back
+  </button>
+
+  <header class="part-header">
+    <h1>{{ part.partNo }}</h1>
+    <div class="header-actions">
+      <button class="action-outline" type="button" (click)="openEdit()" [disabled]="deleting">
+        <mat-icon>edit</mat-icon>
+        Edit Part
+      </button>
+      <button class="delete-part" type="button" (click)="openDelete()" [disabled]="deleting">
+        @if (deleting) {
+          <mat-spinner diameter="18"></mat-spinner>
+          Deleting...
+        } @else {
+          <mat-icon>delete</mat-icon>
+          Delete Part
+        }
+      </button>
+    </div>
+  </header>
+
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+
+  <div class="detail-sections">
+    <section class="panel">
+      <h2>Descriptions</h2>
+      @if (!part.descriptions.length) {
+        <p class="empty">No descriptions for this part yet.</p>
+      } @else {
+        <ul>
+          @for (item of part.descriptions; track item.id) {
+            <li>{{ item.description }}</li>
+          }
+        </ul>
+      }
+    </section>
+
+    @if (relatedError) {
+      <p class="error">{{ relatedError }}</p>
+    }
+
+    <section class="panel">
+      <div class="section-head">
+        <div>
+          <h2>Alternate parts</h2>
+          <p class="note">These belong to this part. They are not added to a project's alternate list.</p>
+        </div>
+        <button class="action-outline" type="button" (click)="openAlternate()" [disabled]="deleting">
+          <mat-icon>add</mat-icon>
+          Add alternate
+        </button>
+      </div>
+      @if (!relatedError && relatedLoading && !alternates.length) {
+        <div class="section-loading"><mat-spinner diameter="28"></mat-spinner></div>
+      } @else if (!relatedError && !alternates.length) {
+        <p class="empty">No alternate parts yet.</p>
+      } @else if (!relatedError) {
+        <div class="drive-table alts">
+          <div class="table-scroll">
+            <div class="row heading alt-row">
+              <span>Part No</span>
+              <span>Description</span>
+              <span class="col-actions" aria-hidden="true"></span>
+            </div>
+            @for (alternate of alternates; track alternate.id) {
+              <div class="row alt-row" [class.is-deleting]="removingAlternateId === alternate.id">
+                <span class="code">{{ alternate.partNo }}</span>
+                <span>{{ descriptions(alternate) || '—' }}</span>
+                <span class="col-actions row-actions">
+                  <button
+                    class="icon-btn"
+                    type="button"
+                    matTooltip="Edit alternate"
+                    aria-label="Edit alternate"
+                    [disabled]="removingAlternateId === alternate.id"
+                    (click)="openAlternate(alternate)"
+                  >
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button
+                    class="icon-btn delete"
+                    type="button"
+                    matTooltip="Remove alternate"
+                    aria-label="Remove alternate"
+                    [disabled]="removingAlternateId === alternate.id"
+                    (click)="removeAlternate($event, alternate)"
+                  >
+                    @if (removingAlternateId === alternate.id) {
+                      <mat-spinner diameter="18"></mat-spinner>
+                    } @else {
+                      <mat-icon>delete</mat-icon>
+                    }
+                  </button>
+                </span>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </section>
+
+    <section class="panel">
+      <h2>Quotations</h2>
+      @if (!relatedError && relatedLoading && !quotations.length) {
+        <div class="section-loading"><mat-spinner diameter="28"></mat-spinner></div>
+      } @else if (!relatedError && !quotations.length) {
+        <p class="empty">No quotations for this part yet.</p>
+      } @else if (!relatedError) {
+        <div class="drive-table quotes">
+          <div class="table-scroll">
+            <div class="row heading quote-row">
+              <span>Quotation</span>
+              <span>Supplier</span>
+              <span>Project</span>
+              <span>Supplier quotation ref</span>
+              <span>Part No</span>
+              <span>Qty</span>
+              <span>Condition</span>
+              <span>Unit price</span>
+              <span>Quoted date</span>
+              <span>Valid until</span>
+            </div>
+            @for (line of quotations; track line.quotationItemId) {
+              <div
+                class="row quote-row"
+                role="link"
+                tabindex="0"
+                (click)="openQuotation(line, $event)"
+                (keydown.enter)="openQuotation(line, $event)"
+              >
+                <span class="code">
+                  {{ line.code }}
+                  @if (line.match === 'Alternate') {
+                    <span class="alt-badge">Alt</span>
+                  }
+                </span>
+                <span>
+                  <a class="cell-link" [routerLink]="['/suppliers', line.supplierId]" (click)="$event.stopPropagation()">{{ line.supplierName }}</a>
+                </span>
+                <span class="project" [class.standalone]="!line.projects.length">
+                  @if (line.projects.length) {
+                    @for (project of line.projects; track project.id; let last = $last) {
+                      <a class="cell-link" [routerLink]="['/projects', project.id]" (click)="$event.stopPropagation()">{{ project.label }}</a>@if (!last) {, }
+                    }
+                  } @else {
+                    —
+                  }
+                </span>
+                <span>{{ line.supplierReference || '—' }}</span>
+                <span>{{ line.partNo }}</span>
+                <span>{{ quantity(line) }}</span>
+                <span>{{ line.condition || '—' }}</span>
+                <span class="money">{{ money(line) }}</span>
+                <span>{{ when(line.quotedDate) }}</span>
+                <span>
+                  {{ when(line.validUntil) }}
+                  @if (validity(line); as term) {
+                    <span class="validity" [class.expired]="term.expired">{{ term.label }}</span>
+                  }
+                </span>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </section>
+  </div>
+} @else {
+  <button class="back" type="button" (click)="goBack()">
+    <mat-icon>arrow_back</mat-icon>
+    Back
+  </button>
+  <p class="error">{{ error || 'This part was not found.' }}</p>
+}

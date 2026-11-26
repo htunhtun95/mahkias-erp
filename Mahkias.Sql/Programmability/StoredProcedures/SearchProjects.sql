@@ -27,7 +27,7 @@ BEGIN
     IF @SortColumn IN (N'code', N'reference')
         SET @SortColumn = N'reference';
 
-    IF @SortColumn NOT IN (N'name', N'reference', N'createdat', N'modifiedat')
+    IF @SortColumn NOT IN (N'name', N'reference', N'createdat', N'modifiedat', N'deadline')
         SET @SortColumn = N'createdat';
 
     SELECT
@@ -36,7 +36,8 @@ BEGIN
         P.Reference,
         P.Description,
         P.CreatedAt,
-        P.ModifiedAt
+        P.ModifiedAt,
+        P.Deadline
     FROM projects.Projects AS P
     WHERE P.IsDeleted = 0
       AND (
@@ -54,6 +55,8 @@ BEGIN
         CASE WHEN @SortDesc = 1 AND @SortColumn = N'createdat' THEN P.CreatedAt END DESC,
         CASE WHEN @SortDesc = 0 AND @SortColumn = N'modifiedat' THEN P.ModifiedAt END ASC,
         CASE WHEN @SortDesc = 1 AND @SortColumn = N'modifiedat' THEN P.ModifiedAt END DESC,
+        CASE WHEN @SortDesc = 0 AND @SortColumn = N'deadline' THEN P.Deadline END ASC,
+        CASE WHEN @SortDesc = 1 AND @SortColumn = N'deadline' THEN P.Deadline END DESC,
         P.Id DESC
     OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
 

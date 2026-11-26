@@ -17,6 +17,7 @@ import {
   Activity,
   ActivityImportIssue,
   ActivityLabel,
+  ActivityType,
   Currency,
   ProjectApiService,
   QuotationDetail,
@@ -68,6 +69,7 @@ interface QuoteRow {
   currencyExplicit: boolean;
   typeId: number | null;
   typeName: string;
+  activityTypeId: number | null;
   unitExplicit: boolean;
   totalExplicit: boolean;
 }
@@ -90,7 +92,17 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
   private api = inject(ProjectApiService);
   private dialog = inject(MatDialog);
   private dialogRef = inject(MatDialogRef<CreateQuotationDialogComponent>);
-  data = inject<{ projectId: number; activities: Activity[]; quotation?: QuotationDetail }>(MAT_DIALOG_DATA);
+  data = inject<{
+    projectId?: number | null;
+    activities: Activity[];
+    quotation?: QuotationDetail;
+    projectLabel?: string | null;
+    lockProject?: boolean;
+  }>(MAT_DIALOG_DATA);
+  readonly lockProject = !!this.data.lockProject && (this.data.projectId ?? 0) > 0;
+  selectedProjectId: number | null = (this.data.projectId ?? 0) > 0
+    ? this.data.projectId!
+    : (this.data.quotation?.projectIds?.[0] ?? null);
   quotationId = this.data.quotation?.id ?? null;
   readonly creating = this.quotationId == null;
   savedDocuments: QuotationDocument[] = [];
@@ -103,6 +115,7 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
   currencies: Currency[] = [];
   units: LookupValue[] = [];
   conditions: LookupValue[] = [];
+  activityTypes: ActivityType[] = [];
   currencyId: number | null = this.data.quotation?.currencyId ?? null;
 
   supplierQuotationRef = this.data.quotation?.supplierReference ?? '';
@@ -221,6 +234,11 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
         }
       },
     });
+    this.api.activityTypes().subscribe({
+      next: (types) => {
+        this.activityTypes = types ?? [];
+      },
+    });
     this.api.conditions().subscribe({
       next: (conditions) => {
         this.conditions = conditions ?? [];
@@ -243,21 +261,28 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
         }
       },
     });
-    this.api.activityLabels(this.data.projectId).subscribe({
-      next: (labels) => {
-        this.labels = labels ?? [];
-        if (this.labelId != null && !this.quoteLabels.some((label) => label.id === this.labelId)) {
-          this.labelId = null;
-        }
-      },
-    });
-    if (this.quotationId) {
+    if (this.linkedProjectId) {
+      this.loadProjectLabels(this.linkedProjectId);
+    }
+    if (this.quotationId && this.linkedProjectId) {
       this.loadSavedDocuments();
     }
   }
 
   get activities(): Activity[] {
     return this.data.activities ?? [];
+  }
+
+  get linkedProjectId(): number | null {
+    return this.selectedProjectId != null && this.selectedProjectId > 0 ? this.selectedProjectId : null;
+  }
+
+  get requiresDsn(): boolean {
+    return this.linkedProjectId != null;
+  }
+
+  get canAddItems(): boolean {
+    return !this.isSaving && (!this.creating || !this.lockProject);
   }
 
   get quoteLabels(): ActivityLabel[] {
@@ -360,7 +385,7 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
   }
 
   addItems() {
-    if (this.isSaving || this.creating) {
+    if (!this.canAddItems) {
       return;
     }
     this.rowFilter = '';
@@ -392,6 +417,7 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
     row.description = (activity.description ?? '').trim();
     row.condition = this.lookupOrDefault(activity.condition, 'condition');
     row.unitCode = this.lookupOrDefault(activity.unit, 'unit');
+    row.activityTypeId = activity.typeId ?? null;
     row.quantity = this.activityQuantity(activity);
     row.usageOwned = false;
     if (!row.usageEdited.serialNo) {
@@ -432,10 +458,16 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
         tso: row.tso,
         csn: row.csn,
         cso: row.cso,
+        currencyId: row.currencyId ?? this.currencyId,
+        currencies: this.currencies.map((currency) => ({ id: currency.id, code: currency.code })),
       } satisfies QuotationItemDetails,
     }).afterClosed().subscribe((result) => {
       if (!result) {
         return;
+      }
+      if (result.currencyId !== undefined) {
+        row.currencyId = result.currencyId;
+        this.onRowCurrency(row);
       }
       row.minimumQty = result.minimumQty;
       row.serialNo = result.serialNo;
@@ -594,10 +626,14 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
     }
     const filled = this.rows.filter((row) => this.isPriced(row));
     if (!filled.length) {
-      return 'Enter a unit price or total price for at least one activity.';
+      return this.requiresDsn
+        ? 'Enter a unit price or total price for at least one activity.'
+        : 'Enter a unit price or total price for at least one item.';
     }
-    if (filled.some((row) => !row.dsnNo.trim() || !row.partNo.trim() || !this.validQuantity(row.quantity) || !this.validOptionalQuantity(row.minimumQty) || this.priceBroken(row))) {
-      return 'DSN number, part number, and quantity are required. Check the highlighted rows.';
+    if (filled.some((row) => (this.requiresDsn && !row.dsnNo.trim()) || !row.partNo.trim() || !this.validQuantity(row.quantity) || !this.validOptionalQuantity(row.minimumQty) || this.priceBroken(row))) {
+      return this.requiresDsn
+        ? 'DSN number, part number, and quantity are required. Check the highlighted rows.'
+        : 'Part number and quantity are required. Check the highlighted rows.';
     }
     if (filled.some((row) => leadTimeInvalid(row.leadTime))) {
       return 'Lead time must be a whole number of days, or left blank.';
@@ -634,7 +670,7 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
       return false;
     }
     if (field === 'dsn') {
-      return !row.dsnNo.trim();
+      return this.requiresDsn && !row.dsnNo.trim();
     }
     if (field === 'part') {
       return !row.partNo.trim();
@@ -731,11 +767,15 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
     }
     const filled = this.rows.filter((row) => this.isPriced(row));
     if (filled.length === 0) {
-      this.error = 'Enter a unit price or total price for at least one activity.';
+      this.error = this.requiresDsn
+        ? 'Enter a unit price or total price for at least one activity.'
+        : 'Enter a unit price or total price for at least one item.';
       return;
     }
-    if (filled.some((row) => !row.dsnNo.trim() || !row.partNo.trim() || !this.validQuantity(row.quantity) || !this.validOptionalQuantity(row.minimumQty) || this.invalid(row, 'price'))) {
-      this.error = 'DSN number, part number, and quantity are required. Check the highlighted rows.';
+    if (filled.some((row) => (this.requiresDsn && !row.dsnNo.trim()) || !row.partNo.trim() || !this.validQuantity(row.quantity) || !this.validOptionalQuantity(row.minimumQty) || this.invalid(row, 'price'))) {
+      this.error = this.requiresDsn
+        ? 'DSN number, part number, and quantity are required. Check the highlighted rows.'
+        : 'Part number and quantity are required. Check the highlighted rows.';
       return;
     }
     if (filled.some((row) => leadTimeInvalid(row.leadTime))) {
@@ -770,6 +810,7 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
       activityId: row.activityId,
       activityGroupId: null,
       currencyId: row.currencyId ?? this.currencyId,
+      activityTypeId: row.activityTypeId,
     }));
 
     this.dialogRef.disableClose = true;
@@ -786,11 +827,14 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
             items,
             charges: charges.charges,
           };
+          const projectIds = this.projectIdsForSave();
           const saved = !this.quotationId
-            ? this.api.importQuotation(this.data.projectId, body, null)
+            ? (this.lockProject && projectIds[0]
+              ? this.api.importQuotation(projectIds[0], body, null)
+              : this.api.createQuotation({ ...body, projectIds }))
             : this.api.updateQuotation(this.quotationId, {
               ...body,
-              projectIds: [this.data.projectId],
+              projectIds,
             });
           return saved.pipe(
             switchMap((result) => {
@@ -800,10 +844,10 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
                 this.quotationId = id;
               }
               const drafts = this.library?.capture() ?? [];
-              if (!id || !this.library?.hasChanges) {
+              if (!this.linkedProjectId || !id || !this.library?.hasChanges) {
                 return of(result);
               }
-              return syncDocumentDrafts(this.api, 'quotation', this.data.projectId, id, drafts, false);
+              return syncDocumentDrafts(this.api, 'quotation', this.linkedProjectId, id, drafts, false);
             }),
           );
         }),
@@ -811,6 +855,15 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
       )
       .subscribe({
         next: () => {
+          const projectIds = new Set([
+            ...(this.data.quotation?.projectIds ?? []),
+            ...this.projectIdsForSave(),
+          ]);
+          for (const projectId of projectIds) {
+            if (projectId > 0) {
+              this.api.forgetProject(projectId);
+            }
+          }
           this.dialogRef.close(true);
         },
         error: (error: HttpErrorResponse) => {
@@ -836,7 +889,7 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
     if (!this.quotationId) {
       return;
     }
-    this.api.quotationDocuments(this.data.projectId, this.quotationId).subscribe({
+    this.api.quotationDocuments(this.linkedProjectId!, this.quotationId).subscribe({
       next: (documents) => {
         this.savedDocuments = documents ?? [];
         this.library?.replace(this.savedDocuments);
@@ -933,7 +986,34 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
     }
   }
 
+  private loadProjectLabels(projectId: number) {
+    this.api.activityLabels(projectId).subscribe({
+      next: (labels) => {
+        if (this.linkedProjectId !== projectId) {
+          return;
+        }
+        this.labels = labels ?? [];
+        if (this.labelId != null && !this.quoteLabels.some((label) => label.id === this.labelId)) {
+          this.labelId = null;
+        }
+      },
+    });
+  }
+
+  private projectIdsForSave(): number[] {
+    if (this.lockProject) {
+      const existing = (this.data.quotation?.projectIds ?? []).filter((id) => id > 0);
+      if (existing.length) {
+        return existing;
+      }
+    }
+    return this.linkedProjectId ? [this.linkedProjectId] : [];
+  }
+
   private initialRows(): QuoteRow[] {
+    if (this.creating && this.activities.length === 0) {
+      return Array.from({ length: 5 }, () => this.blankRow());
+    }
     const items = [...(this.data.quotation?.items ?? [])];
     const used = new Set<number>();
     const quoted: QuoteRow[] = [];
@@ -1005,6 +1085,7 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
       currencyExplicit: item?.currencyId != null,
       typeId: activity.typeId ?? null,
       typeName: activity.typeId == null ? '' : (activity.type?.trim() || 'Type'),
+      activityTypeId: item ? (item.activityTypeId ?? null) : (activity.typeId ?? null),
     });
     return row;
   }
@@ -1044,6 +1125,7 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
       currencyExplicit: item.currencyId != null,
       typeId: activity?.typeId ?? null,
       typeName: activity?.typeId == null ? '' : (activity.type?.trim() || 'Type'),
+      activityTypeId: item.activityTypeId ?? null,
     });
   }
 
@@ -1073,6 +1155,7 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
       currencyExplicit: false,
       typeId: null,
       typeName: '',
+      activityTypeId: null,
     });
   }
 

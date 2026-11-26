@@ -43,11 +43,13 @@
               <mat-icon>{{ isExpanded(order.id) ? 'expand_more' : 'chevron_right' }}</mat-icon>
             </button>
             <span>{{ order.code }}</span>
-            @if (order.supplierId) {
-              <a class="cell-link" [routerLink]="['/suppliers', order.supplierId]">{{ order.supplierName }}</a>
-            } @else {
-              <span>{{ order.supplierName }}</span>
-            }
+            <span class="supplier-cell">
+              @if (order.supplierId) {
+                <a class="cell-link" [routerLink]="['/suppliers', order.supplierId]" (click)="$event.stopPropagation()">{{ order.supplierName }}</a>
+              } @else {
+                {{ order.supplierName }}
+              }
+            </span>
             <span [attr.class]="'status-pill ' + statusClass(order.statusCode)">{{ order.statusName || 'Draft' }}</span>
             <span>{{ when(order.poDate) }}</span>
             <span>{{ order.itemCount }}</span>
@@ -131,7 +133,7 @@
                       <div class="file-list">
                         @for (document of filesFor(order.id); track document.documentId) {
                           <a class="file-item" [href]="document.webViewLink" target="_blank" rel="noopener noreferrer">
-                            <span class="file-icon" aria-hidden="true">
+                            <span class="file-icon" [attr.data-kind]="fileTone(document.fileName)" aria-hidden="true">
                               <mat-icon>{{ fileIcon(document.fileName) }}</mat-icon>
                             </span>
                             <span class="file-copy">

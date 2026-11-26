@@ -53,6 +53,7 @@ namespace Mahkias.Data.Modules.Projects.Repositories
                                 Description = reader.ReadStringValue("Description"),
                                 CreatedAt = reader.ReadDateTimeValue("CreatedAt"),
                                 ModifiedAt = reader.ReadNullableDateTimeValue("ModifiedAt"),
+                                Deadline = reader.ReadNullableDateTimeValue("Deadline"),
                             });
                         }
 
@@ -119,6 +120,7 @@ namespace Mahkias.Data.Modules.Projects.Repositories
                 command.Parameters.AddNVarChar("Name", args.Name, 250);
                 command.Parameters.AddNVarChar("Reference", args.Reference, 100);
                 command.Parameters.AddNVarCharMax("Description", args.Description);
+                command.Parameters.AddNullableDateTime("Deadline", args.Deadline);
                 command.Connection = _connection;
                 _connection.Open();
                 try
@@ -142,6 +144,7 @@ namespace Mahkias.Data.Modules.Projects.Repositories
                 command.Parameters.AddNVarChar("Name", args.Name, 250);
                 command.Parameters.AddNVarChar("Reference", args.Reference, 100);
                 command.Parameters.AddNVarCharMax("Description", args.Description);
+                command.Parameters.AddNullableDateTime("Deadline", args.Deadline);
                 command.Connection = _connection;
                 _connection.Open();
 

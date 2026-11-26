@@ -14,7 +14,8 @@ CREATE PROCEDURE [dbo].[UpdateActivity]
     @TSN NVARCHAR(100) = NULL,
     @TSO NVARCHAR(100) = NULL,
     @CSN NVARCHAR(100) = NULL,
-    @CSO NVARCHAR(100) = NULL
+    @CSO NVARCHAR(100) = NULL,
+    @PartId INT = NULL
 )
 AS
 BEGIN
@@ -53,6 +54,17 @@ BEGIN
 
     IF @Updated > 0
     BEGIN
+        DECLARE @ResolvedPartId INT;
+        EXEC dbo.ResolveActivityPart
+            @PartId = @PartId,
+            @PartNo = @PartNo,
+            @Description = @Description,
+            @ResolvedPartId = @ResolvedPartId OUTPUT;
+
+        UPDATE projects.Activities
+        SET PartId = @ResolvedPartId
+        WHERE Id = @Id;
+
         DECLARE @ResolvedProjectId INT = COALESCE(
             @ProjectId,
             (SELECT ProjectId FROM projects.Activities WHERE Id = @Id)

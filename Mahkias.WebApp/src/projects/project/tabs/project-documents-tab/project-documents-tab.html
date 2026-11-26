@@ -18,10 +18,13 @@
         <div class="row" role="row">
           <span class="col-no" role="cell">{{ index + 1 }}</span>
           <span class="col-file" role="cell">
+            <span class="file-icon" [attr.data-kind]="fileTone(document.fileName)" aria-hidden="true">
+              <mat-icon>{{ fileIcon(document.fileName) }}</mat-icon>
+            </span>
             @if (document.webViewLink) {
               <a [href]="document.webViewLink" target="_blank" rel="noopener noreferrer">{{ document.fileName }}</a>
             } @else {
-              {{ document.fileName }}
+              <span class="file-label">{{ document.fileName }}</span>
             }
           </span>
           <span class="col-type" role="cell">{{ document.fileType || '—' }}</span>

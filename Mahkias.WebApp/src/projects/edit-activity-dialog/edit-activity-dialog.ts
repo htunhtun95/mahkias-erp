@@ -1,7 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject } from '@angular/core';
 import { AbstractControl, FormBuilder, FormsModule, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
-import { ErrorStateMatcher } from '@angular/material/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MaterialModule } from '../../app/material-module';
 import { AutoGrowDirective } from '../../core/auto-grow';
@@ -10,22 +9,17 @@ import { closeOnEscape } from '../../core/close-on-escape';
 import { whileBusy } from '../../core/while-busy';
 import { Activity, ActivityType, LookupValue, ProjectApiService } from '../../core/services/project-api.service';
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
-import { partNumberPreview } from '../part-numbers';
+import { PartSuggestComponent } from '../part-suggest/part-suggest';
+import { PartSuggestion } from '../../core/services/project-api.service';
+import { partNumberPreview, retainsSelectedPart, splitAlternativePartNumbers } from '../part-numbers';
 import { canonicalCondition, canonicalUnit } from '../quotation-lookups';
-
-class InvalidWhenInvalidMatcher implements ErrorStateMatcher {
-  isErrorState(control: AbstractControl | null): boolean {
-    return !!control && control.invalid && (control.touched || control.dirty);
-  }
-}
 
 @Component({
   selector: 'app-edit-activity-dialog',
   standalone: true,
-  imports: [FormsModule, ReactiveFormsModule, MaterialModule, AutoGrowDirective, LookupComboboxComponent],
+  imports: [FormsModule, ReactiveFormsModule, MaterialModule, AutoGrowDirective, LookupComboboxComponent, PartSuggestComponent],
   templateUrl: './edit-activity-dialog.html',
   styleUrl: './edit-activity-dialog.css',
-  providers: [{ provide: ErrorStateMatcher, useClass: InvalidWhenInvalidMatcher }],
 })
 export class EditActivityDialog {
   private fb = inject(FormBuilder);
@@ -43,6 +37,8 @@ export class EditActivityDialog {
   conditions: LookupValue[] = [];
   unitOptions: string[] = [];
   conditionOptions: string[] = [];
+  private selectedPartId: number | null = this.data.activity.partId ?? null;
+  private selectedPartNo: string | null = this.linkedPartNo();
 
   form = this.fb.group({
     dsnNo: [this.data.activity.dsnNo ?? '', EditActivityDialog.requiredText],
@@ -124,6 +120,7 @@ export class EditActivityDialog {
         projectId: this.data.activity.projectId,
         dsnNo: String(value.dsnNo ?? '').trim(),
         partNo: String(value.partNo ?? ''),
+        partId: this.selectedPartId,
         typeId: value.typeId ? Number(value.typeId) : null,
         quantity: value.quantity == null ? null : Number(value.quantity),
         budget: value.budget == null ? null : Number(value.budget),
@@ -149,6 +146,27 @@ export class EditActivityDialog {
       });
   }
 
+  setPartNo(value: string) {
+    this.form.controls.partNo.setValue(value);
+    this.form.controls.partNo.markAsDirty();
+    if (!retainsSelectedPart(value, this.selectedPartNo)) {
+      this.selectedPartId = null;
+      this.selectedPartNo = null;
+    }
+  }
+
+  pickPart(suggestion: PartSuggestion) {
+    this.selectedPartId = suggestion.partId;
+    this.selectedPartNo = suggestion.partNo ?? '';
+    this.form.controls.partNo.setValue(this.selectedPartNo);
+    this.form.controls.partNo.markAsDirty();
+    const description = suggestion.description?.trim();
+    if (description) {
+      this.form.controls.description.setValue(description);
+      this.form.controls.description.markAsDirty();
+    }
+  }
+
   setLookup(field: 'unit' | 'condition', value: string) {
     this.form.controls[field].setValue(value);
     this.form.controls[field].markAsDirty();
@@ -160,6 +178,13 @@ export class EditActivityDialog {
 
   normalizeCondition() {
     this.form.controls.condition.setValue(canonicalCondition(this.form.controls.condition.value ?? '', this.conditions));
+  }
+
+  private linkedPartNo(): string | null {
+    if (!this.data.activity.partId) {
+      return null;
+    }
+    return splitAlternativePartNumbers(this.data.activity.partNo)[0]?.value ?? null;
   }
 
   private showError(control: AbstractControl) {

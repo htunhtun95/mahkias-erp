@@ -1,0 +1,177 @@
+<button class="back" type="button" (click)="goBack()">
+  <mat-icon>arrow_back</mat-icon>
+  Back
+</button>
+
+@if (loading) {
+  <div class="loading" role="status" aria-live="polite" aria-busy="true">
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    <mat-spinner diameter="36"></mat-spinner>
+  </div>
+} @else if (error && !detail) {
+  <p class="error">{{ error }}</p>
+} @else if (detail) {
+  <header class="quote-header">
+    <div>
+      <h1>{{ detail.code }}</h1>
+      <p class="subtitle">
+        @if (detail.supplierId) {
+          <a [routerLink]="['/suppliers', detail.supplierId]">{{ detail.supplierName }}</a>
+        } @else {
+          {{ detail.supplierName || 'No supplier' }}
+        }
+      </p>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" type="button" matTooltip="Edit quotation" aria-label="Edit quotation" [disabled]="deleting" (click)="edit()">
+        <mat-icon>edit</mat-icon>
+      </button>
+      <button class="delete" type="button" [disabled]="deleting" (click)="remove()">
+        @if (deleting) {
+          <mat-spinner diameter="18"></mat-spinner>
+          Deleting...
+        } @else {
+          <mat-icon>delete</mat-icon>
+          Delete
+        }
+      </button>
+    </div>
+  </header>
+
+  @if (error) {
+    <p class="error">{{ error }}</p>
+  }
+
+  <section class="facts" aria-label="Quotation header">
+    <div>
+      <span>Project</span>
+      @if (projectLinks.length) {
+        <strong>
+          @for (project of projectLinks; track project.id; let last = $last) {
+            <a [routerLink]="['/projects', project.id]">{{ project.label }}</a>@if (!last) {, }
+          }
+        </strong>
+      } @else {
+        <strong class="muted">—</strong>
+      }
+    </div>
+    <div>
+      <span>Supplier quotation ref</span>
+      <strong>{{ detail.supplierReference || '—' }}</strong>
+    </div>
+    <div>
+      <span>Quoted date</span>
+      <strong>{{ when(detail.quotedDate) }}</strong>
+    </div>
+    <div>
+      <span>Valid until</span>
+      <strong>
+        {{ when(detail.validUntil) }}
+        @if (validityLabel) {
+          <em class="validity" [class.expired]="validityExpired">{{ validityLabel }}</em>
+        }
+      </strong>
+    </div>
+    <div>
+      <span>Currency</span>
+      <strong>{{ detail.currencyCode || 'USD' }}</strong>
+    </div>
+    <div>
+      <span>Items</span>
+      <strong>{{ lines.length }}</strong>
+    </div>
+  </section>
+
+  <section>
+    <h2>Line items</h2>
+    @if (!lines.length) {
+      <p class="empty">No line items.</p>
+    } @else {
+      <div class="sheet">
+        <div class="line-row heading">
+          <span>DSN No</span>
+          <span>Part No</span>
+          <span>Description</span>
+          <span>Lead Time</span>
+          <span>Currency</span>
+          <span>Quantity</span>
+          <span>Unit</span>
+          <span>Condition</span>
+          <span>Activity type</span>
+          <span>Unit Price</span>
+          <span>Total Price</span>
+        </div>
+        @for (line of lines; track line.id) {
+          <div class="line-row">
+            <span>{{ line.dsnNo || '—' }}</span>
+            <span>{{ line.partNo || '—' }}</span>
+            <span class="description">
+              <span class="description-main">{{ line.description || '—' }}</span>
+              @for (detail of usageDetails(line); track detail.label) {
+                <span class="usage-line"><span class="usage-key">{{ detail.label }}:</span>{{ detail.value }}</span>
+              }
+            </span>
+            <span>{{ leadTimeLabel(line.leadTime) }}</span>
+            <span>{{ line.currencyCode || 'USD' }}</span>
+            <span class="qty-stack">
+              @if (quantity(line); as shown) {
+                <span [class.moq-value]="!!shown.note">{{ shown.value }}</span>
+                @if (shown.note) {
+                  <span class="moq-note" [class.short]="shown.short">{{ shown.note }}</span>
+                }
+              }
+            </span>
+            <span>{{ line.unit || '—' }}</span>
+            <span>{{ line.condition || '—' }}</span>
+            <span>{{ line.activityType || '—' }}</span>
+            <span>{{ money(line.unitPrice, line.currencySymbol, line.currencyCode) }}</span>
+            <span>{{ money(line.totalPrice, line.currencySymbol, line.currencyCode) }}</span>
+          </div>
+        }
+      </div>
+    }
+  </section>
+
+  <div class="extras">
+    @if (linked) {
+      <section class="panel">
+        <div class="files-head">
+          <h2>Attached files</h2>
+          <button type="button" (click)="manageDocuments()">Manage Documents</button>
+        </div>
+        @if (!documents.length) {
+          <p class="empty">No files stored for this quotation.</p>
+        } @else {
+          <div class="file-list">
+            @for (document of documents; track document.documentId) {
+              <a class="file-item" [href]="document.webViewLink" target="_blank" rel="noopener noreferrer">
+                <span class="file-icon" [attr.data-kind]="fileTone(document.fileName)" aria-hidden="true">
+                  <mat-icon>{{ fileIcon(document.fileName) }}</mat-icon>
+                </span>
+                <span class="file-copy">
+                  <span class="file-name">{{ document.fileName }}</span>
+                  <span class="file-meta">{{ document.isOriginal ? 'Original' : 'Supporting' }} · {{ fileKind(document.fileName) }}@if (document.fileSize) { · {{ fileSize(document.fileSize) }} }</span>
+                </span>
+                <mat-icon class="file-open" aria-hidden="true">open_in_new</mat-icon>
+              </a>
+            }
+          </div>
+        }
+      </section>
+    }
+    <div class="po-totals" aria-label="Quotation totals">
+      <div>
+        <span>Subtotal</span>
+        <strong>{{ summaryMoney(subtotal) }}</strong>
+      </div>
+      <div>
+        <span>Additional charges</span>
+        <strong>{{ summaryMoney(chargesTotal) }}</strong>
+      </div>
+      <div class="grand">
+        <span>Total</span>
+        <strong>{{ summaryMoney(grandTotal) }}</strong>
+      </div>
+    </div>
+  </div>
+}

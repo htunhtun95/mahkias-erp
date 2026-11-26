@@ -56,29 +56,36 @@ p {
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-top: 16px;
+  gap: var(--form-label-gap);
+  margin-top: var(--form-row-gap);
 }
 
 .field span {
-  color: #666;
-  font-size: 13px;
+  color: #5f6368;
+  font-size: 12px;
   font-weight: 500;
+  line-height: 1.2;
 }
 
 .field input,
 .field select {
   width: 100%;
-  height: 40px;
+  height: 36px;
   box-sizing: border-box;
   margin: 0;
-  border: 1px solid #dadce0;
-  border-radius: 8px;
-  padding: 0 12px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--field-radius);
+  padding: 0 10px;
   background: #fff;
   color: #202124;
   font: inherit;
-  font-size: 15px;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.field input:hover:not(:focus),
+.field select:hover:not(:focus) {
+  border-color: var(--field-border-hover);
 }
 
 .field input:focus,

@@ -6,7 +6,7 @@ CREATE PROCEDURE [dbo].[ReplaceQuotationItems]
     @CurrencyId INT = NULL,
     @QuotedDate DATETIME = NULL,
     @ValidUntil DATETIME = NULL,
-    -- NumericValue1 = ActivityId, NumericValue2 = ActivityGroupId, NumericValue3 = AlternativePartId, NumericValue4 = Quantity, NumericValue5 = CurrencyId, NumericValue6 = MinimumQty
+    -- NumericValue1 = ActivityId, NumericValue2 = ActivityGroupId, NumericValue3 = AlternativePartId, NumericValue4 = Quantity, NumericValue5 = CurrencyId, NumericValue6 = MinimumQty, NumericValue7 = ActivityTypeId
     -- BitValue1 = IsAlternativePart
     -- TextValue1 = DsnNo, TextValue2 = PartNo, TextValue3 = PartDescription, TextValue4 = Condition, TextValue5 = LeadTime (days), TextValue6 = Unit
     -- TextValue7 = JSON {"SerialNo","TSN","TSO","CSN","CSO"}
@@ -174,7 +174,8 @@ BEGIN
             LeadTime,
             MinimumQty,
             UnitId,
-            ConditionId
+            ConditionId,
+            ActivityTypeId
         )
         SELECT
             @Id,
@@ -202,7 +203,8 @@ BEGIN
             TRY_CONVERT(INT, NULLIF(LTRIM(RTRIM(I.TextValue5)), N'')),
             CASE WHEN I.NumericValue6 > 0 THEN I.NumericValue6 ELSE NULL END,
             UnitMatch.Id,
-            ConditionMatch.Id
+            ConditionMatch.Id,
+            TypeMatch.Id
         FROM @Items AS I
         CROSS APPLY (
             SELECT
@@ -242,7 +244,12 @@ BEGIN
                  OR UPPER(C.Code) = UPPER(LEFT(REPLACE(LTRIM(RTRIM(I.TextValue4)), N' ', N''), 100))
               )
             ORDER BY CASE WHEN UPPER(C.Name) = UPPER(LEFT(LTRIM(RTRIM(I.TextValue4)), 100)) THEN 0 ELSE 1 END, C.Id
-        ) AS ConditionMatch;
+        ) AS ConditionMatch
+        OUTER APPLY (
+            SELECT T.Id
+            FROM projects.ActivityTypes AS T
+            WHERE T.Id = NULLIF(I.NumericValue7, 0)
+        ) AS TypeMatch;
 
         UPDATE projects.Quotations
         SET CurrencyId = @ResolvedCurrencyId,
