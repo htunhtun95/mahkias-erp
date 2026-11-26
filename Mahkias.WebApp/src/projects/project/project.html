@@ -33,7 +33,9 @@
             <span class="reference-pill">{{ project.reference }}</span>
           }
         </div>
-        <p class="deadline">Deadline <strong>{{ deadlineText }}</strong></p>
+        @if (hasDeadline) {
+          <p class="deadline">Deadline <strong>{{ deadlineText }}</strong></p>
+        }
         @if (project.description) {
           <p class="summary">{{ project.description }}</p>
         }

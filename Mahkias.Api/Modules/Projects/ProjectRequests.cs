@@ -32,6 +32,7 @@ namespace Mahkias.Api.Modules.Projects
     {
         public string PartNo { get; set; }
         public int? PartId { get; set; }
+        public bool LinkPart { get; set; }
         public decimal? Budget { get; set; }
         public string Description { get; set; }
         [JsonPropertyName("dsnNo")]

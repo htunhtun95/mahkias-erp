@@ -1,3 +1,4 @@
+-- Create with QUOTED_IDENTIFIER ON so this procedure matches the other project procedures.
 CREATE PROCEDURE [dbo].[SearchProjects]
 (
     @SearchTerm NVARCHAR(200) = NULL,

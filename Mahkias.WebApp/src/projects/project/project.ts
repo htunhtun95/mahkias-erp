@@ -63,6 +63,10 @@ export class ProjectDetailsComponent implements OnInit, OnDestroy {
 
   project: Project | null = null;
 
+  get hasDeadline() {
+    return formatDeadline(this.project?.deadline) !== '—';
+  }
+
   get deadlineText() {
     return formatDeadline(this.project?.deadline);
   }

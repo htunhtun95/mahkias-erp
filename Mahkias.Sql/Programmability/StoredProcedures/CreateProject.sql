@@ -1,3 +1,4 @@
+-- Create with QUOTED_IDENTIFIER ON. Projects.IX_Projects_IsDeleted is a filtered index.
 CREATE PROCEDURE [dbo].[CreateProject]
 (
     @Name NVARCHAR(250),

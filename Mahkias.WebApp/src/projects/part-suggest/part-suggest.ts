@@ -2,7 +2,7 @@ import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
 import { Component, ElementRef, EventEmitter, Input, OnDestroy, Output, TemplateRef, ViewChild, ViewContainerRef, inject } from '@angular/core';
 import { Subject, Subscription, of } from 'rxjs';
-import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
+import { debounceTime, switchMap } from 'rxjs/operators';
 import { AutoGrowDirective } from '../../core/auto-grow';
 import { PartSuggestion, ProjectApiService } from '../../core/services/project-api.service';
 
@@ -24,6 +24,7 @@ import { PartSuggestion, ProjectApiService } from '../../core/services/project-a
       [attr.aria-label]="ariaLabel"
       [attr.aria-expanded]="open"
       [attr.aria-invalid]="invalid ? 'true' : null"
+      [attr.title]="value || null"
       (input)="onInput($any($event.target).value)"
       (focus)="onFocus()"
       (blur)="onBlur()"
@@ -119,6 +120,7 @@ export class PartSuggestComponent implements OnDestroy {
   @Input() invalid = false;
   @Input() ariaLabel = 'Part No';
   @Input() minHeight = 36;
+  @Input() minQueryLength = 0;
   @Output() valueChange = new EventEmitter<string>();
   @Output() picked = new EventEmitter<PartSuggestion>();
   @ViewChild('origin') private origin?: ElementRef<HTMLTextAreaElement>;
@@ -134,18 +136,27 @@ export class PartSuggestComponent implements OnDestroy {
   private overlayRef: OverlayRef | null = null;
   private outsideListener: ((event: Event) => void) | null = null;
   private focused = false;
+  private latestQuery = '';
   private readonly queries = new Subject<string>();
   private readonly searchSub: Subscription;
 
   constructor() {
     this.searchSub = this.queries.pipe(
       debounceTime(150),
-      distinctUntilChanged(),
       switchMap((query) => {
         const text = query.trim();
-        return text ? this.api.searchParts(text) : of([]);
+        if (!text || text.length < this.minQueryLength) {
+          return of([]);
+        }
+        return this.api.searchParts(text);
       }),
     ).subscribe((matches) => {
+      if (!this.canSearch(this.latestQuery)) {
+        this.suggestions = [];
+        this.activeIndex = 0;
+        this.close();
+        return;
+      }
       this.suggestions = matches ?? [];
       this.activeIndex = 0;
       this.show();
@@ -162,7 +173,13 @@ export class PartSuggestComponent implements OnDestroy {
       return;
     }
     this.focused = true;
-    this.queries.next(this.value ?? '');
+    this.latestQuery = this.value ?? '';
+    if (!this.canSearch(this.latestQuery)) {
+      this.suggestions = [];
+      this.activeIndex = 0;
+      this.close();
+    }
+    this.queries.next(this.latestQuery);
   }
 
   onInput(value: string) {
@@ -170,7 +187,13 @@ export class PartSuggestComponent implements OnDestroy {
       return;
     }
     this.focused = true;
+    this.latestQuery = value;
     this.valueChange.emit(value);
+    if (!this.canSearch(value)) {
+      this.suggestions = [];
+      this.activeIndex = 0;
+      this.close();
+    }
     this.queries.next(value);
   }
 
@@ -180,6 +203,14 @@ export class PartSuggestComponent implements OnDestroy {
   }
 
   onKey(event: KeyboardEvent) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      if (this.open && this.suggestions.length) {
+        event.stopPropagation();
+        this.choose(this.suggestions[this.activeIndex] ?? this.suggestions[0]);
+      }
+      return;
+    }
     if (!this.open) {
       return;
     }
@@ -197,12 +228,6 @@ export class PartSuggestComponent implements OnDestroy {
       event.preventDefault();
       event.stopPropagation();
       this.close();
-      return;
-    }
-    if (event.key === 'Enter' && !event.shiftKey && this.suggestions.length) {
-      event.preventDefault();
-      event.stopPropagation();
-      this.choose(this.suggestions[this.activeIndex] ?? this.suggestions[0]);
     }
   }
 
@@ -215,8 +240,12 @@ export class PartSuggestComponent implements OnDestroy {
     return `${suggestion.partId}:${suggestion.description ?? ''}`;
   }
 
+  private canSearch(value: string): boolean {
+    return value.trim().length >= this.minQueryLength;
+  }
+
   private show() {
-    if (!this.focused || this.disabled || this.suggestions.length === 0) {
+    if (!this.focused || this.disabled || !this.canSearch(this.latestQuery) || this.suggestions.length === 0) {
       this.close();
       return;
     }

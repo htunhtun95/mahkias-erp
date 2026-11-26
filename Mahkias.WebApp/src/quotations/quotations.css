@@ -241,16 +241,6 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
-}
-
-.row[role='link']:hover .row-actions,
-.row[role='link']:focus-within .row-actions,
-.row.is-deleting .row-actions {
-  opacity: 1;
-  pointer-events: auto;
 }
 
 .icon-btn:disabled {
@@ -281,22 +271,6 @@ h1 {
 .icon-btn:hover {
   background: #e8eaed;
   color: #202124;
-}
-
-.icon-btn.delete {
-  color: #c5221f;
-}
-
-.icon-btn.delete:hover {
-  background: #fce8e6;
-  color: #c5221f;
-}
-
-@media (hover: none) {
-  .row-actions {
-    opacity: 1;
-    pointer-events: auto;
-  }
 }
 
 .loading,

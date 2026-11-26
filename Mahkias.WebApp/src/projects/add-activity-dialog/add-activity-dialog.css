@@ -249,8 +249,9 @@ td.lookup app-lookup-combobox {
   display: block;
   box-sizing: border-box;
   width: 100%;
-  height: 38px;
+  height: 38px !important;
   min-height: 38px;
+  max-height: 38px;
   margin: 0;
   padding: 6px 8px;
   border: 0;
@@ -261,7 +262,9 @@ td.lookup app-lookup-combobox {
   font-size: 13px;
   line-height: 26px;
   box-shadow: none;
-  white-space: pre;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sheet input,

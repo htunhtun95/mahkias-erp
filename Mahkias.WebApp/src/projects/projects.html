@@ -83,29 +83,29 @@
             <button
               class="icon-btn"
               type="button"
-              matTooltip="Edit Project"
-              aria-label="Edit Project"
+              [matMenuTriggerFor]="projectMenu"
+              aria-label="Project actions"
+              aria-haspopup="menu"
               [disabled]="isDeleting"
-              (click)="openEditProject($event, project)"
-              (keydown)="$event.stopPropagation()"
-            >
-              <mat-icon>edit</mat-icon>
-            </button>
-            <button
-              class="icon-btn delete"
-              type="button"
-              matTooltip="Delete project"
-              aria-label="Delete project"
-              [disabled]="isDeleting"
-              (click)="openDeleteProject($event, project)"
+              (click)="$event.stopPropagation()"
               (keydown)="$event.stopPropagation()"
             >
               @if (deletingId === project.id) {
                 <mat-spinner diameter="18"></mat-spinner>
               } @else {
-                <mat-icon>delete</mat-icon>
+                <mat-icon>more_vert</mat-icon>
               }
             </button>
+            <mat-menu #projectMenu="matMenu" class="activity-row-menu">
+              <button mat-menu-item type="button" (click)="openEditProject($event, project)" [disabled]="isDeleting">
+                <mat-icon>edit</mat-icon>
+                <span>Edit</span>
+              </button>
+              <button mat-menu-item type="button" class="danger" (click)="openDeleteProject($event, project)" [disabled]="isDeleting">
+                <mat-icon>delete</mat-icon>
+                <span>Delete</span>
+              </button>
+            </mat-menu>
           </span>
         </div>
       }

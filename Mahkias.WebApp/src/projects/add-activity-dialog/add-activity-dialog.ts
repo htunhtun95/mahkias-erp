@@ -10,7 +10,7 @@ import { closeOnEscape } from '../../core/close-on-escape';
 import { whileBusy } from '../../core/while-busy';
 import { ActivityType, LookupValue, PartSuggestion, ProjectApiService } from '../../core/services/project-api.service';
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
-import { partNumberPreview, retainsSelectedPart } from '../part-numbers';
+import { applyPartInput, applyPartPick, partNumberPreview, PartPickState } from '../part-numbers';
 import { canonicalCondition, canonicalUnit } from '../quotation-lookups';
 import { ActivityItemDetailsDialog } from './activity-item-details-dialog';
 import { PartSuggestComponent } from '../part-suggest/part-suggest';
@@ -179,27 +179,15 @@ export class AddActivityDialog implements AfterViewInit, OnDestroy {
 
   setPart(index: number, value: string) {
     const row = this.rows.at(index);
-    row.get('partNo')?.setValue(value);
+    const next = applyPartInput(this.partPick(row), value, AddActivityDialog.blankPart);
+    row.patchValue(next);
     row.get('partNo')?.markAsDirty();
-    const picked = row.get('pickedPartNo')?.value as string | null;
-    if (!retainsSelectedPart(value, picked)) {
-      row.patchValue({ partId: null, pickedPartNo: null });
-    }
   }
 
   pickPart(index: number, suggestion: PartSuggestion) {
     const row = this.rows.at(index);
-    const partNo = suggestion.partNo ?? '';
-    row.patchValue({
-      partNo,
-      partId: suggestion.partId,
-      pickedPartNo: partNo,
-    });
-    const description = suggestion.description?.trim();
-    if (description) {
-      row.get('description')?.setValue(description);
-      row.get('description')?.markAsDirty();
-    }
+    row.patchValue(applyPartPick(suggestion.partId, suggestion.partNo));
+    row.get('partNo')?.markAsDirty();
     row.markAsDirty();
   }
 
@@ -377,6 +365,20 @@ export class AddActivityDialog implements AfterViewInit, OnDestroy {
 
     return 'The activities could not be saved.';
   }
+
+  private partPick(row: FormGroup): PartPickState {
+    return {
+      partNo: String(row.get('partNo')?.value ?? ''),
+      partId: (row.get('partId')?.value as number | null) ?? null,
+      pickedPartNo: (row.get('pickedPartNo')?.value as string | null) ?? null,
+    };
+  }
+
+  private static blankPart: PartPickState = {
+    partNo: '',
+    partId: null,
+    pickedPartNo: null,
+  };
 
   private createRow() {
     return this.fb.group({

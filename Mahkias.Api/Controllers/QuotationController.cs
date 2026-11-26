@@ -103,7 +103,15 @@ namespace Mahkias.Api.Controllers
                 return prepared.Error;
             }
 
-            var updated = await _uow.Quotations.UpdateAsync(id, prepared.Args);
+            bool updated;
+            try
+            {
+                updated = await _uow.Quotations.UpdateAsync(id, prepared.Args);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
             if (!updated)
             {
                 return NotFound();
@@ -142,7 +150,15 @@ namespace Mahkias.Api.Controllers
                 return prepared.Error;
             }
 
-            var id = await _uow.Quotations.ImportAsync(prepared.Args, null, HttpContext.RequestAborted);
+            int id;
+            try
+            {
+                id = await _uow.Quotations.ImportAsync(prepared.Args, null, HttpContext.RequestAborted);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
             var saved = await _uow.Quotations.GetDetailAsync(id);
             await this.WriteAll(_uow, prepared.Args.ProjectIds, "QuotationCreated", ProjectHistoryText.QuotationCreated(saved?.Code, saved?.SupplierName));
             return Ok(saved);
@@ -887,6 +903,8 @@ namespace Mahkias.Api.Controllers
                 Quantity = quantity,
                 TotalPrice = total,
                 CurrencyId = currencyId,
+                PartId = activityId == null && item.PartId is > 0 ? item.PartId : null,
+                LinkPart = activityId == null && item.LinkPart,
             };
         }
 
@@ -993,6 +1011,8 @@ namespace Mahkias.Api.Controllers
                         Quantity = quantity,
                         TotalPrice = total,
                         CurrencyId = first.CurrencyId,
+                        PartId = first.PartId,
+                        LinkPart = first.LinkPart,
                     };
                 })
                 .ToList();

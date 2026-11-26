@@ -60,12 +60,59 @@ export function splitAlternativePartNumbers(partNo: string | null | undefined): 
 }
 
 export function retainsSelectedPart(value: string | null | undefined, selectedPartNo: string | null | undefined): boolean {
+  return keepsSelectedMain(value, selectedPartNo);
+}
+
+/** The selected part stays the existing main part only while that number is still the first piece. */
+export function keepsSelectedMain(value: string | null | undefined, selectedPartNo: string | null | undefined): boolean {
   const selected = (selectedPartNo ?? '').trim();
   if (!selected) {
     return false;
   }
   const pieces = splitAlternativePartNumbers(value);
-  return pieces.length > 0 && pieces[0].value.trim().toLowerCase() === selected.toLowerCase();
+  if (!pieces.length || pieces[0].value.trim().toLowerCase() !== selected.toLowerCase()) {
+    return false;
+  }
+  const normalized = String(value ?? '').replace(/\r/g, ' ').replace(/\n/g, ' ').trim().toLowerCase();
+  return normalized.startsWith(selected.toLowerCase());
+}
+
+export interface PartPickState {
+  partNo: string;
+  partId: number | null;
+  pickedPartNo: string | null;
+}
+
+/** Clearing the input drops the typed number and restores the selection from when the row opened. Any other edit keeps the picked main part only when it is still the first piece. */
+export function applyPartInput(current: PartPickState, value: string, initial: PartPickState): PartPickState {
+  if (!value.trim()) {
+    return {
+      partNo: '',
+      partId: initial.partId,
+      pickedPartNo: initial.pickedPartNo,
+    };
+  }
+  if (keepsSelectedMain(value, current.pickedPartNo)) {
+    return {
+      partNo: value,
+      partId: current.partId,
+      pickedPartNo: current.pickedPartNo,
+    };
+  }
+  return {
+    partNo: value,
+    partId: null,
+    pickedPartNo: null,
+  };
+}
+
+export function applyPartPick(partId: number, partNo: string | null | undefined): PartPickState {
+  const selected = partNo ?? '';
+  return {
+    partNo: selected,
+    partId,
+    pickedPartNo: selected,
+  };
 }
 
 export function partNumberPreview(partNo: string | null | undefined): string {

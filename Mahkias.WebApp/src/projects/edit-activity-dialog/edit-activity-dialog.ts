@@ -11,7 +11,7 @@ import { Activity, ActivityType, LookupValue, ProjectApiService } from '../../co
 import { LookupComboboxComponent } from '../lookup-combobox/lookup-combobox';
 import { PartSuggestComponent } from '../part-suggest/part-suggest';
 import { PartSuggestion } from '../../core/services/project-api.service';
-import { partNumberPreview, retainsSelectedPart, splitAlternativePartNumbers } from '../part-numbers';
+import { applyPartInput, applyPartPick, keepsSelectedMain, partNumberPreview, PartPickState, splitAlternativePartNumbers } from '../part-numbers';
 import { canonicalCondition, canonicalUnit } from '../quotation-lookups';
 
 @Component({
@@ -37,8 +37,16 @@ export class EditActivityDialog {
   conditions: LookupValue[] = [];
   unitOptions: string[] = [];
   conditionOptions: string[] = [];
-  private selectedPartId: number | null = this.data.activity.partId ?? null;
-  private selectedPartNo: string | null = this.linkedPartNo();
+  private readonly initialPart: PartPickState = {
+    partNo: this.data.activity.partNo ?? '',
+    partId: this.data.activity.partId ?? null,
+    pickedPartNo: this.linkedPartNo(),
+  };
+  private partPick: PartPickState = {
+    partNo: this.initialPart.partNo,
+    partId: this.initialPart.partId,
+    pickedPartNo: this.initialPart.pickedPartNo,
+  };
 
   form = this.fb.group({
     dsnNo: [this.data.activity.dsnNo ?? '', EditActivityDialog.requiredText],
@@ -120,7 +128,7 @@ export class EditActivityDialog {
         projectId: this.data.activity.projectId,
         dsnNo: String(value.dsnNo ?? '').trim(),
         partNo: String(value.partNo ?? ''),
-        partId: this.selectedPartId,
+        partId: keepsSelectedMain(String(value.partNo ?? ''), this.partPick.pickedPartNo) ? this.partPick.partId : null,
         typeId: value.typeId ? Number(value.typeId) : null,
         quantity: value.quantity == null ? null : Number(value.quantity),
         budget: value.budget == null ? null : Number(value.budget),
@@ -147,24 +155,15 @@ export class EditActivityDialog {
   }
 
   setPartNo(value: string) {
-    this.form.controls.partNo.setValue(value);
+    this.partPick = applyPartInput(this.partPick, value, this.initialPart);
+    this.form.controls.partNo.setValue(this.partPick.partNo);
     this.form.controls.partNo.markAsDirty();
-    if (!retainsSelectedPart(value, this.selectedPartNo)) {
-      this.selectedPartId = null;
-      this.selectedPartNo = null;
-    }
   }
 
   pickPart(suggestion: PartSuggestion) {
-    this.selectedPartId = suggestion.partId;
-    this.selectedPartNo = suggestion.partNo ?? '';
-    this.form.controls.partNo.setValue(this.selectedPartNo);
+    this.partPick = applyPartPick(suggestion.partId, suggestion.partNo);
+    this.form.controls.partNo.setValue(this.partPick.partNo);
     this.form.controls.partNo.markAsDirty();
-    const description = suggestion.description?.trim();
-    if (description) {
-      this.form.controls.description.setValue(description);
-      this.form.controls.description.markAsDirty();
-    }
   }
 
   setLookup(field: 'unit' | 'condition', value: string) {

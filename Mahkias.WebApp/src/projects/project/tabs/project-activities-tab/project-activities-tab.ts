@@ -9,10 +9,10 @@ import { MaterialModule } from '../../../../app/material-module';
 import { AutoGrowDirective } from '../../../../core/auto-grow';
 import { blockEnterSubmit } from '../../../../core/block-enter-submit';
 import { whileBusy } from '../../../../core/while-busy';
-import { Activity, ActivityGroup, ActivityLabel, ActivityQuotationLink, ActivityType, LookupValue, Project, ProjectApiService, PurchaseOrderTraceLine } from '../../../../core/services/project-api.service';
+import { Activity, ActivityGroup, ActivityLabel, ActivityQuotationLink, ActivityType, LookupValue, PartSuggestion, Project, ProjectApiService, PurchaseOrderTraceLine } from '../../../../core/services/project-api.service';
 import { QuotationDataDialog, QuotationDataRow, QuotationDataState } from './quotation-data-dialog';
 import { formatMoney } from '../../../money-format';
-import { partNumberPreview } from '../../../part-numbers';
+import { applyPartInput, applyPartPick, keepsSelectedMain, partNumberPreview, PartPickState, splitAlternativePartNumbers } from '../../../part-numbers';
 import { PurchaseOrderSync } from '../../../purchase-order-sync';
 import { QuotationSync } from '../../../quotation-sync';
 import { ActivityGroupDialog } from './activity-group-dialog';
@@ -26,6 +26,7 @@ import { ConfirmDialog } from '../../../confirm-dialog/confirm-dialog';
 import { EditActivityDialog } from '../../../edit-activity-dialog/edit-activity-dialog';
 import { ImportActivityDialog } from '../../../import-activity-dialog/import-activity-dialog';
 import { LookupComboboxComponent } from '../../../lookup-combobox/lookup-combobox';
+import { PartSuggestComponent } from '../../../part-suggest/part-suggest';
 import { canonicalCondition, canonicalUnit } from '../../../quotation-lookups';
 import {
   activityHasLabel,
@@ -54,7 +55,7 @@ import {
 @Component({
   selector: 'app-project-activities-tab',
   standalone: true,
-  imports: [FormsModule, MaterialModule, AutoGrowDirective, LookupComboboxComponent],
+  imports: [FormsModule, MaterialModule, AutoGrowDirective, LookupComboboxComponent, PartSuggestComponent],
   templateUrl: './project-activities-tab.html',
   styleUrl: './project-activities-tab.css',
 })
@@ -304,7 +305,7 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       return;
     }
     const target = event.target;
-    if (target instanceof Element && target.closest('.pick, .lowest-price, .row-actions, .more-cell, input, button, a, select, textarea, mat-form-field')) {
+    if (target instanceof Element && target.closest('.pick, .lowest-price, .row-actions, .more-cell, .part-edit, input, button, a, select, textarea, mat-form-field, app-part-suggest')) {
       return;
     }
     this.openActivityDetails(activity);
@@ -567,6 +568,17 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     return this.ensureDraft(activity);
   }
 
+  setDraftPart(activity: Activity, value: string) {
+    const draft = this.ensureDraft(activity);
+    const next = applyPartInput(this.partPick(draft), value, this.initialPart(draft));
+    this.writePartPick(draft, next);
+  }
+
+  pickDraftPart(activity: Activity, suggestion: PartSuggestion) {
+    const draft = this.ensureDraft(activity);
+    this.writePartPick(draft, applyPartPick(suggestion.partId, suggestion.partNo));
+  }
+
   setQuantity(activity: Activity, value: number | string | null) {
     const draft = this.ensureDraft(activity);
     if (value == null || value === '') {
@@ -634,11 +646,16 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
 
     this.api
       .updateActivities(
-        changed.map(({ activity, draft }) => ({
+        changed.map(({ activity, draft }) => {
+          const selectedPartId = this.selectedPartId(draft);
+          const descriptionChanged = (activity.description ?? '') !== draft.description.trim();
+          return {
           id: activity.id,
           projectId: activity.projectId,
           dsnNo: draft.dsnNo.trim(),
           partNo: draft.partNo,
+          partId: selectedPartId,
+          linkPart: draft.partTouched || (descriptionChanged && selectedPartId != null),
           description: draft.description.trim(),
           quantity: draft.quantity,
           budget: activity.budget,
@@ -650,7 +667,8 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
           cso: draft.cso.trim(),
           unit: draft.unit.trim(),
           condition: draft.condition.trim(),
-        })),
+          };
+        }),
       )
       .pipe(
         switchMap(() => this.labelSaves(changed)),
@@ -797,7 +815,11 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
       const draft = this.drafts.get(updated.id);
       if (draft) {
         draft.dsnNo = updated.dsnNo ?? '';
-        draft.partNo = updated.partNo ?? '';
+        const linkedPartNo = this.linkedPartNo(updated);
+        draft.initialPartNo = updated.partNo ?? '';
+        draft.initialPartId = linkedPartNo ? updated.partId ?? null : null;
+        draft.initialPickedPartNo = linkedPartNo;
+        this.writePartPick(draft, this.initialPart(draft));
         draft.description = updated.description ?? '';
         draft.quantity = updated.quantity == null ? null : Number(updated.quantity);
         draft.serialNo = updated.serialNo ?? '';
@@ -1898,9 +1920,16 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     if (existing) {
       return existing;
     }
+    const linkedPartNo = this.linkedPartNo(activity);
     const draft: ActivityDraft = {
       dsnNo: activity.dsnNo ?? '',
       partNo: activity.partNo ?? '',
+      partId: linkedPartNo ? activity.partId ?? null : null,
+      pickedPartNo: linkedPartNo,
+      initialPartNo: activity.partNo ?? '',
+      initialPartId: linkedPartNo ? activity.partId ?? null : null,
+      initialPickedPartNo: linkedPartNo,
+      partTouched: false,
       description: activity.description ?? '',
       quantity: activity.quantity == null ? null : Number(activity.quantity),
       serialNo: activity.serialNo ?? '',
@@ -1944,8 +1973,10 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
 
   private draftChanged(activity: Activity, draft: ActivityDraft): boolean {
     const quantity = activity.quantity == null ? null : Number(activity.quantity);
+    const selectedPartId = this.selectedPartId(draft);
     return (activity.dsnNo ?? '') !== draft.dsnNo.trim()
       || (activity.partNo ?? '') !== draft.partNo
+      || (draft.partTouched && selectedPartId !== (activity.partId ?? null))
       || (activity.description ?? '') !== draft.description.trim()
       || quantity !== draft.quantity
       || (activity.serialNo ?? '') !== draft.serialNo.trim()
@@ -1983,6 +2014,43 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
     return Number.isInteger(value) ? String(value) : String(value);
   }
 
+  private partPick(draft: ActivityDraft): PartPickState {
+    return {
+      partNo: draft.partNo,
+      partId: draft.partId,
+      pickedPartNo: draft.pickedPartNo,
+    };
+  }
+
+  private initialPart(draft: ActivityDraft): PartPickState {
+    return {
+      partNo: draft.initialPartNo,
+      partId: draft.initialPartId,
+      pickedPartNo: draft.initialPickedPartNo,
+    };
+  }
+
+  private writePartPick(draft: ActivityDraft, next: PartPickState) {
+    draft.partNo = next.partNo;
+    draft.partId = next.partId;
+    draft.pickedPartNo = next.pickedPartNo;
+    const initial = this.initialPart(draft);
+    draft.partTouched = next.partNo !== initial.partNo
+      || next.partId !== initial.partId
+      || next.pickedPartNo !== initial.pickedPartNo;
+  }
+
+  private selectedPartId(draft: ActivityDraft): number | null {
+    return keepsSelectedMain(draft.partNo, draft.pickedPartNo) ? draft.partId : null;
+  }
+
+  private linkedPartNo(activity: Activity): string | null {
+    if (!activity.partId) {
+      return null;
+    }
+    return splitAlternativePartNumbers(activity.partNo)[0]?.value ?? null;
+  }
+
   private wholeQuantity(value: number | null): boolean {
     return value != null && Number.isInteger(value) && value >= 0;
   }
@@ -2010,6 +2078,12 @@ export class ProjectActivitiesTabComponent implements OnChanges, OnDestroy {
 interface ActivityDraft {
   dsnNo: string;
   partNo: string;
+  partId: number | null;
+  pickedPartNo: string | null;
+  initialPartNo: string;
+  initialPartId: number | null;
+  initialPickedPartNo: string | null;
+  partTouched: boolean;
   description: string;
   quantity: number | null;
   serialNo: string;

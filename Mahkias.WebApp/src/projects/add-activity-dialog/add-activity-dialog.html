@@ -64,6 +64,7 @@
                   [disabled]="isSaving"
                   [invalid]="fieldInvalid($index, 'partNo')"
                   [minHeight]="38"
+                  [minQueryLength]="3"
                   ariaLabel="Part No"
                   (valueChange)="setPart($index, $event)"
                   (picked)="pickPart($index, $event)"

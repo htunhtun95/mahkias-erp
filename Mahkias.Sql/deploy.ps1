@@ -34,7 +34,8 @@ function Get-DeployText([string]$Path) {
     $text = Get-Content -Path $Path -Raw
     $text = [regex]::Replace($text, '(?i)CREATE\s+FUNCTION\b', 'CREATE OR ALTER FUNCTION')
     $text = [regex]::Replace($text, '(?i)CREATE\s+PROCEDURE\b', 'CREATE OR ALTER PROCEDURE')
-    return $text
+    # Filtered indexes reject updates from a module created with QUOTED_IDENTIFIER OFF.
+    return "SET QUOTED_IDENTIFIER ON;`r`nGO`r`n" + $text
 }
 
 $scripts = @(Get-ChildItem (Join-Path $root "Programmability\Functions") -Filter *.sql | Sort-Object Name) `

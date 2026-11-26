@@ -1,7 +1,9 @@
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
 import { Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Output, TemplateRef, ViewChild, ViewContainerRef, inject } from '@angular/core';
-import { Activity } from '../../core/services/project-api.service';
+import { Subject, Subscription, of } from 'rxjs';
+import { catchError, debounceTime, switchMap } from 'rxjs/operators';
+import { Activity, PartSuggestion, ProjectApiService } from '../../core/services/project-api.service';
 import { ActivitySuggestion, activitySuggestions } from '../quotation-map';
 
 @Component({
@@ -25,16 +27,23 @@ import { ActivitySuggestion, activitySuggestions } from '../quotation-map';
     />
     <ng-template #menu>
       <div class="activity-menu" role="listbox">
-        @for (suggestion of suggestions; track suggestion.activityId + suggestion.partNo; let index = $index) {
+        @for (suggestion of suggestions; track trackSuggestion(suggestion); let index = $index) {
+          @if (groupHeading(index); as heading) {
+            <div class="menu-heading">{{ heading }}</div>
+          }
           <button
             type="button"
             role="option"
             [class.active]="index === activeIndex"
+            [class.catalog]="suggestion.source === 'part'"
             (mouseenter)="activeIndex = index"
             (mousedown)="$event.preventDefault()"
             (click)="choose(suggestion)"
           >
             <span class="option-label">{{ suggestion.label }}</span>
+            @if (suggestion.source === 'part' && suggestion.description) {
+              <span class="option-description">{{ suggestion.description }}</span>
+            }
             @if (suggestion.role === 'alternate') {
               <span class="option-badge">Alt</span>
             }
@@ -100,9 +109,30 @@ import { ActivitySuggestion, activitySuggestions } from '../quotation-map';
     }
     .activity-menu button.active,
     .activity-menu button:hover { background: #e8f0fe; }
+    .activity-menu button.catalog {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+    }
+    .menu-heading {
+      padding: 6px 12px 2px;
+      color: #5f6368;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
     .option-label {
       min-width: 0;
       overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .option-description {
+      max-width: 100%;
+      overflow: hidden;
+      color: #5f6368;
+      font-size: 12px;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
@@ -126,6 +156,7 @@ export class ActivitySuggestComponent implements OnChanges, OnDestroy {
   @Input() disabled = false;
   @Input() readOnly = false;
   @Input() ariaLabel = 'Activity';
+  @Input() includeParts = false;
   @Output() valueChange = new EventEmitter<string>();
   @Output() picked = new EventEmitter<ActivitySuggestion>();
   @Output() blurred = new EventEmitter<void>();
@@ -136,20 +167,43 @@ export class ActivitySuggestComponent implements OnChanges, OnDestroy {
   activeIndex = 0;
   open = false;
 
+  private api = inject(ProjectApiService);
   private overlay = inject(Overlay);
   private viewContainerRef = inject(ViewContainerRef);
   private overlayRef: OverlayRef | null = null;
   private outsideListener: ((event: Event) => void) | null = null;
   private focused = false;
+  private latestQuery = '';
+  private catalog: PartSuggestion[] = [];
+  private readonly queries = new Subject<string>();
+  private readonly searchSub: Subscription;
+
+  constructor() {
+    this.searchSub = this.queries.pipe(
+      debounceTime(150),
+      switchMap((query) => {
+        const text = query.trim();
+        if (!this.includeParts || text.length < 3) {
+          return of([] as PartSuggestion[]);
+        }
+        return this.api.searchParts(text).pipe(catchError(() => of([] as PartSuggestion[])));
+      }),
+    ).subscribe((matches) => {
+      if (!this.includeParts) {
+        return;
+      }
+      this.catalog = this.catalogQuery(this.latestQuery) ? (matches ?? []) : [];
+      this.refresh(false);
+    });
+  }
 
   ngOnChanges() {
-    this.suggestions = activitySuggestions(this.value, this.activities);
-    if (this.open) {
-      this.activeIndex = 0;
-    }
+    this.latestQuery = this.value ?? '';
+    this.refresh(false);
   }
 
   ngOnDestroy() {
+    this.searchSub.unsubscribe();
     this.close();
   }
 
@@ -158,8 +212,11 @@ export class ActivitySuggestComponent implements OnChanges, OnDestroy {
       return;
     }
     this.focused = true;
-    this.suggestions = activitySuggestions(this.value, this.activities);
-    this.show();
+    this.latestQuery = this.value ?? '';
+    this.refresh(true);
+    if (this.includeParts) {
+      this.queries.next(this.latestQuery);
+    }
   }
 
   onInput(value: string) {
@@ -167,10 +224,15 @@ export class ActivitySuggestComponent implements OnChanges, OnDestroy {
       return;
     }
     this.focused = true;
+    this.latestQuery = value;
     this.valueChange.emit(value);
-    this.suggestions = activitySuggestions(value, this.activities);
-    this.activeIndex = 0;
-    this.show();
+    if (!this.catalogQuery(value)) {
+      this.catalog = [];
+    }
+    this.refresh(true);
+    if (this.includeParts) {
+      this.queries.next(value);
+    }
   }
 
   onBlur() {
@@ -209,6 +271,51 @@ export class ActivitySuggestComponent implements OnChanges, OnDestroy {
   choose(suggestion: ActivitySuggestion) {
     this.picked.emit(suggestion);
     this.close();
+  }
+
+  trackSuggestion(suggestion: ActivitySuggestion) {
+    return `${suggestion.source ?? 'activity'}:${suggestion.partId ?? suggestion.activityId}:${suggestion.partNo}:${suggestion.description}`;
+  }
+
+  groupHeading(index: number): string | null {
+    const suggestion = this.suggestions[index];
+    if (!suggestion?.group) {
+      return null;
+    }
+    const previous = index > 0 ? this.suggestions[index - 1] : null;
+    return !previous || previous.group !== suggestion.group ? suggestion.group : null;
+  }
+
+  private catalogQuery(value: string): boolean {
+    return this.includeParts && value.trim().length >= 3;
+  }
+
+  private refresh(resetIndex: boolean) {
+    const query = this.latestQuery;
+    const grouped = this.catalogQuery(query);
+    const activities = activitySuggestions(query, this.activities).map((suggestion) => ({
+      ...suggestion,
+      source: 'activity' as const,
+      group: grouped ? 'Project activities' : '',
+    }));
+    const parts = grouped
+      ? this.catalog.map((part) => ({
+        activityId: 0,
+        dsnNo: '',
+        partNo: part.partNo,
+        label: part.partNo,
+        role: 'primary' as const,
+        description: part.description ?? '',
+        source: 'part' as const,
+        partId: part.partId,
+        group: 'Parts',
+      }))
+      : [];
+    this.suggestions = [...activities, ...parts];
+    if (resetIndex || this.open) {
+      this.activeIndex = 0;
+    }
+    this.show();
   }
 
   private show() {

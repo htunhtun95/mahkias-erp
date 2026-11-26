@@ -104,6 +104,7 @@ BEGIN
         END
 
         IF @Text IS NOT NULL
+           AND @TargetId = @ResolvedPartId
            AND NOT EXISTS
            (
                SELECT 1

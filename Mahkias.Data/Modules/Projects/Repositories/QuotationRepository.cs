@@ -100,6 +100,7 @@ ORDER BY AP.ActivityId, AP.SortOrder, AP.Id;";
             }
 
             await _connection.OpenAsync();
+            await EnsureQuotedIdentifierAsync(_connection, null, CancellationToken.None);
             SqlTransaction transaction = null;
             try
             {
@@ -112,6 +113,7 @@ ORDER BY AP.ActivityId, AP.SortOrder, AP.Id;";
                 }
 
                 await ReplaceChargesAsync(id, args.Charges, transaction, CancellationToken.None);
+                await LinkCatalogPartsAsync(args.Items, transaction, CancellationToken.None);
                 await transaction.CommitAsync();
                 return id;
             }
@@ -139,6 +141,7 @@ ORDER BY AP.ActivityId, AP.SortOrder, AP.Id;";
             }
 
             await _connection.OpenAsync(cancellationToken);
+            await EnsureQuotedIdentifierAsync(_connection, null, cancellationToken);
             SqlTransaction transaction = null;
             try
             {
@@ -155,6 +158,7 @@ ORDER BY AP.ActivityId, AP.SortOrder, AP.Id;";
                     await LinkUploadedFileAsync(id, attachFile, transaction, cancellationToken);
                 }
 
+                await LinkCatalogPartsAsync(args.Items, transaction, cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
                 return id;
             }
@@ -187,6 +191,7 @@ ORDER BY AP.ActivityId, AP.SortOrder, AP.Id;";
             }
 
             await _connection.OpenAsync(cancellationToken);
+            await EnsureQuotedIdentifierAsync(_connection, null, cancellationToken);
             SqlTransaction transaction = null;
             try
             {
@@ -203,6 +208,7 @@ ORDER BY AP.ActivityId, AP.SortOrder, AP.Id;";
                     await LinkUploadedFileAsync(quotationId, attachFile, transaction, cancellationToken);
                 }
 
+                await LinkCatalogPartsAsync(args.Items, transaction, cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
             }
             catch
@@ -694,6 +700,7 @@ ORDER BY ActivityId, QuoteRank, QuotationId", _connection);
             }
 
             await _connection.OpenAsync();
+            await EnsureQuotedIdentifierAsync(_connection, null, CancellationToken.None);
             SqlTransaction transaction = null;
             try
             {
@@ -707,6 +714,7 @@ ORDER BY ActivityId, QuoteRank, QuotationId", _connection);
 
                 await ReplaceChargesAsync(quotationId, args.Charges, transaction, CancellationToken.None);
                 await ReplaceProjectLinksAsync(quotationId, args.ProjectIds, transaction, CancellationToken.None);
+                await LinkCatalogPartsAsync(args.Items, transaction, CancellationToken.None);
                 await transaction.CommitAsync();
                 return true;
             }
@@ -975,6 +983,7 @@ WHERE Id = @QuotationId;", _connection, transaction);
 
         private async Task<bool> ExecuteUpdateAsync(int quotationId, CreateQuotationArgs args, SqlTransaction transaction, CancellationToken cancellationToken)
         {
+            await EnsureQuotedIdentifierAsync(_connection, transaction, cancellationToken);
             using var command = new SqlCommand("dbo.ReplaceQuotationItems", _connection, transaction)
             {
                 CommandType = CommandType.StoredProcedure
@@ -1120,6 +1129,39 @@ WHERE P.IsDeleted = 0;", _connection, transaction);
         private static string NullIfBlank(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+
+        private static async Task EnsureQuotedIdentifierAsync(SqlConnection connection, SqlTransaction transaction, CancellationToken cancellationToken)
+        {
+            using var command = new SqlCommand("SET QUOTED_IDENTIFIER ON;", connection, transaction);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        private async Task LinkCatalogPartsAsync(IReadOnlyList<QuotationItemWrite> items, SqlTransaction transaction, CancellationToken cancellationToken)
+        {
+            foreach (var item in items ?? Array.Empty<QuotationItemWrite>())
+            {
+                if (item == null || !item.LinkPart || string.IsNullOrWhiteSpace(item.PartNo))
+                {
+                    continue;
+                }
+
+                using var command = new SqlCommand("dbo.ResolveQuotationPart", _connection, transaction)
+                {
+                    CommandType = CommandType.StoredProcedure,
+                };
+                command.Parameters.AddNullableInt("PartId", item.PartId);
+                command.Parameters.AddNVarCharMax("PartNo", item.PartNo.Trim(), false);
+                command.Parameters.AddNVarCharMax("Description", string.IsNullOrWhiteSpace(item.PartDescription) ? null : item.PartDescription.Trim(), false);
+                try
+                {
+                    await command.ExecuteNonQueryAsync(cancellationToken);
+                }
+                catch (SqlException ex) when (ex.Number == 51000)
+                {
+                    throw new InvalidOperationException("Enter one part number. Alternate parts are not used on quotations.");
+                }
+            }
         }
     }
 }

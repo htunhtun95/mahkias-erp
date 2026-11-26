@@ -142,7 +142,7 @@ h1 {
 
 .row {
   display: grid;
-  grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.4fr) 128px minmax(0, 1fr) 80px;
+  grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.4fr) 128px minmax(0, 1fr) 48px;
   position: relative;
   gap: 16px;
   width: 100%;
@@ -265,8 +265,8 @@ h1 {
 }
 
 .col-actions {
-  width: 80px;
-  min-width: 80px;
+  width: 48px;
+  min-width: 48px;
   justify-self: end;
   text-align: right;
 }
@@ -275,17 +275,6 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 2px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
-}
-
-.row[role='link']:hover .row-actions,
-.row[role='link']:focus-within .row-actions,
-.row.is-deleting .row-actions {
-  opacity: 1;
-  pointer-events: auto;
 }
 
 .icon-btn:disabled {
@@ -318,15 +307,6 @@ h1 {
   color: #202124;
 }
 
-.icon-btn.delete {
-  color: #c5221f;
-}
-
-.icon-btn.delete:hover {
-  background: #fce8e6;
-  color: #c5221f;
-}
-
 .empty-list,
 .loading {
   display: flex;
@@ -344,13 +324,6 @@ h1 {
 mat-paginator {
   flex-shrink: 0;
   background: #fff;
-}
-
-@media (hover: none) {
-  .row-actions {
-    opacity: 1;
-    pointer-events: auto;
-  }
 }
 
 @media (max-width: 720px) {

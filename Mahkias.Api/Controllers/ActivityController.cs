@@ -86,6 +86,8 @@ namespace Mahkias.Api.Controllers
                 {
                     ProjectId = activity.ProjectId,
                     PartNo = activity.PartNo,
+                    PartId = activity.PartId > 0 ? activity.PartId : null,
+                    LinkPart = activity.LinkPart,
                     Budget = activity.Budget,
                     Description = activity.Description,
                     DSNNo = activity.DSNNo,

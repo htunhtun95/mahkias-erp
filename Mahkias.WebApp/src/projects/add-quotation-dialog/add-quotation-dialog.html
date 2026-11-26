@@ -175,8 +175,8 @@
               <td class="cell dsn" [class.invalid]="invalid(row, 'dsn') && interacted(row, 'dsn')">
                 <app-activity-suggest [value]="row.dsnNo" [activities]="activities" ariaLabel="DSN No" [disabled]="isSaving" (valueChange)="setDsn(row, $event); touch(row, 'dsn')" (blurred)="touch(row, 'dsn')" (picked)="chooseActivity(row, $event)" />
               </td>
-              <td class="cell part" [class.invalid]="invalid(row, 'part') && interacted(row, 'part')">
-                <app-activity-suggest [value]="row.partNo" [activities]="activities" ariaLabel="Part No" [disabled]="isSaving" (valueChange)="setPart(row, $event); touch(row, 'part')" (blurred)="touch(row, 'part')" (picked)="chooseActivity(row, $event)" />
+              <td class="cell part" [class.invalid]="invalid(row, 'part') && interacted(row, 'part')" [attr.title]="partCombined(row) ? 'Enter one part number. Alternate parts are not used on quotations.' : null">
+                <app-activity-suggest [value]="row.partNo" [activities]="activities" [includeParts]="true" ariaLabel="Part No" [disabled]="isSaving" (valueChange)="setPart(row, $event); touch(row, 'part')" (blurred)="touch(row, 'part')" (picked)="choosePartSuggestion(row, $event)" />
               </td>
               <td class="cell description">
                 <textarea

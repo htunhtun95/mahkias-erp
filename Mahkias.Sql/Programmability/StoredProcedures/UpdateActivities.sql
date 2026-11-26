@@ -1,6 +1,8 @@
 CREATE PROCEDURE [dbo].[UpdateActivities]
 (
     -- NumericValue1 = Id, NumericValue2 = ProjectId, NumericValue3 = Quantity, NumericValue4 = TypeId
+    -- NumericValue5 = selected PartId when BitValue1 = 1. Null creates a new Part.
+    -- BitValue1 = 1 resolves the Part catalog. 0 leaves Activities.PartId unchanged.
     -- TextValue1 = PartNo, TextValue2 = Description, TextValue3 = DSNNo, DecimalValue1 = Budget
     -- TextValue5 = Condition, TextValue6 = Unit
     -- TextValue7 = JSON {"SerialNo","TSN","TSO","CSN","CSO"}
@@ -120,6 +122,43 @@ BEGIN
         ) AS Main
         WHERE Alt.SortOrder > 1
           AND NULLIF(LEFT(Alt.PartValue, 100), N'') IS NOT NULL;
+
+        DECLARE @LinkActivityId INT;
+        DECLARE @LinkPartNo NVARCHAR(MAX);
+        DECLARE @LinkDescription NVARCHAR(MAX);
+        DECLARE @RequestedPartId INT;
+        DECLARE @ResolvedPartId INT;
+
+        DECLARE part_rows CURSOR LOCAL FAST_FORWARD FOR
+            SELECT
+                U.ActivityId,
+                S.TextValue1,
+                S.TextValue2,
+                NULLIF(S.NumericValue5, 0)
+            FROM @Updated AS U
+            INNER JOIN @Activities AS S
+                ON S.NumericValue1 = U.ActivityId
+            WHERE S.BitValue1 = 1;
+
+        OPEN part_rows;
+        FETCH NEXT FROM part_rows INTO @LinkActivityId, @LinkPartNo, @LinkDescription, @RequestedPartId;
+        WHILE @@FETCH_STATUS = 0
+        BEGIN
+            SET @ResolvedPartId = NULL;
+            EXEC dbo.ResolveActivityPart
+                @PartId = @RequestedPartId,
+                @PartNo = @LinkPartNo,
+                @Description = @LinkDescription,
+                @ResolvedPartId = @ResolvedPartId OUTPUT;
+
+            UPDATE projects.Activities
+            SET PartId = @ResolvedPartId
+            WHERE Id = @LinkActivityId;
+
+            FETCH NEXT FROM part_rows INTO @LinkActivityId, @LinkPartNo, @LinkDescription, @RequestedPartId;
+        END
+        CLOSE part_rows;
+        DEALLOCATE part_rows;
 
         COMMIT TRANSACTION;
         SELECT Updated = (SELECT COUNT(*) FROM @Updated);

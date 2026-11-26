@@ -11,6 +11,10 @@ namespace Mahkias.Core.Modules.Projects.Data.Args
     {
         public int? ActivityId { get; set; }
 
+        public int? PartId { get; set; }
+
+        public bool LinkPart { get; set; }
+
         public int? ActivityGroupId { get; set; }
 
         public bool IsAlternativePart { get; set; }

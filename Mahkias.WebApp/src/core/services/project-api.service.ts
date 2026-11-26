@@ -198,6 +198,7 @@ export interface PartQuotationLine {
 export interface CreateActivityRequest {
   partNo: string;
   partId?: number | null;
+  linkPart?: boolean;
   budget: number | null;
   description: string;
   dsnNo: string;
@@ -464,6 +465,8 @@ export interface QuotationItemInput {
   quantity: number;
   totalPrice: number | null;
   activityId?: number | null;
+  partId?: number | null;
+  linkPart?: boolean;
   activityGroupId?: number | null;
   currencyId?: number | null;
   currencyExplicit?: boolean;

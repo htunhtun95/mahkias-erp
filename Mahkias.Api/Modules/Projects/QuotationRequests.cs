@@ -46,6 +46,10 @@ namespace Mahkias.Api.Modules.Projects
 
         public int? ActivityId { get; set; }
 
+        public int? PartId { get; set; }
+
+        public bool LinkPart { get; set; }
+
         public List<int> ActivityIds { get; set; }
 
         public int? ActivityGroupId { get; set; }

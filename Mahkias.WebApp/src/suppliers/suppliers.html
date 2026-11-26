@@ -74,31 +74,31 @@
             <button
               class="icon-btn"
               type="button"
-              matTooltip="Edit supplier"
-              aria-label="Edit supplier"
+              [matMenuTriggerFor]="supplierMenu"
+              aria-label="Supplier actions"
+              aria-haspopup="menu"
               [disabled]="isDeleting"
-              (click)="openEdit($event, supplier)"
+              (click)="$event.stopPropagation()"
               (keydown)="$event.stopPropagation()"
             >
-              <mat-icon>edit</mat-icon>
+              @if (deletingId === supplier.id) {
+                <mat-spinner diameter="18"></mat-spinner>
+              } @else {
+                <mat-icon>more_vert</mat-icon>
+              }
             </button>
-            @if (!hasQuotations(supplier)) {
-              <button
-                class="icon-btn delete"
-                type="button"
-                matTooltip="Delete supplier"
-                aria-label="Delete supplier"
-                [disabled]="isDeleting"
-                (click)="openDelete($event, supplier)"
-                (keydown)="$event.stopPropagation()"
-              >
-                @if (deletingId === supplier.id) {
-                  <mat-spinner diameter="18"></mat-spinner>
-                } @else {
-                  <mat-icon>delete</mat-icon>
-                }
+            <mat-menu #supplierMenu="matMenu" class="activity-row-menu">
+              <button mat-menu-item type="button" (click)="openEdit($event, supplier)" [disabled]="isDeleting">
+                <mat-icon>edit</mat-icon>
+                <span>Edit</span>
               </button>
-            }
+              @if (!hasQuotations(supplier)) {
+                <button mat-menu-item type="button" class="danger" (click)="openDelete($event, supplier)" [disabled]="isDeleting">
+                  <mat-icon>delete</mat-icon>
+                  <span>Delete</span>
+                </button>
+              }
+            </mat-menu>
           </span>
         </div>
       }

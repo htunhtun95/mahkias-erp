@@ -27,6 +27,7 @@ import {
   Supplier,
 } from '../../core/services/project-api.service';
 import { ActivitySuggestion, directActivityId } from '../quotation-map';
+import { applyPartInput, applyPartPick, keepsSelectedMain, splitAlternativePartNumbers } from '../part-numbers';
 import { duplicateSupplierReferenceMessage, hasDuplicateSupplierReference } from '../../suppliers/supplier-reference';
 import { activityHasLabel } from '../project/tabs/project-activities-tab/activity-structure';
 import { QuotationDateFieldComponent } from '../quotation-date-field/quotation-date-field';
@@ -70,6 +71,12 @@ interface QuoteRow {
   typeId: number | null;
   typeName: string;
   activityTypeId: number | null;
+  partId: number | null;
+  pickedPartNo: string | null;
+  initialPartNo: string;
+  initialPartId: number | null;
+  initialPickedPartNo: string | null;
+  initialActivityId: number | null;
   unitExplicit: boolean;
   totalExplicit: boolean;
 }
@@ -282,7 +289,7 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
   }
 
   get canAddItems(): boolean {
-    return !this.isSaving && (!this.creating || !this.lockProject);
+    return !this.isSaving;
   }
 
   get quoteLabels(): ActivityLabel[] {
@@ -400,11 +407,39 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
   }
 
   setPart(row: QuoteRow, value: string) {
-    row.partNo = value;
+    const next = applyPartInput({
+      partNo: row.partNo,
+      partId: row.partId,
+      pickedPartNo: row.pickedPartNo,
+    }, value, {
+      partNo: row.initialPartNo,
+      partId: row.initialPartId,
+      pickedPartNo: row.initialPickedPartNo,
+    });
+    row.partNo = next.partNo;
+    row.partId = next.partId;
+    row.pickedPartNo = next.pickedPartNo;
+    if (this.partCombined(row)) {
+      row.partId = null;
+      row.pickedPartNo = null;
+    }
+    if (!row.partNo.trim()) {
+      row.activityId = row.initialActivityId;
+    }
     this.onPart(row);
   }
 
+  choosePartSuggestion(row: QuoteRow, suggestion: ActivitySuggestion) {
+    if (suggestion.source === 'part' && suggestion.partId) {
+      this.chooseCatalogPart(row, suggestion);
+      return;
+    }
+    this.chooseActivity(row, suggestion);
+  }
+
   chooseActivity(row: QuoteRow, suggestion: ActivitySuggestion) {
+    row.partId = null;
+    row.pickedPartNo = null;
     const activity = this.activityFor(suggestion.activityId);
     row.activityId = suggestion.activityId;
     row.dsnNo = suggestion.dsnNo;
@@ -436,6 +471,21 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
       row.cso = (activity.cso ?? '').trim();
     }
     this.recalculate(row);
+  }
+
+  private chooseCatalogPart(row: QuoteRow, suggestion: ActivitySuggestion) {
+    const next = applyPartPick(suggestion.partId ?? 0, suggestion.partNo);
+    row.partNo = next.partNo;
+    row.partId = next.partId;
+    row.pickedPartNo = next.pickedPartNo;
+    row.activityId = null;
+    if (!row.description.trim() && suggestion.description.trim()) {
+      row.description = suggestion.description.trim();
+    }
+  }
+
+  partCombined(row: QuoteRow): boolean {
+    return splitAlternativePartNumbers(row.partNo).length > 1;
   }
 
   openDetails(row: QuoteRow) {
@@ -635,6 +685,9 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
         ? 'DSN number, part number, and quantity are required. Check the highlighted rows.'
         : 'Part number and quantity are required. Check the highlighted rows.';
     }
+    if (filled.some((row) => this.partCombined(row))) {
+      return 'Enter one part number. Alternate parts are not used on quotations.';
+    }
     if (filled.some((row) => leadTimeInvalid(row.leadTime))) {
       return 'Lead time must be a whole number of days, or left blank.';
     }
@@ -659,7 +712,7 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
     if (!this.creatingSupplier && !this.supplierId) {
       return this.supplierErrorVisible ? this.validationMessage : '';
     }
-    if (this.datesInvalid || this.dateOrderError || this.seen.size || readQuotationCharges(this.charges).error || this.rows.some((row) => this.isPriced(row) && leadTimeInvalid(row.leadTime))) {
+    if (this.datesInvalid || this.dateOrderError || this.seen.size || readQuotationCharges(this.charges).error || this.rows.some((row) => this.isPriced(row) && (leadTimeInvalid(row.leadTime) || this.partCombined(row)))) {
       return this.validationMessage;
     }
     return '';
@@ -673,7 +726,7 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
       return this.requiresDsn && !row.dsnNo.trim();
     }
     if (field === 'part') {
-      return !row.partNo.trim();
+      return !row.partNo.trim() || this.partCombined(row);
     }
     if (field === 'qty') {
       return !this.validQuantity(row.quantity);
@@ -778,6 +831,10 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
         : 'Part number and quantity are required. Check the highlighted rows.';
       return;
     }
+    if (filled.some((row) => this.partCombined(row))) {
+      this.error = 'Enter one part number. Alternate parts are not used on quotations.';
+      return;
+    }
     if (filled.some((row) => leadTimeInvalid(row.leadTime))) {
       this.error = 'Lead time must be a whole number of days, or left blank.';
       return;
@@ -808,6 +865,8 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
       quantity: this.quantity(row),
       totalPrice: this.money(row.totalPrice),
       activityId: row.activityId,
+      partId: keepsSelectedMain(row.partNo, row.pickedPartNo) ? row.partId : null,
+      linkPart: row.activityId == null && !!row.partNo.trim() && !this.partCombined(row),
       activityGroupId: null,
       currencyId: row.currencyId ?? this.currencyId,
       activityTypeId: row.activityTypeId,
@@ -1159,9 +1218,17 @@ export class CreateQuotationDialogComponent implements AfterViewInit, OnDestroy 
     });
   }
 
-  private priceRow(row: Omit<QuoteRow, 'unitExplicit' | 'totalExplicit'>): QuoteRow {
+  private priceRow(row: Omit<QuoteRow, 'unitExplicit' | 'totalExplicit' | 'partId' | 'pickedPartNo' | 'initialPartNo' | 'initialPartId' | 'initialPickedPartNo' | 'initialActivityId'> & Partial<Pick<QuoteRow, 'partId' | 'pickedPartNo' | 'initialPartNo' | 'initialPartId' | 'initialPickedPartNo' | 'initialActivityId'>>): QuoteRow {
+    const partId = row.partId ?? null;
+    const pickedPartNo = row.pickedPartNo ?? null;
     const priced: QuoteRow = {
       ...row,
+      partId,
+      pickedPartNo,
+      initialPartNo: row.initialPartNo ?? row.partNo,
+      initialPartId: row.initialPartId ?? partId,
+      initialPickedPartNo: row.initialPickedPartNo ?? pickedPartNo,
+      initialActivityId: row.initialActivityId ?? row.activityId,
       unitExplicit: !!row.unitPrice.trim(),
       totalExplicit: !!row.totalPrice.trim(),
     };

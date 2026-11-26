@@ -1,3 +1,4 @@
+-- Create with QUOTED_IDENTIFIER ON. Quotations.IX_Quotations_IsDeleted is a filtered index.
 CREATE PROCEDURE [dbo].[ReplaceQuotationItems]
 (
     @Id INT,

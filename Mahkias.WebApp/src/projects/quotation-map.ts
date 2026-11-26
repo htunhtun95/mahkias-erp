@@ -30,6 +30,9 @@ export interface ActivitySuggestion {
   label: string;
   role: 'primary' | 'alternate';
   description: string;
+  source?: 'activity' | 'part';
+  partId?: number | null;
+  group?: string;
 }
 
 export function activitySuggestions(query: string, activities: Activity[]): ActivitySuggestion[] {

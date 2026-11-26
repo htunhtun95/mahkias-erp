@@ -193,9 +193,18 @@
                         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'dsnNo')">
                           <input matInput [(ngModel)]="draft(activity).dsnNo" [ngModelOptions]="{ standalone: true }" aria-label="DSN no" [disabled]="isSaving" />
                         </mat-form-field>
-                        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'partNo')">
-                          <input matInput [(ngModel)]="draft(activity).partNo" [ngModelOptions]="{ standalone: true }" aria-label="Part no" [title]="partTitle(activity)" [disabled]="isSaving" />
-                        </mat-form-field>
+                        <div class="part-edit" [class.invalid]="fieldInvalid(activity, 'partNo')" [attr.title]="partTitle(activity)">
+                          <app-part-suggest
+                            [value]="draft(activity).partNo"
+                            [disabled]="isSaving"
+                            [invalid]="fieldInvalid(activity, 'partNo')"
+                            [minHeight]="38"
+                            [minQueryLength]="3"
+                            ariaLabel="Part no"
+                            (valueChange)="setDraftPart(activity, $event)"
+                            (picked)="pickDraftPart(activity, $event)"
+                          />
+                        </div>
                       } @else {
                         <span>{{ activity.dsnNo || '—' }}</span>
                         <span class="part-cell">
@@ -302,9 +311,18 @@
                   <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'dsnNo')">
                     <input matInput [(ngModel)]="draft(activity).dsnNo" [ngModelOptions]="{ standalone: true }" aria-label="DSN no" [disabled]="isSaving" />
                   </mat-form-field>
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="cell-field" [class.invalid]="fieldInvalid(activity, 'partNo')">
-                    <input matInput [(ngModel)]="draft(activity).partNo" [ngModelOptions]="{ standalone: true }" aria-label="Part no" [title]="partTitle(activity)" [disabled]="isSaving" />
-                  </mat-form-field>
+                  <div class="part-edit" [class.invalid]="fieldInvalid(activity, 'partNo')" [attr.title]="partTitle(activity)">
+                    <app-part-suggest
+                      [value]="draft(activity).partNo"
+                      [disabled]="isSaving"
+                      [invalid]="fieldInvalid(activity, 'partNo')"
+                      [minHeight]="38"
+                      [minQueryLength]="3"
+                      ariaLabel="Part no"
+                      (valueChange)="setDraftPart(activity, $event)"
+                      (picked)="pickDraftPart(activity, $event)"
+                    />
+                  </div>
                 } @else {
                   <span>{{ activity.dsnNo || '—' }}</span>
                   <span class="part-cell">
