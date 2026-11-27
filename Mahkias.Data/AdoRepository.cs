@@ -202,6 +202,17 @@ namespace Mahkias.Data
         {
             _connectionString = connectionString;
             _connection = new SqlConnection(connectionString);
+            _connection.StateChange += (_, args) =>
+            {
+                if (args.CurrentState != ConnectionState.Open)
+                {
+                    return;
+                }
+
+                using var command = _connection.CreateCommand();
+                command.CommandText = "SET QUOTED_IDENTIFIER ON;";
+                command.ExecuteNonQuery();
+            };
         }
 
         protected static void AddParameters<X>(X value, SqlParameterCollection collection) where X : class

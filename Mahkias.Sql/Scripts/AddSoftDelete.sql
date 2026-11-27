@@ -1,3 +1,7 @@
+-- Filtered indexes below require this session setting.
+SET QUOTED_IDENTIFIER ON;
+GO
+
 IF COL_LENGTH(N'projects.Projects', N'IsDeleted') IS NULL
     ALTER TABLE projects.Projects ADD IsDeleted BIT NOT NULL CONSTRAINT DF_Projects_IsDeleted DEFAULT (0);
 GO

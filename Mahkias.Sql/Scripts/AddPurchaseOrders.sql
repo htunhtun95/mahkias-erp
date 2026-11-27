@@ -1,3 +1,7 @@
+-- The purchase-order code index is filtered, so this session setting is required.
+SET QUOTED_IDENTIFIER ON;
+GO
+
 IF OBJECT_ID(N'projects.PurchaseOrders', N'U') IS NULL
 BEGIN
     CREATE TABLE [projects].[PurchaseOrders]

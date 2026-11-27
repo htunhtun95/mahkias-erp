@@ -1,3 +1,7 @@
+-- The closing total update writes Quotations, which has a filtered index.
+SET QUOTED_IDENTIFIER ON;
+GO
+
 IF COL_LENGTH(N'projects.QuotationItems', N'CurrencyId') IS NULL
 BEGIN
     ALTER TABLE [projects].[QuotationItems] ADD [CurrencyId] INT NULL;

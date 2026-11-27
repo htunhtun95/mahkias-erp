@@ -1,3 +1,7 @@
+-- The single-default unit index is filtered, so this session setting is required.
+SET QUOTED_IDENTIFIER ON;
+GO
+
 IF OBJECT_ID(N'dbo.Units', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.Units

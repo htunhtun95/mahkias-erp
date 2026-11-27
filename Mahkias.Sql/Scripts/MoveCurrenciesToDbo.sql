@@ -1,3 +1,7 @@
+-- The currency move updates Quotations, which has a filtered index.
+SET QUOTED_IDENTIFIER ON;
+GO
+
 IF OBJECT_ID(N'dbo.Currencies', N'U') IS NULL
 BEGIN
     CREATE TABLE [dbo].[Currencies]

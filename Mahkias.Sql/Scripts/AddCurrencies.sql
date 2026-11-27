@@ -1,3 +1,7 @@
+-- Later updates touch Quotations, which has a filtered index.
+SET QUOTED_IDENTIFIER ON;
+GO
+
 IF OBJECT_ID(N'projects.Currencies', N'U') IS NULL
 BEGIN
     CREATE TABLE [projects].[Currencies]

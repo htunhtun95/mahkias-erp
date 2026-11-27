@@ -1,3 +1,6 @@
+-- Quotations has a filtered index, so updates in this script need this setting.
+SET QUOTED_IDENTIFIER ON;
+GO
 SET NOCOUNT ON;
 
 IF COL_LENGTH(N'projects.Quotations', N'Code') IS NULL
